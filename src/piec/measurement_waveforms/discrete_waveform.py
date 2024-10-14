@@ -3,7 +3,7 @@ import time
 import pandas as pd
 
 class DiscreteWaveform:
-    def __init__(self, awg, osc):
+    def __init__(self, awg, osc, v_div=0.01):
         """
         General waveform parent class.
         
@@ -19,12 +19,19 @@ class DiscreteWaveform:
         self.data = None
 
     def configure_trigger(self):
+        self.awg.initialize()
+        self.awg.couple_channels()
+        self.awg.configure_impedance(channel='1', source_impedance='50.0', load_impedance='50')
         self.awg.configure_trigger(channel='1', source='MAN')
 
-    def configure_oscilloscope(self):
+    def configure_oscilloscope(self, channel:str = 1, voltage_scale=0.01):
         """
         Configures the Oscilloscope to capture the waveform.
         """
+        self.osc.initialize()
+        self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', scale=f'{self.length}', position=f'{5*self.length}')
+        self.osc.configure_channel(channel=channel, vertical_scale=voltage_scale, impedance='FIFT')#set both to 50ohm
+        #NOTE changing the position now to 5* the timebase to hopefully get the full signal
         self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
         self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
         print("Oscilloscope configured.")
@@ -66,7 +73,7 @@ class DiscreteWaveform:
         """
         self.configure_awg()
         self.configure_trigger()
-        self.configure_oscilloscope()
+        self.configure_oscilloscope(voltage_scale=v_div)
         self.apply_and_capture_waveform()
         self.save_waveform(save_path)
 
@@ -134,6 +141,7 @@ class HysteresisLoop(DiscreteWaveform):
         """
         # Set the AWG to generate a triangle wave
         interp_voltage_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
+
         self.awg.create_arb_wf(interp_voltage_array, 'PV')
         self.awg.configure_arb_wf(self.voltage_channel, 'PV', gain=f'{self.amplitude*2}', freq=f'{self.frequency}') 
 
