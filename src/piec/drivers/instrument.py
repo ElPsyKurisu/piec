@@ -87,7 +87,6 @@ class Instrument:
                 print("Warning no range-checking defined for \033[1m{}\033[0m, skipping _check_params".format(key)) #makes bold text
                 continue
             input_value = locals_dict[key]
-            print(input_value, 'input value')
             if type(attribute_value) == tuple:
                 if not is_value_between(input_value, attribute_value): #will error need to make jey values correct
                     exit_with_error("Error input value of \033[1m{}\033[0m for arg \033[1m{}\033[0m is out of acceptable Range \033[1m{}\033[0m".format(input_value, key, attribute_value))
@@ -156,7 +155,7 @@ class Scope(Instrument):
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
             vernier (boolean): Enables Vernier scale
         """
-        self._check_params(locals())
+        #self._check_params(locals())
         if time_base_type is not None:
             self.instrument.write("TIM:MODE {}".format(time_base_type))
         if position is not None:
@@ -572,6 +571,9 @@ def is_value_between(value, num_tuple):
     """
     Helper function that checks if the value is between allowed ranges, taken with help from ChatGPT
     """
+    if type(value) == None:
+        print('WARRNING: {} is Nonetype'.format(value))
+        return True
     if type(value) is str:
         value = float(value)
     if len(num_tuple) != 2:
