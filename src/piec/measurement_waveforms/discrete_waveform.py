@@ -143,7 +143,7 @@ class HysteresisLoop(DiscreteWaveform):
         interp_voltage_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
         self.awg.create_arb_wf(interp_voltage_array, 'PV')
-        self.awg.configure_arb_wf(self.voltage_channel, 'PV', gain=f'{self.amplitude*2}', freq=f'{self.frequency}') 
+        self.awg.configure_arb_wf(self.voltage_channel, 'PV', voltage=f'{self.amplitude*2}', freq=f'{self.frequency}') 
 
 class PUNDPulse(DiscreteWaveform):
     def __init__(self, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0,):
