@@ -43,6 +43,18 @@ class Instrument:
         self.instrument.write("*RST")
         self.instrument.write("*CLS")
 
+    def operation_complete_query(self):
+        """
+        Asks the instrument if the operation is complete by sending the *OPC query
+        Returns a 1 if complete
+        Note that using the *OPC? query holds the I/O bus until the instrument commands have been completed. 
+        It may not be acceptable to hold the GPIB bus when you are controlling multiple instruments. In those cases
+        use the *OPC bit in the Standard Event register and implement some form of status reporting system. An example
+        using the *OPC bit is provided in the Using SRQ Events section.
+        """
+        response = self.instrument.query("*OPC?")
+        return response.strip()
+
     def check_errors(self):
         """
         Returns a list of errors or None if there are no errors
@@ -302,6 +314,8 @@ class Scope(Instrument):
         ' YORIGIN : float32 - value is the voltage at center screen.
         ' YREFERENCE : int32 - specifies the data point where y-origin
         ' occurs 
+
+        First it calls operation complete to ensure its finished taking data
         args:
             scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             byte_order (str): Either MSBF (most significant byte first) or LSBF (least significant byte first)
@@ -313,6 +327,9 @@ class Scope(Instrument):
             wfm (list): Python list with all the scaled y_values (y_data array) 
         """
         self._check_params(locals())
+        check = self.operation_complete_query() #add error handling if not returns 1
+        if check != '1':
+            exit_with_error("Scope Not Ready: Operation Complete Query Failed")
         preamble = self.instrument.query(":WAVeform:PREamble?")
         preamble1 = preamble.split()
         preamble_list = preamble1[0].split(',')
