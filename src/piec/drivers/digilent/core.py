@@ -2,6 +2,7 @@
 This is copy pasted from EKPY to allow for legacy support for certain instruments
 Currently works with Measurement Computing USB-1208HS-2A0
 but all similar models should work
+NOTE: Does not use unified instrument scheme since doesnt support SCPI commands (i think)
 """
 
 
