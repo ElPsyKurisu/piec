@@ -28,7 +28,7 @@ class DiscreteWaveform:
         """
         self.osc.initialize()
         self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length}', position=f'{5*self.length}')
-        self.osc.configure_channel(channel=f'{channel}', voltage_scale=voltage_scale, impedance='FIFT')#set both to 50ohm
+        self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{voltage_scale}', impedance='FIFT')#set both to 50ohm
         #NOTE changing the position now to 5* the timebase to hopefully get the full signal
         self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
         self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
