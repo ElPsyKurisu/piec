@@ -12,3 +12,11 @@ This is needed!
 Overall how to install:
 1. ```pip install piec```
 2. Install NI 488.2 Drivers if using GPIB
+
+
+
+
+NOTE: If using the digilent driver:
+Make sure you Install InstaCal and the Universal Library (UL) from http://www.mccdaq.com/swdownload 
+Note InstaCal is actually not needed but useful to troubleshoot if python is not working
+Also mcculw library is needed. it is NOT in the required dependencies (subject to change)
