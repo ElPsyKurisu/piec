@@ -28,7 +28,7 @@ class DiscreteWaveform:
         """
         self.osc.initialize()
         self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length}', position=f'{5*self.length}')
-        self.osc.configure_channel(channel=f'{channel}', voltage_scale=voltage_scale, impedance='FIFT')#set both to 50ohm
+        self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{voltage_scale}', impedance='FIFT')#set both to 50ohm
         #NOTE changing the position now to 5* the timebase to hopefully get the full signal
         self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
         self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
@@ -45,8 +45,11 @@ class DiscreteWaveform:
         Captures the waveform data from the oscilloscope.
         """
         print(f"Capturing waveform of type {self.type} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
+        self.osc.initiate()
+        self.awg.output_enable('1')
         self.awg.send_software_trigger()
-        time.sleep(0.2)
+        self.osc.operation_complete_query()
+        self.osc.setup_wf(source='CHAN1')
         metadata, trace_t, trace_v  = self.osc.query_wf()#change
         self.data = pd.Dataframe({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
         print("Waveform captured.")
@@ -140,8 +143,8 @@ class HysteresisLoop(DiscreteWaveform):
         # Set the AWG to generate a triangle wave
         interp_voltage_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
-        self.awg.create_arb_wf(interp_voltage_array, 'PV')
-        self.awg.configure_arb_wf(self.voltage_channel, 'PV', voltage=f'{self.amplitude*2}', frequency=f'{self.frequency}') 
+        self.awg.create_arb_wf(interp_voltage_array)
+        self.awg.configure_arb_wf(self.voltage_channel, 'VOLATILE', voltage=f'{self.amplitude*2}', frequency=f'{self.frequency}') 
 
 class PUNDPulse(DiscreteWaveform):
     def __init__(self, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0,):
