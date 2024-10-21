@@ -94,6 +94,7 @@ class Instrument:
         class_attributes = get_class_attributes_from_instance(self)
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         for key in keys_to_check:
+            print('Checking key:', key, ', value: ', locals_dict[key], ', of type:', type(locals_dict[key]))
             attribute_value = getattr(self, key) #allowed types are strings, tuples, lists, and dicts
             if attribute_value is None:
                 print("Warning no range-checking defined for \033[1m{}\033[0m, skipping _check_params".format(key)) #makes bold text
@@ -167,7 +168,7 @@ class Scope(Instrument):
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
             vernier (boolean): Enables Vernier scale
         """
-        #self._check_params(locals())
+        self._check_params(locals())
         if time_base_type is not None:
             self.instrument.write("TIM:MODE {}".format(time_base_type))
         if position is not None:
@@ -588,8 +589,7 @@ def is_value_between(value, num_tuple):
     """
     Helper function that checks if the value is between allowed ranges, taken with help from ChatGPT
     """
-    if type(value) == None:
-        print('WARRNING: {} is Nonetype'.format(value))
+    if value is None:
         return True
     if type(value) is str:
         value = float(value)

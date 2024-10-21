@@ -16,9 +16,9 @@ class DiscreteWaveform:
         self.awg = awg
         self.osc = osc
 
-    def configure_trigger(self):
+    def initialize_awg(self):
         self.awg.initialize()
-        self.awg.couple_channels()
+        self.awg.couple_channels() #should not be needed
         self.awg.configure_impedance(channel='1', source_impedance='50.0', load_impedance='50')
         self.awg.configure_trigger(channel='1', trigger_source='MAN')
 
@@ -51,7 +51,7 @@ class DiscreteWaveform:
         self.osc.operation_complete_query()
         self.osc.setup_wf(source='CHAN1')
         metadata, trace_t, trace_v  = self.osc.query_wf()#change
-        self.data = pd.Dataframe({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
+        self.data = pd.DataFrame({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
         print("Waveform captured.")
 
     def save_waveform(self, filename):
@@ -72,9 +72,9 @@ class DiscreteWaveform:
         
         :param save_path: Path where the waveform will be saved (default: "waveform.csv")
         """
-        self.configure_awg()
-        self.configure_trigger()
         self.configure_oscilloscope(voltage_scale=self.v_div)
+        self.initialize_awg()
+        self.configure_awg()
         self.apply_and_capture_waveform()
         self.save_waveform(save_path)
 
