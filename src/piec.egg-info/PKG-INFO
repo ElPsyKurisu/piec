@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: piec
-Version: 0.0.4b2
+Version: 0.0.5b1
 Summary: A collection of control and analysis code for experiments
 Home-page: https://github.com/ElPsyKurisu/piec
 Author: Geo Fratian
@@ -25,3 +25,12 @@ Requires-Dist: IPython>=7.22.0
  The goal of this repository is to provide a streamlined control scheme for lab experiments and allow for rapid development
  of new experimental procedures starting from a ferroelectric standpoint.
  Requires KEYSIGHT I/O Libraries, find them here: www.keysight.com/find/iosuite
+probably not needed:
+ https://www.keysight.com/us/en/lib/software-detail/computer-software/visa-shared-components-downloads-2504667.html download this first?
+This is needed!
+ https://www.ni.com/en/support/downloads/drivers/download.ni-488-2.html#544048
+
+
+Overall how to install:
+1. ```pip install piec```
+2. Install NI 488.2 Drivers if using GPIB
