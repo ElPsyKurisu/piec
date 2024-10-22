@@ -94,7 +94,6 @@ class Instrument:
         class_attributes = get_class_attributes_from_instance(self)
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         for key in keys_to_check:
-            print('Checking key:', key, ', value: ', locals_dict[key], ', of type:', type(locals_dict[key]))
             attribute_value = getattr(self, key) #allowed types are strings, tuples, lists, and dicts
             if attribute_value is None:
                 print("Warning no range-checking defined for \033[1m{}\033[0m, skipping _check_params".format(key)) #makes bold text
