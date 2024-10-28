@@ -4,7 +4,7 @@ import pandas as pd
 
 class DiscreteWaveform:
 
-    def __init__(self, awg, osc, v_div=0.01):
+    def __init__(self, awg, osc, v_div=0.01, voltage_channel:str='1'):
         """
         General waveform parent class.
         
@@ -15,10 +15,11 @@ class DiscreteWaveform:
         self.v_div = v_div
         self.awg = awg
         self.osc = osc
+        self.voltage_channel = voltage_channel
 
-    def configure_trigger(self):
+    def initialize_awg(self):
         self.awg.initialize()
-        self.awg.couple_channels()
+        #self.awg.couple_channels() #should not be needed
         self.awg.configure_impedance(channel='1', source_impedance='50.0', load_impedance='50')
         self.awg.configure_trigger(channel='1', trigger_source='MAN')
 
@@ -27,12 +28,11 @@ class DiscreteWaveform:
         Configures the Oscilloscope to capture the waveform.
         """
         self.osc.initialize()
-        self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length}', position=f'{5*self.length}')
+        self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/10}', position=f'{5*(self.length/10)}') #this should be made general
         self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{voltage_scale}', impedance='FIFT')#set both to 50ohm
         #NOTE changing the position now to 5* the timebase to hopefully get the full signal
         self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
         self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
-        print("Oscilloscope configured.")
 
     def configure_awg(self):
         """
@@ -45,10 +45,13 @@ class DiscreteWaveform:
         Captures the waveform data from the oscilloscope.
         """
         print(f"Capturing waveform of type {self.type} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
+        self.osc.initiate()
+        self.awg.output_enable('1')
         self.awg.send_software_trigger()
-        time.sleep(0.2)
+        self.osc.operation_complete_query()
+        self.osc.setup_wf(source='CHAN1')
         metadata, trace_t, trace_v  = self.osc.query_wf()#change
-        self.data = pd.Dataframe({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
+        self.data = pd.DataFrame({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
         print("Waveform captured.")
 
     def save_waveform(self, filename):
@@ -69,9 +72,9 @@ class DiscreteWaveform:
         
         :param save_path: Path where the waveform will be saved (default: "waveform.csv")
         """
-        self.configure_awg()
-        self.configure_trigger()
         self.configure_oscilloscope(voltage_scale=self.v_div)
+        self.initialize_awg()
+        self.configure_awg()
         self.apply_and_capture_waveform()
         self.save_waveform(save_path)
 
@@ -114,6 +117,9 @@ def interpolate_sparse_to_dense(x_sparse, y_sparse, total_points=100):
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 
 class HysteresisLoop(DiscreteWaveform):
+
+    type = "HYSTERESIS"
+        
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000, amplitude=1, offset=0, n_cycles=2, voltage_channel:str='1'):
         """
         Initializes the HysteresisLoop class.
@@ -123,8 +129,7 @@ class HysteresisLoop(DiscreteWaveform):
         :param offset: Offset of the triangle wave (in Volts)
         :param n_cycles: number of triangle cycles to run
         """
-        super().__init__(awg, osc, v_div)
-        self.type = "HYSTERESIS"
+        super().__init__(awg, osc, v_div, voltage_channel)
         self.length = 1/frequency
 
         self.frequency = frequency
@@ -140,11 +145,14 @@ class HysteresisLoop(DiscreteWaveform):
         # Set the AWG to generate a triangle wave
         interp_voltage_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
-        self.awg.create_arb_wf(interp_voltage_array, 'PV')
-        self.awg.configure_arb_wf(self.voltage_channel, 'PV', voltage=f'{self.amplitude*2}', frequency=f'{self.frequency}') 
+        self.awg.create_arb_wf(interp_voltage_array)
+        self.awg.configure_arb_wf(self.voltage_channel, 'VOLATILE', voltage=f'{self.amplitude*2}', frequency=f'{self.frequency}') 
 
 class PUNDPulse(DiscreteWaveform):
-    def __init__(self, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0,):
+
+    type = "PUND"
+
+    def __init__(self, awg=None, osc=None, v_div=0.1, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0, voltage_channel:str='1'):
         """
         Initializes the PUNDPulse class.
         
@@ -156,6 +164,7 @@ class PUNDPulse(DiscreteWaveform):
         :param p_u_delay: delay between p pulse and u pulse (in s)
         :param offset: Offset of the PUND waveform (in Volts)
         """
+        super().__init__(awg, osc, v_div, voltage_channel)
         self.reset_amp = reset_amp
         self.reset_width = reset_width
         self.reset_delay = reset_delay
@@ -163,6 +172,7 @@ class PUNDPulse(DiscreteWaveform):
         self.p_u_width = p_u_width
         self.p_u_delay = p_u_delay
         self.offset = offset
+        self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))*10
 
     def configure_awg(self):
         """
@@ -187,11 +197,12 @@ class PUNDPulse(DiscreteWaveform):
                              frac_p_u_amp, frac_p_u_amp, 0, 0,]) * polarity
         
         # densify the array, rise/fall times of pulses will be equal to the awg resolution
-        dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=sum_times[-1]/self.awg.resolution)
+        #dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=sum_times[-1]/self.awg.resolution)
+        dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=sum_times[-1]/1e-4)
         
         # write to awg
-        self.awg.create_arb_wf(dense_v, 'PUND')
-        self.awg.configure_arb_wf(self.voltage_channel, 'PUND', gain=f'{amplitude}', freq=f'{sum_times[-1]}')
+        self.awg.create_arb_wf(dense_v)
+        self.awg.configure_arb_wf(self.voltage_channel, 'VOLATILE', voltage=f'{amplitude}', frequency=f'{sum_times[-1]}')
         print("AWG configured for a PUND pulse.")
 
     

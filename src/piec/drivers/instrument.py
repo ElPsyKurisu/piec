@@ -173,7 +173,7 @@ class Scope(Instrument):
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
             vernier (boolean): Enables Vernier scale
         """
-        #self._check_params(locals())
+        self._check_params(locals())
         if time_base_type is not None:
             self.instrument.write("TIM:MODE {}".format(time_base_type))
         if position is not None:
@@ -715,8 +715,7 @@ def is_value_between(value, num_tuple):
     """
     Helper function that checks if the value is between allowed ranges, taken with help from ChatGPT
     """
-    if type(value) == None:
-        print('WARRNING: {} is Nonetype'.format(value))
+    if value is None:
         return True
     if type(value) is str:
         value = float(value)
