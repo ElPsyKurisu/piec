@@ -427,127 +427,9 @@ class Awg(Instrument):
         self.instrument.write(":ARM:SENS{} {}".format(channel, mode))
         self.instrument.write(":ARM:SLOP {}".format(slope))
 
-    def create_arb_wf_binary_geo(self, data, name):
-        # Ensure data is a numpy array
-        data = np.array(data)
-
-        # Scale the waveform data to the valid range (-8191 to 8191)
-        scaled_data = scale_waveform_data(data)  # Ensure this function is defined correctly to scale data.
-        #scaled_data = data
-        print(scaled_data)
-        # Convert the scaled data to int16 format, required by the instrument
-        #scaled_data = scaled_data.astype(np.int16)
-        #data_to_write = scaled_data.tobytes()
-        self.instrument.write(":FORM:BORD SWAP")
-        #self.instrument.write(":FORM:BORD NORM")
-
-        self.instrument.write_binary_values(":DATA1:DAC VOLATILE, ", scaled_data, datatype='h') #need h as 2bit bytes see strcut module
-
-    def create_arb_wf_binary(self, data: Union[np.array, list], name: str='ARB1'):
+    def create_arb_wf(self, data: Union[np.array, list], name=None, channel='1'):
         """
-        This function creates and uploads an arbitrary waveform to the Keysight 81150A, storing it in volatile memory.
-        
-        Args:
-            data (ndarray or list): Data to be converted to waveform, should be within range [-8191, 8191].
-            name (str): Name of the waveform, must start with A-Z.
-        """
-        # Ensure data is a numpy array
-        data = np.array(data)
-
-        # Scale the waveform data to the valid range (-8191 to 8191)
-        scaled_data = scale_waveform_data(data)  # Ensure this function is defined correctly to scale data.
-        
-        # Convert the scaled data to int16 format, required by the instrument
-        scaled_data = scaled_data.astype(np.int16)
-        print(f"Binary Data: {list(scaled_data)}")  # This shows the scaled data as a list of int16
-        # Convert the data to binary (byte) format
-        binary_data = scaled_data.tobytes()
-
-        # Calculate the exact byte size of the waveform data
-        size_of_data = len(binary_data)  # Size in bytes
-        
-        # Construct the block header for the SCPI command
-        byte_count_str = str(size_of_data)
-        header = f"#{len(byte_count_str)}{byte_count_str}"
-
-        print(f"Calculated byte size: {size_of_data}")
-        print(f"Constructed block header: {header}")
-
-        try:
-            # Step 1: Set the byte order to normal (big-endian)
-            self.instrument.write(":FORM:BORD NORM")
-            print("Byte order set to normal.")
-            print(f"System Error Query: {self.instrument.query(':SYST:ERR?')}")
-
-            # Step 2: Send the waveform data header with the DAC command
-            self.instrument.write(f":DATA:DAC VOLATILE,{header}")
-            print("Header written successfully.")
-            print(f"System Error Query: {self.instrument.query(':SYST:ERR?')}")
-
-            # Step 3: Send the actual binary data
-            self.instrument.write_raw(binary_data)
-            print("Binary data written successfully.")
-            print(f"System Error Query: {self.instrument.query(':SYST:ERR?')}")
-
-            # Step 4: Copy the waveform to a named slot (e.g., ARB1)
-            self.instrument.write(f":DATA:COPY {name}, VOLATILE")
-            print(f"Waveform copied to {name}.")
-            print(f"System Error Query: {self.instrument.query(':SYST:ERR?')}")
-
-        except Exception as e:
-            print(f"Error writing waveform: {e}")
-
-
-
-
-
-
-    def create_arb_wf_binary_chat(self, data: Union[np.array, list], name: str='VOLATILE'):
-        """
-        This function creates and uploads an arbitrary waveform to the Keysight 81150A, storing it in volatile memory.
-        Created with help from ChatGPT
-
-        Args:
-            data (ndarray or list): Data to be converted to waveform, should be within range [-8191, 8191].
-            name (str): Name of the waveform, must start with A-Z.
-        """
-
-        # Ensure data is a numpy array
-        data = np.array(data)
-
-        # Scale the waveform data to the valid range (-8191 to 8191)
-        scaled_data = scale_waveform_data(data)  # Ensure this function is defined correctly to scale data.
-        
-        # Convert the scaled data to int16 format, required by the instrument
-        scaled_data = scaled_data.astype(np.int16)
-        
-        # Calculate the byte size of the waveform data
-        size_of_data = len(scaled_data) * 2  # Each int16 data point is 2 bytes
-        
-        # Convert the data to binary (byte) format
-        binary_data = scaled_data.tobytes()
-
-        # Construct the header for the 488.2 block format (#ABC)
-        byte_count_str = str(size_of_data)
-        header = f"#{len(byte_count_str)}{byte_count_str}"
-
-        # Set the byte order to normal (big-endian)
-        self.instrument.write(":FORM:BORD NORM")
-
-        # Send the waveform data in binary format
-        # First, send the SCPI command along with the header
-        self.instrument.write(f":DATA:DAC VOLATILE,{header}")
-        
-        # Now, send the actual binary data
-        self.instrument.write_raw(binary_data)  # raw write sends binary data directly
-        
-        # Copy the waveform to a named slot
-        self.instrument.write(f":DATA:COPY {name}, VOLATILE")
-
-
-    def create_arb_wf_binary_old(self, data: Union[np.array, list], name: str='ARB1'):
-        """
-        NOTE: Dont think this works atm
+        NOTE: DOES NOT SCALE HORIZONTALLY YET-> aka wont fill out to 524288 points
         This program creates an arbitrary waveform within the limitations of the
         Keysight 81150A which has a limit of 2 - 524288 data points. In order to send data
         in accordance with the 488.2 block format which looks like #ABC, where '#' marks the start
@@ -562,24 +444,30 @@ class Awg(Instrument):
             wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             data (ndarray or list): Data to be converted to wf
             name (str): Name of waveform, must start with A-Z
+            channel (str): What channel to put the volatile WF on
         """  
-        #will want to include error handling in this one.
+        # Ensure data is a numpy array
         data = np.array(data)
-        scaled_data = scale_waveform_data(data)
-        scaled_data = scaled_data.astype(np.int16)
-        size_of_data = str(2*len(scaled_data)) #multiply by 2 to account for negative values?
-        #want to send stuff accoprding to format whcih is #ABC
-        a = len(size_of_data.encode('utf-8')) 
-        b = size_of_data
-        #c is the binary data to be passed
-        c = scaled_data.tobytes()
-        #i think im done?
-        self.instrument.write(":FORM:BORD NORM")
-        self.instrument.write(":DATA:DAC VOLATILE, #{}{}{}".format(a,b,c))
-        self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
 
-    def create_arb_wf(self, data, name=None):
+        # Scale the waveform data to the valid range See scale_waveform_data
+        scaled_data = scale_waveform_data(data)  
+        self.instrument.write(":FORM:BORD SWAP")
+
+        self.instrument.write_binary_values(":DATA{}:DAC VOLATILE, ".format(channel), scaled_data, datatype='h') #need h as 2bit bytes see struct module
+        if name is not None:
+            #first check if has room to copy
+            slots_available = self.instrument.query('DATA:NVOLatile:FREE?').strip() #returns a number corresponding to num_slots_free
+            if int(slots_available) == 0:
+                stored_wfs = self.instrument.query('DATA:NVOLatile:CATalog?').strip() #checks the stored_wfs in voltatile memory
+                stored_wfs_list = stored_wfs.replace('"', '').split(',')
+                name_to_delete = ask_user_to_select(stored_wfs_list)
+                self.instrument.write(":DATA:DEL {}".format(name_to_delete))
+
+            self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
+
+    def create_arb_wf_legacy(self, data, name=None):
         """
+        NOTE THIS IS SUPERCEDED BY THE BINARY INTERPRETATION
         This program creates an arbitrary waveform using the slow non binary format, see create_arbitrary_wf_binary for more info
         NOTE: Will NOT save waveform in non-volatile memory, unless a name is given.
         NOTE: Will NOT save waveform in non-volatile memory if all the user available slots are
@@ -702,6 +590,38 @@ class Awg(Instrument):
 Helper Functions Below
 """
 
+def ask_user_to_select(options):
+    """
+    Helper function to format options to choose taken from help with CHATGPT
+    EXAMPLE USAGE:
+    # List of options
+    options = ['ARB1', 'PV', 'PUND', 'DWM']
+
+    # Ask the user to select an option
+    selected_option = ask_user_to_select(options)
+    print(f"You selected: {selected_option}")
+    1. ARB1
+    2. PV
+    3. PUND
+    4. DWM
+    """
+    # Display the options
+    for i, option in enumerate(options, start=1):
+        print(f"{i}. {option}")
+
+    # Ask the user to select an option
+    while True:
+        try:
+            choice = int(input("Enter the number of your choice: "))
+            if 1 <= choice <= len(options):
+                return options[choice - 1]
+            else:
+                print(f"Please enter a number between 1 and {len(options)}.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+
 def is_contained(value, lst):
     """
     Helper Function that checks if a string is contained within a list and ignores case sensitivity
@@ -769,27 +689,47 @@ def check_error_string(error_string):
     else:
         return False
 
+def is_integer(n):
+    """
+    Helper function to check if a number is an intger including stuff like 5.0
+    Taken with help from ChatGPT
+    """
+    if isinstance(n, int):
+        return True
+    elif isinstance(n, float):
+        return n.is_integer()
+    else:
+        return False
+
 
 '''
 Helper functions for awg class:
 '''
-
-def scale_waveform_data_old(data: np.array) -> np.array:
-    '''
-    Scales the data between -1 and 1 then multiplies by instrument specific
-    scaling factor (8191 for ours) 
-    NOTE THIS MAY NOT ACTUALLY WORK, AS YOU CAN JUST PASS THE DATA DIRECTLY AND SHOULD BE FROM -1 TO 1
-    '''
-    normalized = 2*(data - np.min(data))/np.ptp(data) - 1
-    return normalized * 8191
-
-def scale_waveform_data(data: np.array) -> np.array:
+def scale_waveform_data(data: np.array, preserve_vertical_resolution: bool=False) -> np.array:
     """
-    Scales the input data to the range [-8191, 8191] as required by the Keysight 81150A.
+    Helper function that scales values to a max of 8191 in such a way that the abs(max) is 8191
+    and the rest is uniformly scaled. All VALUES SHOULD BE INTEGERS
+    NOTE YOU LOSE RESOLUTION WITH THIS METHOD if preserve_vertical_resoltuion is false, but it preserves the wf shape!
+    shuld print estimated lost in  PP VOLTAGE from resolution
     """
-    min_val, max_val = -8191, 8191
-    scaled_data = np.interp(data, (data.min(), data.max()), (min_val, max_val))
-    return scaled_data
+    max_abs = np.max(abs(data))
+    max_inst = 8191
+    scale_factor = None
+    if preserve_vertical_resolution:
+        scale_factor = max_inst/max_abs
+    else:
+        while is_integer(scale_factor) is False: #this preserves scaling at the cost of vertical resolution
+            if max_inst < 4095:
+                print("CAN NOT PRESERVE WF OVER HALF OF RESOLUTION IS GONE")
+                scale_factor = 8191/max_abs #will not preserve scaling when rounding to ints
+                break
+            scale_factor = max_inst/max_abs
+            max_inst -= 1
+    scaled_data = data*scale_factor
+    total = 8191*2 + 1
+    loss = 100* (abs(np.max(scaled_data)) + abs(np.min(scaled_data)))/total
+    print("Estimated Peak-to-Peak Ratio of targetted value is {:.1f}%".format(loss))
+    return scaled_data.astype(np.int32)
 
 
 """
