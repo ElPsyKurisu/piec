@@ -495,7 +495,61 @@ class Awg(Instrument):
     #maybe i can use this barb stuff to read the waveforms too...
     #finds avg max - min /2 can probably use githubn library to generate barb file then pass that
 
-    def configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
+    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
+                      num_cycles=None, invert: bool=False):
+        """
+        This function configures the named func with the given parameters. Works on both user defined and built-in functions
+        args:
+            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            channel (str): Desired Channel to configure accepted params are [1,2]
+            func (str): The function name as saved on the instrument
+            voltage (str): The V_pp of the waveform in volts
+            offset (str): The voltage offset in units of volts
+            frequency (str): the frequency in units of Hz for the arbitrary waveform
+            duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
+            num_cycles (str): number of cycles by default set to None which means continous
+            invert (bool): Inverts the waveform by flipping the polarity
+        """
+        #might need to rewrite check_params here
+        #self._check_params(locals()) #this wont work for user defined functions...
+        built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC'] #check if built in, else use checkparams or this should be via check_params
+        user_funcs = self.instrument.query(":DATA:CAT?")
+        user_funcs_list = user_funcs.replace('"', '').split(',')
+        if func in built_in_list:
+            self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
+        else:
+            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
+
+    def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
+        """
+        Decides what built-in wf to send - by default sin
+
+        args:
+            wavegen (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
+            channel (str): Desired Channel to configure accepted params are [1,2]
+            func (str): Desired output function, allowed args are [SIN (sinusoid), SQU (square), RAMP, PULSe, NOISe, DC, USER (arb)]
+            frequency (str): frequency in Hz (have not added suffix funcitonaility yet)
+            voltage (str): The V_pp of the waveform in volts
+            offset (str): DC offset for waveform in volts
+            duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
+            num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
+            invert (bool): Inverts the waveform by flipping the polarity
+        """
+        self._check_params(locals())
+        self.instrument.write(":SOUR:FUNC{} {}".format(channel, func)) 
+        self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
+        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
+        self.instrument.write(":VOLT{} {}".format(channel, voltage))
+        if func.lower() == 'squ' or func.lower() == 'square':
+            self.instrument.write(":SOUR:FUNC{}:SQU:DCYC {}".format(channel, duty_cycle)) 
+        if func.lower() == 'pulse' or func.lower() == 'puls':
+            self.instrument.write(":SOUR:FUNC{}:PULS:DCYC {}".format(channel, duty_cycle))
+        if invert:
+            self.instrument.write(":OUTP{}:POL INV".format(channel))
+        else:
+            self.instrument.write(":OUTP{}:POL NORM".format(channel))
+
+    def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
         """
         This program configures arbitrary waveform already saved on the instrument. Taken from EKPY. 
         args:
@@ -507,13 +561,15 @@ class Awg(Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #this had an error in it
-        self.instrument.write(":FUNC{} USER".format(channel)) #this was put together like ":FUNC{}:USER {}:FUNC{} USER" I feel like I dont need both of these
+        self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
+        self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
         self.instrument.write(":VOLT{} {}".format(channel, voltage))
         self.instrument.write(":FREQ{} {}".format(channel, frequency))
         self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
         if invert:
             self.instrument.write(":OUTP{}:POL INV".format(channel))
+        else:
+            self.instrument.write(":OUTP{}:POL NORM".format(channel))
 
 
     def output_enable(self, channel: str='1', on=True):
@@ -545,34 +601,6 @@ class Awg(Instrument):
         """
         self.output_enable('1', False) #should change to take into account channels available from class attributes
         self.output_enable('2', False)
-
-    def set_output_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', num_cycles=None):
-        """
-        Decides what built-in wf to send - by default sin
-
-        args:
-            wavegen (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
-            channel (str): Desired Channel to configure accepted params are [1,2]
-            func (str): Desired output function, allowed args are [SIN (sine), SQU (square), RAMP, PULSe, NOISe, DC, USER (arb)]
-            frequency (str): frequency in Hz (have not added suffix funcitonaility yet)
-            voltage (str): The V_pp of the waveform in volts
-            offset (str): DC offset for waveform in volts
-            duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
-            num_cycles (str): number of cycles by default set to None which means continous
-
-        """
-        self._check_params(locals())
-        self.instrument.write(":SOUR:FUNC{} {}".format(channel, func)) 
-        self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
-        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
-        self.instrument.write(":VOLT{} {}".format(channel, voltage))
-        if func.lower() == 'squ' or func.lower() == 'square':
-            self.instrument.write(":SOUR:FUNC{}:DCYC {}".format(channel, duty_cycle)) #DOES NOT WORK, will need to fix later
-        if num_cycles is not None:
-            self.instrument.write(":NCYCles{}".format(num_cycles))
-        if func.lower() == 'pulse' or func.lower() == 'puls':
-            self.instrument.write(":SOUR:FUNC{}:PULS:DCYC {}PCT".format(channel, duty_cycle))
-
         
     def couple_channels(self):
         """

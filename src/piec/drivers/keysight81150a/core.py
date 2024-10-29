@@ -14,8 +14,9 @@ class Keysight81150a(Awg):
     #correct syntax is tuple for ranges, list for limited amount, and dictionaries for nested things...
     channel = ['1', '2'] #allowable channels ['1', '2']
     voltage = (8e-3, 40) #V_pp
-    frequency = {'func': {'sine': (1e-6, 240e6), 'square': (1e-6, 120e6), 'ramp': (1e-6, 5e6), 'pulse': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'arb': (1e-6, 120e6)}}
-    func = ['sine', 'square', 'ramp', 'pulse', 'pattern', 'arb'] #might be useless since all awgs should have sin, squ, pulse etc maybe not include arb? idk
+    frequency = {'func': {'sine': (1e-6, 240e6), 'square': (1e-6, 120e6), 'ramp': (1e-6, 5e6), 'pulse': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'arb': (1e-6, 120e6)}} #where did i get this info?
+    func = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+    #might be useless since all awgs should have sin, squ, pulse etc maybe not include arb? idk
     slew_rate = '1V/ns' #1V/ns these are the units, currently just to know
 
     def __class_specific(self):
