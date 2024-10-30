@@ -18,6 +18,7 @@ class Keysight81150a(Awg):
     func = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     #might be useless since all awgs should have sin, squ, pulse etc maybe not include arb? idk
     slew_rate = '1V/ns' #1V/ns these are the units, currently just to know
+    arb_wf_points_range = (2, 524288)
 
     def __class_specific(self):
         """
