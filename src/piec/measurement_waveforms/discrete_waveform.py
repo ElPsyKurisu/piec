@@ -145,10 +145,10 @@ class HysteresisLoop(DiscreteWaveform):
         # Set the AWG to generate a triangle wave
         interp_voltage_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
-        dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_voltage_array),len(interp_voltage_array)), interp_voltage_array, total_points=5000)
+        dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_voltage_array),len(interp_voltage_array)), interp_voltage_array, total_points=self.awg.arb_wf_points_range[1])
 
         self.awg.create_arb_wf(dense)
-        self.awg.configure_arb_wf(self.voltage_channel, 'VOLATILE', voltage=f'{self.amplitude*2}', frequency=f'{self.frequency}') 
+        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{self.amplitude*2}', frequency=f'{self.frequency}') 
 
 class PUNDPulse(DiscreteWaveform):
 
