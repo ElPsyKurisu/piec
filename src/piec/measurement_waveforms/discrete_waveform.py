@@ -65,6 +65,12 @@ class DiscreteWaveform:
             print(f"Waveform data saved to {filename}")
         else:
             print("No data to save. Capture the waveform first.")
+        try:
+            metadata_filename = filename.split('.')[0]+'_metadata.csv'
+            self.metadata.to_csv(metadata_filename)
+        except:
+            print('WARNING: METADATA SAVE FAILED, CHECK FILENAME AND MEASURMENT DEFINITION')
+        
 
     def run_experiment(self, save_path="waveform.csv"):
         """
@@ -140,16 +146,18 @@ class HysteresisLoop(DiscreteWaveform):
         self.offset = offset
         self.n_cycles = n_cycles
         self.voltage_channel = voltage_channel
-        self.metadata = {'frequency': frequency,
+        self.metadata = pd.DataFrame({'frequency': frequency,
+                         'length' : self.length,
                          'amplitude' : amplitude,
                          'offset' : offset,
                          'n_cycles' : n_cycles,
                          'voltage_channel' : voltage_channel,
                          'area' : area,
                          'v_div' : v_div,
+                         'type' : self.type,
                          'awg' : self.awg.idn(),
                          'osc' : self.osc.idn(),
-                         'timestamp' : time.time()}
+                         'timestamp' : time.time()})
 
     def configure_awg(self):
         """
@@ -176,7 +184,7 @@ class PUNDPulse(DiscreteWaveform):
 
     type = "PUND"
 
-    def __init__(self, awg=None, osc=None, v_div=0.1, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0, voltage_channel:str='1'):
+    def __init__(self, awg=None, osc=None, v_div=0.1, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0, voltage_channel:str='1', area=1.0e-5):
         """
         Initializes the PUNDPulse class.
         
@@ -197,6 +205,21 @@ class PUNDPulse(DiscreteWaveform):
         self.p_u_delay = p_u_delay
         self.offset = offset
         self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))*10
+        self.metadata = pd.DataFrame({'reset_amp': reset_amp,
+                         'p_u_amp': p_u_amp,
+                         'reset_width': reset_width,
+                         'p_u_width': p_u_width,
+                         'reset_delay': reset_delay,
+                         'p_u_delay': p_u_delay,
+                         'length' : self.length,
+                         'offset' : offset,
+                         'voltage_channel' : voltage_channel,
+                         'area' : area,
+                         'v_div' : v_div,
+                         'type' : self.type,
+                         'awg' : self.awg.idn(),
+                         'osc' : self.osc.idn(),
+                         'timestamp' : time.time()})
 
     def configure_awg(self):
         """
@@ -221,7 +244,18 @@ class PUNDPulse(DiscreteWaveform):
         sparse_v = np.array([-frac_reset_amp, -frac_reset_amp, 0, 0, frac_p_u_amp, frac_p_u_amp, 0, 0,
                              frac_p_u_amp, frac_p_u_amp, 0, 0,]) * polarity
         
+        # logic to determine n points to use, will attempt to max out risetimes
         n_points = self.awg.arb_wf_points_range[1]
+        max_v_step = abs(self.reset_amp)
+
+        if abs(self.p_u_amp > max_v_step):
+            max_v_step = self.p_u_amp
+
+        n_points_at_max_slew = sum_times[-1]*(max_v_step*self.awg.slew_rate)
+
+        if n_points_at_max_slew < n_points:
+            n_points = n_points_at_max_slew
+
         # densify the array, rise/fall times of pulses will be equal to the awg resolution
         dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=n_points)
         
