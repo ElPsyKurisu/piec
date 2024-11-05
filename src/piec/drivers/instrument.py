@@ -15,7 +15,7 @@ class Instrument:
     # Initializer / Instance attributes
     def __init__(self, address):
         rm = ResourceManager()
-        #self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
+        self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
 
     def _debug(self, **args):
         """
