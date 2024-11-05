@@ -15,7 +15,7 @@ class Instrument:
     # Initializer / Instance attributes
     def __init__(self, address):
         rm = ResourceManager()
-        self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
+        #self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
 
     def _debug(self, **args):
         """
@@ -448,6 +448,11 @@ class Awg(Instrument):
         """  
         # Ensure data is a numpy array
         data = np.array(data)
+        #check length of data is valid
+        dict_to_check = locals()
+        dict_to_check['arb_wf_points_range'] = len(data) #this adds to our _check_params the class attribute 'arb_wf_points_range'
+        self._check_params(dict_to_check)
+        print(dict_to_check)
 
         # Scale the waveform data to the valid range See scale_waveform_data
         scaled_data = scale_waveform_data(data)  
@@ -561,6 +566,10 @@ class Awg(Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        if self.slew_rate is not None:
+            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
+            if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
+                    print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
         self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
         self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
         self.instrument.write(":VOLT{} {}".format(channel, voltage))
