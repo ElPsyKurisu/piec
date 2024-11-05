@@ -61,13 +61,13 @@ class DiscreteWaveform:
         :param filename: Path to the file where the waveform will be saved (CSV format).
         """
         if self.data is not None:
-            self.data.to_csv(filename)
+            self.data.to_csv(filename, index=False)
             print(f"Waveform data saved to {filename}")
         else:
             print("No data to save. Capture the waveform first.")
         try:
             metadata_filename = filename.split('.')[0]+'_metadata.csv'
-            self.metadata.to_csv(metadata_filename)
+            self.metadata.to_csv(metadata_filename, index=False)
         except:
             print('WARNING: METADATA SAVE FAILED, CHECK FILENAME AND MEASURMENT DEFINITION')
         
@@ -146,18 +146,12 @@ class HysteresisLoop(DiscreteWaveform):
         self.offset = offset
         self.n_cycles = n_cycles
         self.voltage_channel = voltage_channel
-        self.metadata = pd.DataFrame({'frequency': frequency,
-                         'length' : self.length,
-                         'amplitude' : amplitude,
-                         'offset' : offset,
-                         'n_cycles' : n_cycles,
-                         'voltage_channel' : voltage_channel,
-                         'area' : area,
-                         'v_div' : v_div,
-                         'type' : self.type,
-                         'awg' : self.awg.idn(),
-                         'osc' : self.osc.idn(),
-                         'timestamp' : time.time()})
+        self.metadata = pd.DataFrame(locals(), index=[0])
+        del self.metadata['self']
+        self.metadata['type'] = self.type
+        self.metadata['awg'] = self.awg.idn()
+        self.metadata['osc'] = self.osc.idn()
+        self.metadata['timestamp'] = time.time()
 
     def configure_awg(self):
         """
@@ -205,21 +199,12 @@ class PUNDPulse(DiscreteWaveform):
         self.p_u_delay = p_u_delay
         self.offset = offset
         self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))*10
-        self.metadata = pd.DataFrame({'reset_amp': reset_amp,
-                         'p_u_amp': p_u_amp,
-                         'reset_width': reset_width,
-                         'p_u_width': p_u_width,
-                         'reset_delay': reset_delay,
-                         'p_u_delay': p_u_delay,
-                         'length' : self.length,
-                         'offset' : offset,
-                         'voltage_channel' : voltage_channel,
-                         'area' : area,
-                         'v_div' : v_div,
-                         'type' : self.type,
-                         'awg' : self.awg.idn(),
-                         'osc' : self.osc.idn(),
-                         'timestamp' : time.time()})
+        self.metadata = pd.DataFrame(locals(), index=[0])
+        del self.metadata['self']
+        self.metadata['type'] = self.type
+        self.metadata['awg'] = self.awg.idn()
+        self.metadata['osc'] = self.osc.idn()
+        self.metadata['timestamp'] = time.time()
 
     def configure_awg(self):
         """
@@ -261,7 +246,7 @@ class PUNDPulse(DiscreteWaveform):
         
         # write to awg
         self.awg.create_arb_wf(dense_v)
-        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(amplitude)}', frequency=f'{sum_times[-1]}')
+        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(amplitude)}', frequency=f'{1/sum_times[-1]}')
         print("AWG configured for a PUND pulse.")
 
     
