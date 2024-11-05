@@ -405,7 +405,9 @@ class Awg(Instrument):
 
     def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
         """
-        This program configures the output amplifier for eiither maximum bandwith or amplitude. Taken from EKPY.
+        This program configures the output amplifier for either maximum bandwith or amplitude. Taken from EKPY.
+        NOTE: If in HIV mode max frequnecy is 50MHz, otherwise you get the full 120MHz
+        NOTE: if sending a sin wave above 120MHz max voltage is 3V_pp
         args:
             wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
@@ -452,7 +454,6 @@ class Awg(Instrument):
         dict_to_check = locals()
         dict_to_check['arb_wf_points_range'] = len(data) #this adds to our _check_params the class attribute 'arb_wf_points_range'
         self._check_params(dict_to_check)
-        print(dict_to_check)
 
         # Scale the waveform data to the valid range See scale_waveform_data
         scaled_data = scale_waveform_data(data)  
@@ -492,13 +493,6 @@ class Awg(Instrument):
         self.instrument.write(":DATA VOLATILE, {}".format(data_string))
         if name is not None:
             self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
-
-
-
-    #https://github.com/jeremyherbert/barbutils/blob/master/barbutils.py
-    #upper frequnecy range is 120MHZ so do not go above that
-    #maybe i can use this barb stuff to read the waveforms too...
-    #finds avg max - min /2 can probably use githubn library to generate barb file then pass that
 
     def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
                       num_cycles=None, invert: bool=False):
