@@ -512,7 +512,7 @@ class Awg(Instrument):
             offset (str): The voltage offset in units of volts
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
-            num_cycles (str): number of cycles by default set to None which means continous
+            num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
         #might need to rewrite check_params here
@@ -556,7 +556,7 @@ class Awg(Instrument):
 
     def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
         """
-        This program configures arbitrary waveform already saved on the instrument. Taken from EKPY. 
+        This program configures arbitrary waveform already saved on the instrument. Adapted from EKPY. 
         args:
             wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
@@ -566,6 +566,8 @@ class Awg(Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        dict_to_check = locals()
+        dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
         if self.slew_rate is not None:
             points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
             if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
@@ -593,6 +595,17 @@ class Awg(Instrument):
             self.instrument.write(":OUTP{} ON".format(channel))
         else:
             self.instrument.write(":OUTP{} OFF".format(channel))
+
+    def display_enable(self, on=True):
+        """
+        This program toggles the display On or OFF, it is recommended for programming speed to disale the display
+        args:
+            on (boolean): True for display on, False for off
+        """
+        if on:
+            self.instrument.write("DISP ON")
+        else:
+            self.instrument.write("DISP OFF")
 
     def send_software_trigger(self):
         """
