@@ -20,3 +20,6 @@ NOTE: If using the digilent driver:
 Make sure you Install InstaCal and the Universal Library (UL) from http://www.mccdaq.com/swdownload 
 Note InstaCal is actually not needed but useful to troubleshoot if python is not working
 Also mcculw library is needed. it is NOT in the required dependencies (subject to change)
+
+[![Documentation Status](https://readthedocs.org/projects/piec/badge/?version=latest)](https://piec.readthedocs.io/en/latest/?badge=latest)
+
