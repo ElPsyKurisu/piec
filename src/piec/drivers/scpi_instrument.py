@@ -550,6 +550,7 @@ class Awg(Instrument):
         """
         dict_to_check = locals()
         dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
+        self._check_params(dict_to_check)
         if self.slew_rate is not None:
             points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
             if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
