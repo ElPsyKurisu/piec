@@ -3,7 +3,7 @@ This is for the KEYSIGHT 81150A Arbitrary Waveform Generator and requires the KE
 '''
 import numpy as np
 import time
-from ..instrument import Awg
+from ..scpi_instrument import Awg
 #yes
 
 class Keysight81150a(Awg):
@@ -17,8 +17,25 @@ class Keysight81150a(Awg):
     frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
     func = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     #might be useless since all awgs should have sin, squ, pulse etc maybe not include arb? idk
+    #note that depends if we are in high voltage or high bandwidth mode, if in high bandwidth mode all are 50e6 max freq
     slew_rate = 1.0e9 # V/s
     arb_wf_points_range = (2, 524288)
+
+    def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
+        """
+        This program configures the output amplifier for either maximum bandwith or amplitude. Taken from EKPY.
+        NOTE: If in HIV mode max frequnecy is 50MHz, otherwise you get the full 120MHz
+        NOTE: if sending a sin wave above 120MHz max voltage is 3V_pp
+        args:
+            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            channel (str): Desired Channel to configure accepted params are [1,2]
+            type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
+        """
+        if type == 'HIV':
+            self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+        if type == 'HIB':
+            self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
+        self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
 
     def __class_specific(self):
         """
