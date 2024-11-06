@@ -403,18 +403,6 @@ class Awg(Instrument):
         #wavegen.write(":OUTP{}:LOAD {}".format(channel, load_impedance)) Also valid for below
         self.instrument.write(":OUTP{}:IMP:EXT {}".format(channel, load_impedance))
 
-    def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
-        """
-        This program configures the output amplifier for either maximum bandwith or amplitude. Taken from EKPY.
-        NOTE: If in HIV mode max frequnecy is 50MHz, otherwise you get the full 120MHz
-        NOTE: if sending a sin wave above 120MHz max voltage is 3V_pp
-        args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
-            channel (str): Desired Channel to configure accepted params are [1,2]
-            type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
-        """
-        self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
-
     def configure_trigger(self, channel: str='1', trigger_source: str='IMM', mode: str='EDGE', slope: str='POS'):
         """
         This program configures the trigger. Taken from EKPY.
