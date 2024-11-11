@@ -198,7 +198,7 @@ class PUNDPulse(DiscreteWaveform):
         self.p_u_width = p_u_width
         self.p_u_delay = p_u_delay
         self.offset = offset
-        self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))*10
+        self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))
         self.metadata = pd.DataFrame(locals(), index=[0])
         del self.metadata['self']
         self.metadata['type'] = self.type
@@ -246,7 +246,7 @@ class PUNDPulse(DiscreteWaveform):
         
         # write to awg
         self.awg.create_arb_wf(dense_v)
-        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(amplitude)}', frequency=f'{1/sum_times[-1]}')
+        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(amplitude)}', frequency=f'{1/self.length}')
         print("AWG configured for a PUND pulse.")
 
     
