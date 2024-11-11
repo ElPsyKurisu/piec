@@ -403,16 +403,6 @@ class Awg(Instrument):
         #wavegen.write(":OUTP{}:LOAD {}".format(channel, load_impedance)) Also valid for below
         self.instrument.write(":OUTP{}:IMP:EXT {}".format(channel, load_impedance))
 
-    def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
-        """
-        This program configures the output amplifier for eiither maximum bandwith or amplitude. Taken from EKPY.
-        args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
-            channel (str): Desired Channel to configure accepted params are [1,2]
-            type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
-        """
-        self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
-
     def configure_trigger(self, channel: str='1', trigger_source: str='IMM', mode: str='EDGE', slope: str='POS'):
         """
         This program configures the trigger. Taken from EKPY.
@@ -448,6 +438,10 @@ class Awg(Instrument):
         """  
         # Ensure data is a numpy array
         data = np.array(data)
+        #check length of data is valid
+        dict_to_check = locals()
+        dict_to_check['arb_wf_points_range'] = len(data) #this adds to our _check_params the class attribute 'arb_wf_points_range'
+        self._check_params(dict_to_check)
 
         # Scale the waveform data to the valid range See scale_waveform_data
         scaled_data = scale_waveform_data(data)  
@@ -488,13 +482,6 @@ class Awg(Instrument):
         if name is not None:
             self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
 
-
-
-    #https://github.com/jeremyherbert/barbutils/blob/master/barbutils.py
-    #upper frequnecy range is 120MHZ so do not go above that
-    #maybe i can use this barb stuff to read the waveforms too...
-    #finds avg max - min /2 can probably use githubn library to generate barb file then pass that
-
     def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
                       num_cycles=None, invert: bool=False):
         """
@@ -507,7 +494,7 @@ class Awg(Instrument):
             offset (str): The voltage offset in units of volts
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
-            num_cycles (str): number of cycles by default set to None which means continous
+            num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
         #might need to rewrite check_params here
@@ -551,7 +538,7 @@ class Awg(Instrument):
 
     def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
         """
-        This program configures arbitrary waveform already saved on the instrument. Taken from EKPY. 
+        This program configures arbitrary waveform already saved on the instrument. Adapted from EKPY. 
         args:
             wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
@@ -561,6 +548,13 @@ class Awg(Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        dict_to_check = locals()
+        dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
+        self._check_params(dict_to_check)
+        if self.slew_rate is not None:
+            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
+            if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
+                    print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
         self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
         self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
         self.instrument.write(":VOLT{} {}".format(channel, voltage))
@@ -584,6 +578,17 @@ class Awg(Instrument):
             self.instrument.write(":OUTP{} ON".format(channel))
         else:
             self.instrument.write(":OUTP{} OFF".format(channel))
+
+    def display_enable(self, on=True):
+        """
+        This program toggles the display On or OFF, it is recommended for programming speed to disale the display
+        args:
+            on (boolean): True for display on, False for off
+        """
+        if on:
+            self.instrument.write("DISP ON")
+        else:
+            self.instrument.write("DISP OFF")
 
     def send_software_trigger(self):
         """
