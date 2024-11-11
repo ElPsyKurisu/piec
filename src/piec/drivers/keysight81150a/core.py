@@ -13,7 +13,7 @@ class Keysight81150a(Awg):
     #add class attributes here, like max y range etc
     #correct syntax is tuple for ranges, list for limited amount, and dictionaries for nested things...
     channel = ['1', '2'] #allowable channels ['1', '2']
-    voltage = (8.0e-3, 40.0) #V_pp
+    voltage = (0, 5) #V_pp add functionality that swithches voltage depending on mode
     frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
     func = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     #might be useless since all awgs should have sin, squ, pulse etc maybe not include arb? idk
@@ -32,8 +32,10 @@ class Keysight81150a(Awg):
             type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
         """
         if type == 'HIV':
+            self.voltage = (0, 10)
             self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
         if type == 'HIB':
+            self.voltage = (0, 5)
             self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
         self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
 
