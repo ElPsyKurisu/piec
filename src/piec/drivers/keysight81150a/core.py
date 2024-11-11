@@ -37,6 +37,12 @@ class Keysight81150a(Awg):
             self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
         self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
 
+    def configure_wf(self, channel: str = '1', func: str = 'SIN', voltage: str = '1.0', offset: str = '0.00', frequency: str = '1e3', duty_cycle='50', num_cycles=None, invert: bool = False):
+        if abs(float(voltage))>5:
+            self.configure_output_amplifier(channel, 'HIV')
+            print("WARNING switched to High Voltage Mode (HIV), you are now limited in frequency")
+        return super().configure_wf(channel, func, voltage, offset, frequency, duty_cycle, num_cycles, invert)
+
     def __class_specific(self):
         """
         Place to define instrument specific stuff. Ideally never needed if Parent class is robust enough and instead
