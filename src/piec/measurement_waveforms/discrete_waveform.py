@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import pandas as pd
+import matplotlib.pyplot as plt
 
 class DiscreteWaveform:
 
@@ -224,26 +225,15 @@ class PUNDPulse(DiscreteWaveform):
             polarity = 1
 
         # specify sparse t and v coordinates which define PUND pulse train
-        sparse_t = np.array([0, sum_times[0], sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2],
-                                sum_times[3], sum_times[3], sum_times[4], sum_times[4], sum_times[5],])
+        sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],
+                                sum_times[4], sum_times[4], sum_times[5], sum_times[5], sum_times[6],])
         sparse_v = np.array([-frac_reset_amp, -frac_reset_amp, 0, 0, frac_p_u_amp, frac_p_u_amp, 0, 0,
                              frac_p_u_amp, frac_p_u_amp, 0, 0,]) * polarity
         
-        # logic to determine n points to use, will attempt to max out risetimes
-        n_points = self.awg.arb_wf_points_range[1]
-        max_v_step = abs(self.reset_amp)
-
-        if abs(self.p_u_amp > max_v_step):
-            max_v_step = self.p_u_amp
-
-        n_points_at_max_slew = sum_times[-1]*(max_v_step*self.awg.slew_rate)
-
-        if n_points_at_max_slew < n_points:
-            n_points = n_points_at_max_slew
+        n_points = self.awg.arb_wf_points_range[1] # n points to use is max
 
         # densify the array, rise/fall times of pulses will be equal to the awg resolution
         dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=n_points)
-        
         # write to awg
         self.awg.create_arb_wf(dense_v)
         self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(amplitude)}', frequency=f'{1/self.length}')
