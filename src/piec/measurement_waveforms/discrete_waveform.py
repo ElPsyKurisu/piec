@@ -51,7 +51,7 @@ class DiscreteWaveform:
         self.awg.send_software_trigger()
         self.osc.operation_complete_query()
         self.osc.setup_wf(source='CHAN1')
-        metadata, trace_t, trace_v  = self.osc.query_wf()#change
+        _, trace_t, trace_v  = self.osc.query_wf()#change
         self.data = pd.DataFrame({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
         print("Waveform captured.")
 
