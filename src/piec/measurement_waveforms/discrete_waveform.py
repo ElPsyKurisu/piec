@@ -2,6 +2,7 @@ import numpy as np
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
+from analysis.utilities import *
 
 class DiscreteWaveform:
 
@@ -62,17 +63,11 @@ class DiscreteWaveform:
         :param filename: Path to the file where the waveform will be saved (CSV format).
         """
         if self.data is not None:
-            self.data.to_csv(filename, index=False)
+            metadata_and_data_to_csv(self.metadata, self.data, filename)
             print(f"Waveform data saved to {filename}")
         else:
             print("No data to save. Capture the waveform first.")
-        try:
-            metadata_filename = filename.split('.')[0]+'_metadata.csv'
-            self.metadata.to_csv(metadata_filename, index=False)
-        except:
-            print('WARNING: METADATA SAVE FAILED, CHECK FILENAME AND MEASURMENT DEFINITION')
         
-
     def run_experiment(self, save_path="waveform.csv"):
         """
         Runs the entire experiment by configuring the AWG, capturing the waveform, and saving the data.
