@@ -33,5 +33,6 @@
     "DATA:LAST?": "1.2345",
     ":DATA:ATTR:POIN? VOLATILE": "10000",
     ":WAVeform:PREamble?": "10,1,1,0,1000,0,1,0,0,0,0,0",
-    ":WAV:PRE?": "10,1,1,0,1000,0,1,0,0,0,0,0"
+    ":WAV:PRE?": "10,1,1,0,1000,0,1,0,0,0,0,0",
+    ":DATA:CAT?": "CH1,CH2,MATH,REF1,REF2"
 }

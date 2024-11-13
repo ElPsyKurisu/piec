@@ -39,13 +39,13 @@ def process_raw_hyst(path:str, show_plots=False):
     start_n = int(time_offset//timestep)
     stop_n = int(start_n + (length//timestep))
     try:
-        processed_df = processed_df.iloc[start_n:stop_n] # chop off data where voltage is not being applied
+        processed_df = processed_df.iloc[start_n:stop_n].copy() # chop off data where voltage is not being applied
     except:
         print('WARNING: Time correction failed, data may be abnormal, or there may not be enough buffer data at the end of the captured waveform')
 
     # create applied voltage array from nominal assumptions
     l = (len(processed_df['time (s)'])//8)
-    interp_v_array = [0,1,0,-1,0]+([1,0,-1,0]*(N-1))
+    interp_v_array = np.array([0,1,0,-1,0]+([1,0,-1,0]*(N-1)))*amp
 
     dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=len(processed_df))
     processed_df['applied voltage (V)'] = dense
