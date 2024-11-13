@@ -12,6 +12,7 @@ class DiscreteWaveform:
         
         :param awg: VISA address of the Arbitrary Waveform Generator
         :param osc: VISA address of the Oscilloscope
+        :param v_div: volts per division for oscilloscope, make sure you are not clippng!
         :param trigger_amp: V of trigger pulse in V, scope trigger level will be trigger/2
         """
         self.v_div = v_div
@@ -30,9 +31,8 @@ class DiscreteWaveform:
         Configures the Oscilloscope to capture the waveform.
         """
         self.osc.initialize()
-        self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/10}', position=f'{5*(self.length/10)}') #this should be made general
+        self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
         self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{voltage_scale}', impedance='FIFT')#set both to 50ohm
-        #NOTE changing the position now to 5* the timebase to hopefully get the full signal
         self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
         self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
 
@@ -80,42 +80,6 @@ class DiscreteWaveform:
         self.apply_and_capture_waveform()
         self.save_waveform(save_path)
 
-### ARBITRARY WAVEFORM CONVINIENCE FUNCTIONS ###
-
-def interpolate_sparse_to_dense(x_sparse, y_sparse, total_points=100):
-    """
-    Transform sparse arrays of x and y coordinates into a dense array of y coordinates
-    linearly interpolated over N=total_points evenly-spaced x values.
-    
-    Parameters:
-    - x_sparse (array-like): Sparse array of x coordinates.
-    - y_sparse (array-like): Sparse array of y coordinates.
-    - total_points (int): Number of interpolated points between each pair of coordinates.
-    
-    Returns:
-    - y_dense (numpy array): Dense array of linearly interpolated y coordinates.
-    """
-    y_dense = []
-
-    # Iterate through each pair of adjacent sparse points
-    for i in range(len(x_sparse) - 1):
-        # Get the start and end points
-        x_start, x_end = x_sparse[i], x_sparse[i + 1]
-        y_start, y_end = y_sparse[i], y_sparse[i + 1]
-        
-        # Generate interpolated points between y_start and y_end
-        n_to_interpolate = int(((x_sparse[i + 1]-x_sparse[i])/max(x_sparse))*total_points)
-        y_interp = np.linspace(y_start, y_end, n_to_interpolate, endpoint=False)
-        
-        # Append the interpolated points
-        y_dense.extend(y_interp)
-
-    #add on duplicate points at the end to ensure array length == total_points (make up for int rounding error)
-    while len(y_dense) < total_points:
-        y_dense.append(y_dense[-1])
-
-    return np.array(y_dense)
-
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 
 class HysteresisLoop(DiscreteWaveform):
@@ -126,7 +90,6 @@ class HysteresisLoop(DiscreteWaveform):
         """
         Initializes the HysteresisLoop class.
         
-        :param v_div: volts per division for oscilloscope, make sure you are not clippng!
         :param frequency: Frequency of the triangle wave (in Hz)
         :param amplitude: Peak amplitude of the triangle wave (in Volts)
         :param offset: Offset of the triangle wave (in Volts)
@@ -148,6 +111,7 @@ class HysteresisLoop(DiscreteWaveform):
         self.metadata['awg'] = self.awg.idn()
         self.metadata['osc'] = self.osc.idn()
         self.metadata['timestamp'] = time.time()
+        self.metadata['processed'] = False
 
     def configure_awg(self):
         """
@@ -201,6 +165,7 @@ class PUNDPulse(DiscreteWaveform):
         self.metadata['awg'] = self.awg.idn()
         self.metadata['osc'] = self.osc.idn()
         self.metadata['timestamp'] = time.time()
+        self.metadata['processed'] = False
 
     def configure_awg(self):
         """
