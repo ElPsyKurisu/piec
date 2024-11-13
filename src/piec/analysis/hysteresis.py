@@ -8,11 +8,14 @@ def process_raw_hyst(path:str, show_plots=False):
     metadata, raw_df = standard_csv_to_metadata_and_data(path)
     processed_df = raw_df
 
+    processed_df = processed_df[processed_df['time (s)']>=0].copy() # cut out times before trigger
+
     # get relevant values from metadata and math
-    timestep = processed_df['time (s)'].values[-1]/len(processed_df)
     amp = metadata['amplitude'].values[0]
     frequency = metadata['frequency'].values[0]
     length = 1/frequency
+    active_n = len(processed_df[processed_df['time (s)']<=length])
+    timestep = length/active_n
     area = metadata['area'].values[0]
     N = metadata['n_cycles'].values[0]
     n_length = len(processed_df)
@@ -24,7 +27,7 @@ def process_raw_hyst(path:str, show_plots=False):
     # correct time offset
     len_first_wave = n_length//N # cut out first triangle wave response
     first_pol_wave = processed_df['polarization (uC/cm^2)'].values[:len_first_wave]
-    max_v_time = processed_df['time (s)'].values[n_length//(N*4)] # first max in applied V should be at the length of the wavaform /(4*n_cycles)
+    max_v_time = processed_df['time (s)'].values[int(length//(timestep*4*N))] # first max in applied V should be at the length of the waveform /(4*n_cycles)
     max_p_time = max_v_time
     for i, pol in enumerate(processed_df['polarization (uC/cm^2)'].values): # find time where polarization reaches its first local max
         if pol == max(first_pol_wave):
@@ -35,11 +38,14 @@ def process_raw_hyst(path:str, show_plots=False):
     if time_offset < 0:
         print("WARNING: Negative time offset detected, full waveform possibly not captured or data too noisy.")
         time_offset = 0
-    
+
+    # processed_df['time (s)'] = processed_df['time (s)'].values - time_offset
+
     start_n = int(time_offset//timestep)
-    stop_n = int(start_n + (length//timestep))
+    
     try:
-        processed_df = processed_df.iloc[start_n:stop_n].copy() # chop off data where voltage is not being applied
+        # processed_df = processed_df.iloc[start_n:].copy() # chop off data where voltage is not being applied
+        processed_df = processed_df[processed_df['time (s)']>=time_offset].copy()
     except:
         print('WARNING: Time correction failed, data may be abnormal, or there may not be enough buffer data at the end of the captured waveform')
 
@@ -47,13 +53,16 @@ def process_raw_hyst(path:str, show_plots=False):
     l = (len(processed_df['time (s)'])//8)
     interp_v_array = np.array([0,1,0,-1,0]+([1,0,-1,0]*(N-1)))*amp
 
-    dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=len(processed_df))
-    processed_df['applied voltage (V)'] = dense
+    dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=length//timestep)
+    if len(dense)<len(processed_df):
+        dense = np.concatenate([dense, np.zeros(len(processed_df) - len(dense))]) #make sure arrays are the same length
+
+    processed_df['applied voltage (V)'] = dense[:len(processed_df)]
 
     # optional plotting
     if show_plots:
         processed_df.plot(x='applied voltage (V)', y='polarization (uC/cm^2)')
-        raw_df.plot(x='time (s)', y='voltage (V)')
+        processed_df.plot(x='time (s)', y=['polarization (uC/cm^2)', 'applied voltage (V)'], secondary_y=['applied voltage (V)'])
 
     metadata['processed'] = True
     # update csv with new processed data
