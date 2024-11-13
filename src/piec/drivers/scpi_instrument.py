@@ -3,19 +3,62 @@ Set's up the instrument class that all instruments will inherit basic functionli
 """
 from typing import Union
 import numpy as np
+import pandas as pd
 from pyvisa import ResourceManager
 import time
 import re
+import json
+import os
+
+class VirtualRMInstrument:
+    """
+    This class replaces the resource manager object in the virtual case,
+    just needs to replace the .write() and .query() methods
+    """
+    def __init__(self, verbose:bool = False):
+        self.verbose = verbose
+        print('INITIALIZING VIRTUAL RESOURCE MANAGER, VISA NOT CONNECTED')
+        current_dir = os.path.dirname(__file__)
+
+        # Construct the full path to the virtual query JSON file
+        json_path = os.path.join(current_dir, "virtual_scpi_queries.json")
+
+        # Load the JSON file
+        with open(json_path, "r") as file:
+            self.query_dict = json.load(file)
+
+    def query(self, input:str):
+        time.sleep(0.01)
+        if self.verbose:
+            print('Query recieved: ',input)
+        try:
+            return self.query_dict[input]
+        except:
+            print('QUERY: ', input, ' NOT IN virtual_scpi_queries.json')
+            return "VIRTUAL QUERY:"+input
+
+
+    def write(self, input:str):
+        time.sleep(0.01)
+        if self.verbose:
+            print('Write recieved: ',input)
+    
+    def write_binary_values(self, data, scaled_data, datatype='h'):
+        time.sleep(0.01)
+        if self.verbose:
+            print('Binary write recieved: ', data, scaled_data, datatype)
 
 # Define a class
 class Instrument:
-    # Class attribute
-    species = "Canis familiaris" #do we need any class attributes
 
     # Initializer / Instance attributes
     def __init__(self, address):
         rm = ResourceManager()
-        self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
+        if address == 'VIRTUAL':
+            self.instrument = VirtualRMInstrument() # initiate instrument in virtual mode
+        else:
+            self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
+        self.virtual = (address=='VIRTUAL')
 
     def _debug(self, **args):
         """
@@ -359,22 +402,27 @@ class Scope(Instrument):
             is_unsigned = False
         if unsigned == 'ON':
             is_unsigned = True
-        if preamble_dict["format"] == 0 and not is_unsigned:
-            data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='b', is_big_endian=is_big_endian)
-        if preamble_dict["format"] == 0 and is_unsigned:
-            data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='B', is_big_endian=is_big_endian)
-        if preamble_dict["format"] == 1 and not is_unsigned:
-            data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='h', is_big_endian=is_big_endian)
-        if preamble_dict["format"] == 1 and is_unsigned:
-            data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='H', is_big_endian=is_big_endian)
-        if preamble_dict["format"] == 4:
-            data = self.instrument.query_ascii_values("WAVeform:DATA?")
-        time = []
-        wfm = []
-        for t in range(preamble_dict["points"]):
-            time.append((t* preamble_dict["x_increment"]) + preamble_dict["x_origin"])
-        for d in data:
-            wfm.append((d * preamble_dict["y_increment"]) + preamble_dict["y_origin"])
+        if self.virtual:
+            data_df = pd.read_csv(os.path.join(os.path.dirname(__file__), "virtual_osc_trace.csv"))
+            time = data_df['time (s)'].values
+            wfm = data_df['voltage (V)'].values
+        else:
+            if preamble_dict["format"] == 0 and not is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='b', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 0 and is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='B', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 1 and not is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='h', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 1 and is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='H', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 4:
+                data = self.instrument.query_ascii_values("WAVeform:DATA?")
+            time = []
+            wfm = []
+            for t in range(preamble_dict["points"]):
+                time.append((t* preamble_dict["x_increment"]) + preamble_dict["x_origin"])
+            for d in data:
+                wfm.append((d * preamble_dict["y_increment"]) + preamble_dict["y_origin"])
         return preamble_dict, time, wfm
 
 
