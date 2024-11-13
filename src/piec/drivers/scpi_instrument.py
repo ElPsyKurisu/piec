@@ -123,7 +123,7 @@ class Instrument:
 
     def print_specs(self):
         """
-        Function that lists all class attributes for the instrument.
+        Function that lists all class attributes for the instrument. NOTE: May not work in virtual case
         """
         spec_dict = get_class_attributes_from_instance(self)
         for key in spec_dict:
