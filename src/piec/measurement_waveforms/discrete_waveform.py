@@ -132,7 +132,7 @@ class HysteresisLoop(DiscreteWaveform):
         invert = self.amplitude < 0 # Check if we want opposite polarity
 
         self.awg.create_arb_wf(dense)
-        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(self.amplitude)}', frequency=f'{self.frequency}', invert=invert) 
+        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(self.amplitude)*2}', frequency=f'{self.frequency}', invert=invert) 
 
 class PUNDPulse(DiscreteWaveform):
 
