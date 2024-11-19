@@ -12,8 +12,8 @@ src/piec.egg-info/dependency_links.txt
 src/piec.egg-info/requires.txt
 src/piec.egg-info/top_level.txt
 src/piec/drivers/__init__.py
-src/piec/drivers/instrument.py
 src/piec/drivers/pymeasure_wrapper.py
+src/piec/drivers/scpi_instrument.py
 src/piec/drivers/digilent/__init__.py
 src/piec/drivers/digilent/core.py
 src/piec/drivers/keysight81150a/__init__.py
