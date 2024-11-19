@@ -6,12 +6,17 @@ Usage
 Installation
 ------------
 
-To use Lumache, first install it using pip:
+To use piec, first install it using pip:
 
 .. code-block:: console
 
-   (.venv) $ pip install lumache
+   (.venv) $ pip install piec
 
+Then if using GPIB to communicate installInstall NI 488.2 Drivers from
+https://www.ni.com/en/support/downloads/drivers/download.ni-488-2.html#544048
+
+NOTE: If using digilient drivers then optional install of UL is required:
+http://www.mccdaq.com/swdownload
 Creating recipes
 ----------------
 
@@ -28,7 +33,7 @@ will raise an exception.
 
 For example:
 
->>> import lumache
->>> lumache.get_random_ingredients()
+>>> import piec as pc
+>>> from pc.drivers.keysight81150a import Keysight81150a
 ['shells', 'gorgonzola', 'parsley']
 
