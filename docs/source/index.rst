@@ -19,6 +19,8 @@ Contents
 
    usage
 
+   measurements
+
    modules
 
 Sample text
