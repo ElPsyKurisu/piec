@@ -50,7 +50,6 @@ class VirtualRMInstrument:
 
 # Define a class
 class Instrument:
-
     # Initializer / Instance attributes
     def __init__(self, address):
         rm = ResourceManager()
