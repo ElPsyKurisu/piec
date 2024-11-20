@@ -134,13 +134,13 @@ class HysteresisLoop(DiscreteWaveform):
         self.awg.create_arb_wf(dense)
         self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(self.amplitude)*2}', frequency=f'{self.frequency}', invert=invert) 
 
-class PUNDPulse(DiscreteWaveform):
+class ThreePulsePund(DiscreteWaveform):
 
-    type = "PUND"
+    type = "3PP"
 
     def __init__(self, awg=None, osc=None, v_div=0.1, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0, voltage_channel:str='1', area=1.0e-5):
         """
-        Initializes the PUNDPulse class.
+        Initializes the ThreePulsePund class.
         
         :param reset_amp: amplitude of reset pulse, polarity is polarity of P and u pulses x(-1) (in Volts)
         :param reset_width: width of reset pulse (in s)
