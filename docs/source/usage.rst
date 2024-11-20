@@ -20,8 +20,8 @@ http://www.mccdaq.com/swdownload
 
 ----------------
 
-To connect to an instrument we use pyvisa, if instrument address is unknown use
-pyvisa to connect:
+To connect to an instrument we use pyvisa. If the instrument address is unknown we can 
+use pyvisa to identify the detected addresses:
 
 >>> from pyvisa import ResourceManager
 >>> rm = ResourceManager()
@@ -32,7 +32,8 @@ pyvisa to connect:
 
 you can use the ``piec.drivers`` class to import either a generic or specific instruemnt:
 
-For example, if the awg's GPIB address is set to 8:
+For example, if the awg's GPIB address is set to 8 and we are using the specific
+driver for the Keysight81150a then:
 
 >>> import piec as pc
 >>> from pc.drivers.keysight81150a import Keysight81150a
