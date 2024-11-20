@@ -17,23 +17,26 @@ https://www.ni.com/en/support/downloads/drivers/download.ni-488-2.html#544048
 
 NOTE: If using digilient drivers then optional install of UL is required:
 http://www.mccdaq.com/swdownload
-Creating recipes
+
 ----------------
 
-To retrieve a list of random ingredients,
-you can use the ``lumache.get_random_ingredients()`` function:
+To connect to an instrument we use pyvisa, if instrument address is unknown use
+pyvisa to connect:
 
-.. autofunction:: lumache.get_random_ingredients
+>>> from pyvisa import ResourceManager
+>>> rm = ResourceManager()
+>>> rm.list_resources()
+('GPIB0::7::INSTR',
+ 'GPIB0::8::INSTR',
+ 'USB0::0x0958::0x17A7::MY62080068::0::INSTR')
 
-The ``kind`` parameter should be either ``"meat"``, ``"fish"``,
-or ``"veggies"``. Otherwise, :py:func:`lumache.get_random_ingredients`
-will raise an exception.
+you can use the ``piec.drivers`` class to import either a generic or specific instruemnt:
 
-.. autoexception:: lumache.InvalidKindError
-
-For example:
+For example, if the awg's GPIB address is set to 8:
 
 >>> import piec as pc
 >>> from pc.drivers.keysight81150a import Keysight81150a
-['shells', 'gorgonzola', 'parsley']
+>>> awg = Keysight81150a('GPIB0::8::INSTR')
+>>> awg.idn()
+'Agilent Technologies,81150A,MY53821602,3.0.0.0-4.6\n'
 
