@@ -168,6 +168,7 @@ class ThreePulsePund(DiscreteWaveform):
         self.metadata['type'] = self.type
         self.metadata['awg'] = self.awg.idn()
         self.metadata['osc'] = self.osc.idn()
+        self.metadata['length'] = self.length
         self.metadata['timestamp'] = time.time()
         self.metadata['processed'] = False
 
@@ -183,10 +184,7 @@ class ThreePulsePund(DiscreteWaveform):
         frac_reset_amp = amplitude/self.reset_amp
         frac_p_u_amp = amplitude/self.p_u_amp
         
-        if self.p_u_amp < 0:
-            polarity = -1
-        else:
-            polarity = 1
+        polarity = np.sign(self.p_u_amp)
 
         # specify sparse t and v coordinates which define PUND pulse train
         sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],

@@ -57,7 +57,13 @@ def process_raw_hyst(path:str, show_plots=False, save_plots=False, auto_timeshif
     # optional plotting
     if show_plots:
         processed_df.plot(x='applied voltage (V)', y='polarization (uC/cm^2)')
+        if save_plots:
+            plt.savefig(path.split('.')[0]+'_PV.png')
         processed_df.plot(x='time (s)', y=['polarization (uC/cm^2)', 'applied voltage (V)',], secondary_y=['applied voltage (V)',])
+        if save_plots:
+            plt.savefig(path.split('.')[0]+'_trace.png')
+
+    #TO DO: add plot saving
 
     metadata['processed'] = True
     # update csv with new processed data
