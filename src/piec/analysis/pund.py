@@ -82,9 +82,9 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
     times = [0, reset_width, reset_delay, p_u_width, p_u_delay, p_u_width, p_u_delay,]
     sum_times = [sum(times[:i+1]) for i, t in enumerate(times)]
     # calculate full amplitude of pulse profile and fractional amps of pulses
-    amplitude = reset_amp + p_u_amp
-    frac_reset_amp = amplitude/reset_amp
-    frac_p_u_amp = amplitude/p_u_amp
+    amplitude = abs(reset_amp) + abs(p_u_amp)
+    frac_reset_amp = reset_amp/amplitude
+    frac_p_u_amp = p_u_amp/amplitude
 
     # specify sparse t and v coordinates which define PUND pulse train
     sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],
@@ -103,7 +103,7 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
         v_applied = np.concatenate([v_applied, np.zeros(len(processed_df) - len(v_applied))]) # make sure arrays are the same length
 
     processed_df['applied voltage (V)'] = v_applied[:len(processed_df)]
-    
+
     processed_df['time (s)'] = processed_df['time (s)'].values - processed_df['time (s)'].values[0] # make sure time starts at zero again
 
     # optional plotting

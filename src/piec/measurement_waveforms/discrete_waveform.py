@@ -149,7 +149,7 @@ class ThreePulsePund(DiscreteWaveform):
         :param reset_amp: amplitude of reset pulse, polarity is polarity of P and u pulses x(-1) (in Volts)
         :param reset_width: width of reset pulse (in s)
         :param reset_delay: delay between reset pulse and p pulse (in s)
-        :param p_u_amp: amplitude of p and u pulses, polarity is polarity of P and u pulses x(-1) (in Volts)
+        :param p_u_amp: amplitude of p and u pulses (in Volts)
         :param p_u_width: width of p and u pulses (in s)
         :param p_u_delay: delay between p pulse and u pulse (in s)
         :param offset: Offset of the PUND waveform (in Volts)
@@ -180,9 +180,9 @@ class ThreePulsePund(DiscreteWaveform):
         times = [0, self.reset_width, self.reset_delay, self.p_u_width, self.p_u_delay, self.p_u_width, self.p_u_delay,]
         sum_times = [sum(times[:i+1]) for i, t in enumerate(times)]
         # calculate full amplitude of pulse profile and fractional amps of pulses
-        amplitude = self.reset_amp + self.p_u_amp
-        frac_reset_amp = amplitude/self.reset_amp
-        frac_p_u_amp = amplitude/self.p_u_amp
+        amplitude = abs(self.reset_amp) + abs(self.p_u_amp)
+        frac_reset_amp = self.reset_amp/amplitude
+        frac_p_u_amp = self.p_u_amp/amplitude
         
         polarity = np.sign(self.p_u_amp)
 
