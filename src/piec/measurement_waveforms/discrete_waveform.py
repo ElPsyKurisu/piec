@@ -86,7 +86,8 @@ class HysteresisLoop(DiscreteWaveform):
 
     type = "HYSTERESIS"
         
-    def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0, n_cycles=2, voltage_channel:str='1', area=1.0e-5):
+    def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
+                 n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8):
         """
         Initializes the HysteresisLoop class.
         
@@ -138,14 +139,17 @@ class ThreePulsePund(DiscreteWaveform):
 
     type = "3PP"
 
-    def __init__(self, awg=None, osc=None, v_div=0.1, reset_amp=1, reset_width=1e-3, reset_delay=1e-3, p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3, offset=0, voltage_channel:str='1', area=1.0e-5):
+    def __init__(self, awg=None, osc=None, v_div=0.1,
+                 reset_amp=1, reset_width=1e-3, reset_delay=1e-3,
+                 p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3,
+                 offset=0, voltage_channel:str='1', area=1e-5, time_offset=1e-8):
         """
         Initializes the ThreePulsePund class.
         
         :param reset_amp: amplitude of reset pulse, polarity is polarity of P and u pulses x(-1) (in Volts)
         :param reset_width: width of reset pulse (in s)
         :param reset_delay: delay between reset pulse and p pulse (in s)
-        :param p_u_amp: amplitude of p and u pulses, polarity is polarity of P and u pulses x(-1) (in Volts)
+        :param p_u_amp: amplitude of p and u pulses (in Volts)
         :param p_u_width: width of p and u pulses (in s)
         :param p_u_delay: delay between p pulse and u pulse (in s)
         :param offset: Offset of the PUND waveform (in Volts)
@@ -164,6 +168,7 @@ class ThreePulsePund(DiscreteWaveform):
         self.metadata['type'] = self.type
         self.metadata['awg'] = self.awg.idn()
         self.metadata['osc'] = self.osc.idn()
+        self.metadata['length'] = self.length
         self.metadata['timestamp'] = time.time()
         self.metadata['processed'] = False
 
@@ -175,14 +180,11 @@ class ThreePulsePund(DiscreteWaveform):
         times = [0, self.reset_width, self.reset_delay, self.p_u_width, self.p_u_delay, self.p_u_width, self.p_u_delay,]
         sum_times = [sum(times[:i+1]) for i, t in enumerate(times)]
         # calculate full amplitude of pulse profile and fractional amps of pulses
-        amplitude = self.reset_amp + self.p_u_amp
-        frac_reset_amp = amplitude/self.reset_amp
-        frac_p_u_amp = amplitude/self.p_u_amp
+        amplitude = abs(self.reset_amp) + abs(self.p_u_amp)
+        frac_reset_amp = self.reset_amp/amplitude
+        frac_p_u_amp = self.p_u_amp/amplitude
         
-        if self.p_u_amp < 0:
-            polarity = -1
-        else:
-            polarity = 1
+        polarity = np.sign(self.p_u_amp)
 
         # specify sparse t and v coordinates which define PUND pulse train
         sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],

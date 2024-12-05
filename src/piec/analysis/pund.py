@@ -2,58 +2,118 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
+from scipy.signal import find_peaks
 from analysis.utilities import *
 
-def process_raw_3pp(path:str, show_plots=False):
+def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift=True):
     metadata, raw_df = standard_csv_to_metadata_and_data(path)
     processed_df = raw_df
 
-    # processed_df = processed_df[processed_df['time (s)']>=0].copy() # cut out times before trigger
+    processed_df['time (s)'] = processed_df['time (s)'].values - processed_df['time (s)'].values[0] # make sure time starts at zero
 
     # get relevant values from metadata and math
-    amp = metadata['amplitude'].values[0]
-    frequency = metadata['frequency'].values[0]
-    length = 1/frequency
-    active_n = len(processed_df[processed_df['time (s)']<=length])
-    timestep = length/active_n
+    reset_amp = metadata['reset_amp'].values[0]
+    reset_width = metadata['reset_width'].values[0]
+    reset_delay = metadata['reset_delay'].values[0]
+    p_u_amp = metadata['p_u_amp'].values[0]
+    p_u_width = metadata['p_u_width'].values[0]
+    p_u_delay = metadata['p_u_delay'].values[0]
+    timestep = processed_df['time (s)'].values[-1]/len(processed_df)
     area = metadata['area'].values[0]
-    N = metadata['n_cycles'].values[0]
-    n_length = len(processed_df)
-    
+    length = metadata['length'].values[0]
+    time_offset = metadata['time_offset'].values[0]
+    polarity = np.sign(p_u_amp) #palarity of the waveform
+
     # add on time-dependent processed arrays
     processed_df['current (A)'] = processed_df['voltage (V)']/50/area*100 # 50Ohm conversion, area correction, C/m^2 to uC/cm^2
     processed_df['polarization (uC/cm^2)'] = cumulative_trapezoid(processed_df['current (A)'], processed_df['time (s)'], initial=0)
 
-    # correct time offset
-    len_first_wave = n_length//N # cut out first triangle wave response
-    first_pol_wave = processed_df['polarization (uC/cm^2)'].values[:len_first_wave]
-    max_v_time = processed_df['time (s)'].values[int(length//(timestep*4*N))] # first max in applied V should be at the length of the waveform /(4*n_cycles)
-    max_p_time = processed_df['time (s)'].values[np.argmax(first_pol_wave)] # find time at first poarization maximum
+    N_t0 = np.searchsorted(processed_df['time (s)'].values, time_offset) # manual t0 specification
 
-    time_offset = max_p_time - max_v_time # assume that first max in polarization coincides with first max in voltage in time
+    if auto_timeshift:
+        threshold = np.std(processed_df[processed_df['time (s)'] < reset_width+reset_delay]['voltage (V)'].values*polarity)*0.3 # peak threshold is 30% of the RC discharge of the reset pulse
+        distance = min([reset_delay, p_u_delay+p_u_width])/timestep*0.9 # peaks should never be closer than the minimum distance betweeen pulses
+        peaks, _ = find_peaks(-polarity*processed_df['voltage (V)'], height=threshold, distance=distance)
+        try:
+            first_peak = peaks[0]
+            v_at_first_peak = -polarity*processed_df['voltage (V)'].values[first_peak]
+            rc_rise = 0
+            for i in range(first_peak): # want to start pulse not at the peak voltage but at the beginning of the rise to the peak voltage
+                if -polarity*processed_df['voltage (V)'].values[first_peak-i] < v_at_first_peak*0.1:
+                    rc_rise = i
+                    break
+            N_t0 = first_peak - rc_rise
+        except:
+            print('WARNING:INITIAL PEAK NOT FOUND, DEFAULTING TO MANUAL TIME OFFSET CORRECTION')
 
-    if time_offset < 0:
-        print("WARNING: Negative time offset detected, full waveform possibly not captured or data too noisy.")
-        time_offset = 0
+        processed_df['time (s)'] = processed_df['time (s)'].values - processed_df['time (s)'].values[N_t0] # zero time correction
 
+    # time to choppy chop the pund based on the extracted pulse widths and delays
+    n_ph = np.searchsorted(processed_df['time (s)'].values, reset_width+reset_delay)
+    n_phr = np.searchsorted(processed_df['time (s)'].values, reset_width+reset_delay+p_u_width)
+    n_ps = np.searchsorted(processed_df['time (s)'].values, reset_width+reset_delay+p_u_width+p_u_delay)
+    n_psr = np.searchsorted(processed_df['time (s)'].values, reset_width+reset_delay+2*p_u_width+p_u_delay)
     try:
-        processed_df = processed_df[processed_df['time (s)']>=time_offset].copy()
+        n_end = np.searchsorted(processed_df['time (s)'].values, reset_width+reset_delay+2*p_u_width+2*p_u_delay)
     except:
-        print('WARNING: Time correction failed, data may be abnormal, or there may not be enough buffer data at the end of the captured waveform')
+        n_end = len(processed_df)
+
+    ph = processed_df['polarization (uC/cm^2)'].values[n_ph:n_phr]
+    phr = processed_df['polarization (uC/cm^2)'].values[n_phr:n_ps]
+    ps = processed_df['polarization (uC/cm^2)'].values[n_ps:n_psr]
+    psr = processed_df['polarization (uC/cm^2)'].values[n_psr:n_end]
+
+    # homogenize lengths for array math
+    ph = ph[:min(len(ph), len(ps))]
+    ps = ps[:min(len(ph), len(ps))]
+    phr = phr[:min(len(phr), len(psr))]
+    psr = psr[:min(len(phr), len(psr))]
+
+    dp = np.concatenate([ph, phr]) - np.concatenate([ps, psr]) # time dependent FE polarization is diff between p and u pulse polarizations
+    array_dict = {'P^':ph, 'P*':ps, 'P^r':phr, 'P*r':psr, 'dP':dp} # this naming convention mimics the one set by Radiant
+
+    for key in array_dict.keys():
+        array_dict[key] -= array_dict[key][0] # zero polarizations
+        repeat_values = np.zeros(len(processed_df)-len(array_dict[key]))+array_dict[key][-1]
+        array_dict[key] = np.concatenate([array_dict[key], repeat_values]) # add repeat values to the end of arrays so they can be added to the dataframe
+        processed_df[key+' (uC/cm^2)'] = array_dict[key] # add analysys arrays to dataframe
 
     # create applied voltage array from nominal assumptions
-    interp_v_array = np.array([0,1,0,-1,0]+([1,0,-1,0]*(N-1)))*amp
+    times = [0, reset_width, reset_delay, p_u_width, p_u_delay, p_u_width, p_u_delay,]
+    sum_times = [sum(times[:i+1]) for i, t in enumerate(times)]
+    # calculate full amplitude of pulse profile and fractional amps of pulses
+    amplitude = abs(reset_amp) + abs(p_u_amp)
+    frac_reset_amp = reset_amp/amplitude
+    frac_p_u_amp = p_u_amp/amplitude
 
-    dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=length//timestep)
-    if len(dense)<len(processed_df):
-        dense = np.concatenate([dense, np.zeros(len(processed_df) - len(dense))]) #make sure arrays are the same length
+    # specify sparse t and v coordinates which define PUND pulse train
+    sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],
+                            sum_times[4], sum_times[4], sum_times[5], sum_times[5], sum_times[6],])
+    sparse_v = np.array([-frac_reset_amp, -frac_reset_amp, 0, 0, frac_p_u_amp, frac_p_u_amp, 0, 0,
+                            frac_p_u_amp, frac_p_u_amp, 0, 0,]) * polarity
+    
+    n_points = int(length/timestep) # n points to use is max
 
-    processed_df['applied voltage (V)'] = dense[:len(processed_df)]
+    # densify the array, rise/fall times of pulses will be equal to the awg resolution
+    v_applied = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=n_points)
+    initial_delay = np.zeros(int(time_offset//timestep))
+    v_applied = np.concatenate([initial_delay, v_applied])
+
+    if len(v_applied)<len(processed_df):
+        v_applied = np.concatenate([v_applied, np.zeros(len(processed_df) - len(v_applied))]) # make sure arrays are the same length
+
+    processed_df['applied voltage (V)'] = v_applied[:len(processed_df)]
+
+    processed_df['time (s)'] = processed_df['time (s)'].values - processed_df['time (s)'].values[0] # make sure time starts at zero again
 
     # optional plotting
     if show_plots:
-        processed_df.plot(x='applied voltage (V)', y='polarization (uC/cm^2)')
-        processed_df.plot(x='time (s)', y=['polarization (uC/cm^2)', 'applied voltage (V)'], secondary_y=['applied voltage (V)'])
+        processed_df.plot(x='time (s)', y='dP (uC/cm^2)', xlim=(0,p_u_width))
+        if save_plots:
+            plt.savefig(path.split('.')[0]+'_dPvst.png')
+        processed_df.plot(x='time (s)', y=['current (A)', 'applied voltage (V)',], secondary_y=['applied voltage (V)',])
+        if save_plots:
+            plt.savefig(path.split('.')[0]+'_trace.png')
 
     metadata['processed'] = True
     # update csv with new processed data
