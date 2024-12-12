@@ -2,7 +2,7 @@ import numpy as np
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
-from analysis.utilities import *
+from piec.analysis.utilities import *
 
 class DiscreteWaveform:
 

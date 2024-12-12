@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
 from scipy.signal import find_peaks
-from analysis.utilities import *
+from piec.analysis.utilities import *
 
 def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift=True):
     metadata, raw_df = standard_csv_to_metadata_and_data(path)
