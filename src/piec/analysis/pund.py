@@ -43,6 +43,7 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
                     rc_rise = i
                     break
             N_t0 = first_peak - rc_rise
+            time_offset = N_t0*timestep
         except:
             print('WARNING:INITIAL PEAK NOT FOUND, DEFAULTING TO MANUAL TIME OFFSET CORRECTION')
 
@@ -111,7 +112,7 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
         processed_df.plot(x='time (s)', y='dP (uC/cm^2)', xlim=(0,p_u_width))
         if save_plots:
             plt.savefig(path.split('.')[0]+'_dPvst.png')
-        processed_df.plot(x='time (s)', y=['current (A)', 'applied voltage (V)',], secondary_y=['applied voltage (V)',])
+        processed_df.plot(x='time (s)', y=['applied voltage (V)', 'current (A)',], secondary_y=['current (A)',])
         if save_plots:
             plt.savefig(path.split('.')[0]+'_trace.png')
 
