@@ -111,10 +111,10 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
     if show_plots:
         processed_df.plot(x='time (s)', y='dP (uC/cm^2)', xlim=(0,p_u_width))
         if save_plots:
-            plt.savefig(path.split('.')[0]+'_dPvst.png')
+            plt.savefig(path[:-4]+'_dPvst.png')
         processed_df.plot(x='time (s)', y=['applied voltage (V)', 'current (A)',], secondary_y=['current (A)',])
         if save_plots:
-            plt.savefig(path.split('.')[0]+'_trace.png')
+            plt.savefig(path[:-4]+'_trace.png')
 
     metadata['processed'] = True
     # update csv with new processed data
