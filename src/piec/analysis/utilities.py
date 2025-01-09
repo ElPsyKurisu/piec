@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
+import os
 
 ### FILE HANDLING CONVINIENCE FUNCTIONS ###
 
 def metadata_and_data_to_csv(metadata, data, path):
     """
-    Convinience function that takes two arbitrary dataframes and writes them to a csv one below the other with a space in between.
+    Convenience function that takes two arbitrary dataframes and writes them to a csv one below the other with a space in between.
     Used nominally for a 1XN metadata df and a data df
 
     :param metadata: dataframe containing metadata, standard is a 1XN table (many columns with one value each)
@@ -24,7 +25,7 @@ def metadata_and_data_to_csv(metadata, data, path):
 
 def standard_csv_to_metadata_and_data(path, metadata_header_row=0, data_header_row=2):
     """
-    Convinience function that takes the piec standard 1xN metadata with data below and returns each as individual dataframes
+    Convenience function that takes the piec standard 1xN metadata with data below and returns each as individual dataframes
 
     :param path: path to save csv in
     :param metadata_header_row: row where metadata starts (defaut row 0)
@@ -37,6 +38,47 @@ def standard_csv_to_metadata_and_data(path, metadata_header_row=0, data_header_r
     data = pd.read_csv(path, header=data_header_row)
 
     return metadata, data
+
+def create_measurement_filename(directory, measurement_type, notes="", type="csv"):
+    """
+    Creates a unique filename for a measurement file by checking for identical filenames
+    and prepending an index to the filename if an identical one already exists in
+    the target directory. Will also create the target directory if it does not already exist.
+    
+    Parameters:
+    - directory (str): Target directory where measurement is to be saved.
+    - measurement_type (str): Tag that is unique to the measurement type, e.g., "hyst" or "3pp".
+    - notes (str): Extra string to add to the end of the filename, e.g., frequency and voltage info.
+    - type (str): File extension, defaults to "csv".
+    
+    Returns:
+    - filename (str): Full filepath of the given measurement in the form "{index}_{measurement_type}_{notes}.{type}"
+    """
+    # Ensure the directory exists
+    os.makedirs(directory, exist_ok=True)
+    
+    # Construct the base filename
+    base_filename = f"{measurement_type}_{notes}.{type}"
+    
+    # Initialize index
+    index = 0
+    
+    # Loop to find a unique filename
+    while True:
+        # Construct the full filepath
+        if index == 0:
+            filename = os.path.join(directory, base_filename)
+        else:
+            filename = os.path.join(directory, f"{index}_{base_filename}")
+        
+        # Check if the file already exists
+        if not os.path.exists(filename):
+            break
+        
+        # Increment the index if the file exists
+        index += 1
+    
+    return filename
 
 ### ARBITRARY WAVEFORM CONVINIENCE FUNCTIONS ###
 
