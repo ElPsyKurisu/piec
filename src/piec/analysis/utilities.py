@@ -66,10 +66,7 @@ def create_measurement_filename(directory, measurement_type, notes="", type="csv
     # Loop to find a unique filename
     while True:
         # Construct the full filepath
-        if index == 0:
-            filename = os.path.join(directory, base_filename)
-        else:
-            filename = os.path.join(directory, f"{index}_{base_filename}")
+        filename = os.path.join(directory, f"{index}_{base_filename}")
         
         # Check if the file already exists
         if not os.path.exists(filename):
