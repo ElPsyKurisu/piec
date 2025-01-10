@@ -3,10 +3,12 @@ import time
 import pandas as pd
 import matplotlib.pyplot as plt
 from piec.analysis.utilities import *
+from piec.analysis.pund import *
+from piec.analysis.hysteresis import *
 
 class DiscreteWaveform:
 
-    def __init__(self, awg, osc, v_div=0.01, voltage_channel:str='1'):
+    def __init__(self, awg, osc, v_div=0.01, voltage_channel:str='1', save_dir=r'\\scratch'):
         """
         General waveform parent class.
         
@@ -19,6 +21,8 @@ class DiscreteWaveform:
         self.awg = awg
         self.osc = osc
         self.voltage_channel = voltage_channel
+        self.save_dir = save_dir
+        self.filename = None
 
     def initialize_awg(self):
         self.awg.initialize()
@@ -26,13 +30,13 @@ class DiscreteWaveform:
         self.awg.configure_impedance(channel='1', source_impedance='50.0', load_impedance='50')
         self.awg.configure_trigger(channel='1', trigger_source='MAN')
 
-    def configure_oscilloscope(self, channel:str = 1, voltage_scale=0.01):
+    def configure_oscilloscope(self, channel:str = 1):
         """
         Configures the Oscilloscope to capture the waveform.
         """
         self.osc.initialize()
         self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
-        self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{voltage_scale}', impedance='FIFT')#set both to 50ohm
+        self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{self.v_div}', impedance='FIFT')#set both to 50ohm
         self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
         self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
 
@@ -56,38 +60,53 @@ class DiscreteWaveform:
         self.data = pd.DataFrame({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
         print("Waveform captured.")
 
-    def save_waveform(self, filename):
+    def save_waveform(self):
         """
         Saves the captured waveform data to a file.
         
-        :param filename: Path to the file where the waveform will be saved (CSV format).
+        :param directory: Directory where the waveform will be saved (CSV format).
         """
         if self.data is not None:
-            metadata_and_data_to_csv(self.metadata, self.data, filename)
-            print(f"Waveform data saved to {filename}")
+            self.filename = create_measurement_filename(self.save_dir, self.type, self.notes)
+            metadata_and_data_to_csv(self.metadata, self.data, self.filename)
+            print(f"Waveform data saved to {self.filename}")
         else:
             print("No data to save. Capture the waveform first.")
-        
-    def run_experiment(self, save_path="waveform.csv"):
+
+    def analyze(self):
         """
-        Runs the entire experiment by configuring the AWG, capturing the waveform, and saving the data.
+        Analyzes the most recently captured waveform. Should be overwritten by child class.
         
-        :param save_path: Path where the waveform will be saved (default: "waveform.csv")
+        :param directory: Directory where the waveform will be saved (CSV format).
         """
-        self.configure_oscilloscope(voltage_scale=self.v_div)
+        if self.data is not None:
+            print(f"Analysis method not defined. Not changing {self.filename}")
+        else:
+            print("No data to analyze. Capture the waveform first.")
+        
+    def run_experiment(self):
+        """
+        Runs the entire experiment by configuring the AWG, capturing the waveform, saving the data, and analyzing the data.
+        
+        :param save_path: Directory where the waveform will be saved (default: "\\scratch")
+        """
+        self.configure_oscilloscope()
         self.initialize_awg()
         self.configure_awg()
         self.apply_and_capture_waveform()
-        self.save_waveform(save_path)
+        self.save_waveform()
+        self.analyze()
 
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 
 class HysteresisLoop(DiscreteWaveform):
 
-    type = "HYSTERESIS"
+    type = "hysteresis"
         
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
-                 n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8):
+                 n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8,
+                 show_plots=False, save_plots=True, auto_timeshift=False,
+                 save_dir=r'\\scratch'):
         """
         Initializes the HysteresisLoop class.
         
@@ -98,7 +117,7 @@ class HysteresisLoop(DiscreteWaveform):
         :param voltage_channel: which channel to write to/read from, defaults to '1'
         :param area: area of sample capacitor, used for polarization math (in m^2)
         """
-        super().__init__(awg, osc, v_div, voltage_channel)
+        super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.length = 1/frequency
 
         self.frequency = frequency
@@ -106,6 +125,10 @@ class HysteresisLoop(DiscreteWaveform):
         self.offset = offset
         self.n_cycles = n_cycles
         self.voltage_channel = voltage_channel
+        self.show_plots = show_plots
+        self.save_plots = save_plots
+        self.auto_timeshift = auto_timeshift
+        self.notes = str(amplitude).replace('.', 'p')+'V_'+str(int(frequency))+'Hz'
         self.metadata = pd.DataFrame(locals(), index=[0])
         del self.metadata['self']
         self.metadata['type'] = self.type
@@ -113,6 +136,18 @@ class HysteresisLoop(DiscreteWaveform):
         self.metadata['osc'] = self.osc.idn()
         self.metadata['timestamp'] = time.time()
         self.metadata['processed'] = False
+
+    def analyze(self):
+        """
+        Analyzes the most recently captured waveform. Should be overwritten by child class.
+        
+        :param directory: Directory where the waveform will be saved (CSV format).
+        """
+        if self.data is not None:
+            process_raw_hyst(self.filename, show_plots=self.show_plots, save_plots=self.save_plots, auto_timeshift=self.auto_timeshift)
+            print(f"Analysis succeeded, updated {self.filename}")
+        else:
+            print("No data to analyze. Capture the waveform first.")
 
     def configure_awg(self):
         """
@@ -137,12 +172,14 @@ class HysteresisLoop(DiscreteWaveform):
 
 class ThreePulsePund(DiscreteWaveform):
 
-    type = "3PP"
+    type = "3pulsepund"
 
     def __init__(self, awg=None, osc=None, v_div=0.1,
                  reset_amp=1, reset_width=1e-3, reset_delay=1e-3,
                  p_u_amp=1, p_u_width=1e-3, p_u_delay=1e-3,
-                 offset=0, voltage_channel:str='1', area=1e-5, time_offset=1e-8):
+                 offset=0, voltage_channel:str='1', area=1e-5, time_offset=1e-8,
+                 show_plots=False, save_plots=True, auto_timeshift=True,
+                 save_dir=r'\\scratch'):
         """
         Initializes the ThreePulsePund class.
         
@@ -154,7 +191,7 @@ class ThreePulsePund(DiscreteWaveform):
         :param p_u_delay: delay between p pulse and u pulse (in s)
         :param offset: Offset of the PUND waveform (in Volts)
         """
-        super().__init__(awg, osc, v_div, voltage_channel)
+        super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.reset_amp = reset_amp
         self.reset_width = reset_width
         self.reset_delay = reset_delay
@@ -162,7 +199,11 @@ class ThreePulsePund(DiscreteWaveform):
         self.p_u_width = p_u_width
         self.p_u_delay = p_u_delay
         self.offset = offset
+        self.show_plots = show_plots
+        self.save_plots = save_plots
+        self.auto_timeshift = auto_timeshift
         self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))
+        self.notes = str(reset_amp).replace('.', 'p')+'Vres_'+str(p_u_amp).replace('.', 'p')+'Vpu'
         self.metadata = pd.DataFrame(locals(), index=[0])
         del self.metadata['self']
         self.metadata['type'] = self.type
@@ -171,6 +212,18 @@ class ThreePulsePund(DiscreteWaveform):
         self.metadata['length'] = self.length
         self.metadata['timestamp'] = time.time()
         self.metadata['processed'] = False
+
+    def analyze(self):
+        """
+        Analyzes the most recently captured waveform. Should be overwritten by child class.
+        
+        :param directory: Directory where the waveform will be saved (CSV format).
+        """
+        if self.data is not None:
+            process_raw_3pp(self.filename, show_plots=self.show_plots, save_plots=self.save_plots, auto_timeshift=self.auto_timeshift)
+            print(f"Analysis succeeded, updated {self.filename}")
+        else:
+            print("No data to analyze. Capture the waveform first.")
 
     def configure_awg(self):
         """
