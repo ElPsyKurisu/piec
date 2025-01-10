@@ -1,5 +1,5 @@
 """
-Set's up the instrument class that all instruments will inherit basic functionlity from to be followed by sub classes (e.g. scope, wavegen)
+Set's up the scpi instrument class that all scpi instruments will inherit basic functionlity from to be followed by sub classes (e.g. scope, wavegen)
 """
 from typing import Union
 import numpy as np
@@ -9,6 +9,8 @@ import time
 import re
 import json
 import os
+from instrument import Instrument
+
 
 class VirtualRMInstrument:
     """
@@ -49,7 +51,7 @@ class VirtualRMInstrument:
             print('Binary write recieved: ', data, scaled_data, datatype)
 
 # Define a class
-class Instrument:
+class SCPI_Instrument(Instrument):
     # Initializer / Instance attributes
     def __init__(self, address):
         rm = ResourceManager()
@@ -164,7 +166,7 @@ class Instrument:
                     if not is_value_between(input_value, attribute_sub_dict[local_value]):
                         exit_with_error("Error input value of \033[1m{}\033[0m for arg \033[1m{}\033[0m is out of acceptable Range \033[1m{}\033[0m".format(input_value, attribute_key, attribute_sub_dict[local_value]))
 
-class Scope(Instrument):
+class Scope(SCPI_Instrument):
     """
     Sub-class of Instrument to hold the general methods used by scopes. For Now defaulted to DSOX3024a, but can always ovveride certain SCOPE functions
     """
@@ -208,7 +210,7 @@ class Scope(Instrument):
         Should call initialize first.
 
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             time_base_type (str): Allowed values are 'MAIN', 'WINDow', 'XY', and 'ROLL', note must use main for data acquisition
             position (str): The position in the scope, [0.0] is a good default This is actually the delay on the scope (moves in time right and left)
             time_range (str): The x range of the scope min is 20ns, max is 500s
@@ -238,7 +240,7 @@ class Scope(Instrument):
         EKPY. 
 
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             channel (str): Desired channel allowed values are 1,2,3,4
             scale_mode (boolean): Allows us to select between a vertical scale or range setting [see options below]
             voltage_scale (str): The vertical scale in units of v/div
@@ -268,7 +270,7 @@ class Scope(Instrument):
                                        enable_high_freq_filter=False, enable_noise_filter=False):
         """Configures the trigger characteristics Taken from EKPY. 'Configures the basic settings of the trigger.'
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             type (str): Trigger type, accepted params are: [EDGE (Edge), GLIT (Glitch), PATT (Pattern), TV (TV), EBUR (Edge Burst), RUNT (Runt), NFC (Setup Hold), TRAN (Transition), SBUS1 (Serial Bus 1), SBUS2 (Serial Bus 2), USB (USB), DEL (Delay), OR (OR), NFC (Near Field Communication)]
             holdoff_time (str): Additional Delay in units of sec before re-arming trigger circuit
             low_voltage_level (str): The low trigger voltage level units of volts
@@ -297,7 +299,7 @@ class Scope(Instrument):
                            level: str='0', filter_type: str='OFF'):
         """Configures the trigger characteristics Taken from EKPY. 'Configures the basic settings of the trigger.'
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             trigger_source (str): Desired channel/source to trigger on allowed values are: [CHAN1,CHAN2,CHAN3,CHAN4,DIG0,DIG1 (there are more)]
             input_coupling (str): Allowed values = [AC, DC, LFR (Low Frequency Coupling)]
             edge_slope (str): Allowed values = [POS, NEG, EITH (either), ALT (alternate)]
@@ -318,7 +320,7 @@ class Scope(Instrument):
         acquired.
 
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
         """
         self.instrument.write(":DIG")
         self.instrument.write("*CLS")
@@ -327,7 +329,7 @@ class Scope(Instrument):
              points_mode: str='NORMal', unsigned: str='OFF'):
         """Sets up the waveform with averaging or not and of a specified format/count  
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             source (str): Desired channel allowed values are [CHAN1, CHAN2, CHAN3, CHAN4, FUNC, SBUS1, etc]
             byte_order (str): Either MSBF (most significant byte first) or LSBF (least significant byte first)
             format (str): Format of data allowed args are [ASCii (floating point), WORD (16bit two-bytes), BYTE (8-bit)]
@@ -365,7 +367,7 @@ class Scope(Instrument):
 
         First it calls operation complete to ensure its finished taking data
         args:
-            scope (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             byte_order (str): Either MSBF (most significant byte first) or LSBF (least significant byte first)
             unsigned (str): Allows to switch between unsigned and signed integers [OFF (signed), ON (unsigned)]
 
@@ -425,7 +427,7 @@ class Scope(Instrument):
         return preamble_dict, time, wfm
 
 
-class Awg(Instrument):
+class Awg(SCPI_Instrument):
     """
     Sub-class of Instrument to hold the general methods used by an awg. For Now defaulted to keysight81150a, but can always ovveride certain SCOPE functions
     """
@@ -440,7 +442,7 @@ class Awg(Instrument):
         """
         This program configures the output and input impedance of the wavegen. Taken from EKPY.
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             source_impedance (str): The desired source impedance in units of Ohms, allowed args are [5, 50]
             load_impedance (str): The desired load impedance in units of Ohms, allowed args are [0.3 to 1E6]
@@ -454,7 +456,7 @@ class Awg(Instrument):
         """
         This program configures the trigger. Taken from EKPY.
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             trigger_source (str): Trigger source allowed args = [IMM (immediate), INT2 (internal), EXT (external), MAN (software trigger)]
             mode (str): The type of triggering allowed args = [EDGE (edge), LEV (level)]
@@ -478,7 +480,7 @@ class Awg(Instrument):
         filled (There are 4 allowed at 1 time plus 1 in volatile memory).
 
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             data (ndarray or list): Data to be converted to wf
             name (str): Name of waveform, must start with A-Z
             channel (str): What channel to put the volatile WF on
@@ -517,7 +519,7 @@ class Awg(Instrument):
         if we want speed
 
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             data (ndarray or list): Data to be converted to wf
             name (str): Name of waveform, must start with A-Z
         """
@@ -534,7 +536,7 @@ class Awg(Instrument):
         """
         This function configures the named func with the given parameters. Works on both user defined and built-in functions
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             func (str): The function name as saved on the instrument
             voltage (str): The V_pp of the waveform in volts
@@ -559,7 +561,7 @@ class Awg(Instrument):
         Decides what built-in wf to send - by default sin
 
         args:
-            wavegen (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
+            self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             func (str): Desired output function, allowed args are [SIN (sinusoid), SQU (square), RAMP, PULSe, NOISe, DC, USER (arb)]
             frequency (str): frequency in Hz (have not added suffix funcitonaility yet)
@@ -587,7 +589,7 @@ class Awg(Instrument):
         """
         This program configures arbitrary waveform already saved on the instrument. Adapted from EKPY. 
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             name (str): The Arbitrary Waveform name as saved on the instrument, by default VOLATILE
             voltage (str): The V_pp of the waveform in volts
@@ -617,7 +619,7 @@ class Awg(Instrument):
         """
         This program toggles the selected output. Taken from EKPY. 
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             on (boolean): True for on, False for off
         """
@@ -630,6 +632,7 @@ class Awg(Instrument):
         """
         This program toggles the display On or OFF, it is recommended for programming speed to disale the display
         args:
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             on (boolean): True for display on, False for off
         """
         if on:
@@ -641,7 +644,7 @@ class Awg(Instrument):
         """
         This program sends the software trigger. Taken from EKPY. 
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
         """
         self.instrument.write(":TRIG")
 
@@ -649,7 +652,7 @@ class Awg(Instrument):
         """Stop the awg.
 
         args:
-            wavegen (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
+            self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
         """
         self.output_enable('1', False) #should change to take into account channels available from class attributes
         self.output_enable('2', False)
@@ -660,7 +663,7 @@ class Awg(Instrument):
         Convention is to make changes to channel 1 now that will affect channel 2
 
         args:
-            wavegen (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
+            self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
             
         """
         self.instrument.write(":TRACK:CHAN1 ON")

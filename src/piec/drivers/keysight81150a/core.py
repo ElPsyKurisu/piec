@@ -27,7 +27,7 @@ class Keysight81150a(Awg):
         NOTE: If in HIV mode max frequnecy is 50MHz, otherwise you get the full 120MHz
         NOTE: if sending a sin wave above 120MHz max voltage is 3V_pp
         args:
-            wavegen (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
             type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
         """
