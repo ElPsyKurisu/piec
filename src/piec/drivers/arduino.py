@@ -1,7 +1,6 @@
 """
 Set's up the arduino instrument class that all arduino instruments will inherit basic functionlity from.
 
-NOTE: SHOULD UPDATE ARDUINO AND HARDCODE NEW NUMBER. ALSO USE DIR, SINCE DIR IS ONLY 1 or 2 can use like whateer num i want then no step number is not allowed
 """
 
 from instrument import Instrument

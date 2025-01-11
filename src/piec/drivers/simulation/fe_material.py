@@ -43,6 +43,20 @@ class Resistor(Material):
             t (ndarray): time array of the applied waveform
         """ 
         return v/self.resistance, t
+
+class Dielectric(Material):
+    """
+    This class simulates a pure dielectric and by default the permittivity is 1epislon_0
+    """
+    def __init__(self, permittivity=8.85e-12):
+        self.permittivity = permittivity
+        self.name = "dielectric"
+
+    def voltage_response(self, v, t):
+        """
+        Returns a dielectric response
+        """
+        
     
 
 
