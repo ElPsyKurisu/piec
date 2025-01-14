@@ -4,13 +4,30 @@ from tkinter import filedialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from piec.measurement_waveforms.discrete_waveform import HysteresisLoop, ThreePulsePund
+from piec.analysis.utilities import standard_csv_to_metadata_and_data
+from piec.drivers.keysight81150a import Keysight81150a
+from piec.drivers.keysightdsox3024a import Dsox3024a
+
+DEFAULTS = {"awg_address":"VIRTUAL",
+            "osc_address":"VIRTUAL",
+            "save_dir":r"\\files22.brown.edu\Research\ENG_Caretta_Shared\Group\probe_station\test",
+            "frequency": 1.0e6,
+            }
+
+try:
+    from pyvisa import ResourceManager
+    rm = ResourceManager()
+    visa_resources = rm.list_resources()
+except:
+    print('WARNING: pyvisa setup failed, check driver dependencies')
 
 class MeasurementApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Waveform Measurement GUI")
-        self.root.geometry("800x600")
+        self.root.geometry("1200x700")
 
         # Style configuration
         self.style = ttk.Style()
@@ -28,16 +45,19 @@ class MeasurementApp:
         self.static_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
         ttk.Label(self.static_frame, text="AWG Address:").grid(row=0, column=0, sticky="w")
-        self.awg_address_entry = ttk.Entry(self.static_frame, width=30)
+        self.awg_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
         self.awg_address_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.awg_address_entry.set(DEFAULTS["awg_address"])
 
         ttk.Label(self.static_frame, text="Oscilloscope Address:").grid(row=1, column=0, sticky="w")
-        self.osc_address_entry = ttk.Entry(self.static_frame, width=30)
+        self.osc_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
         self.osc_address_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.osc_address_entry.set(DEFAULTS["osc_address"])
 
         ttk.Label(self.static_frame, text="Save Directory:").grid(row=2, column=0, sticky="w")
         self.save_dir_entry = ttk.Entry(self.static_frame, width=30)
         self.save_dir_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.save_dir_entry.insert(0, DEFAULTS["save_dir"])
         ttk.Button(self.static_frame, text="Browse", command=self.browse_directory).grid(row=2, column=2, padx=5)
 
         # Measurement type selection
@@ -61,8 +81,24 @@ class MeasurementApp:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Plot configuration section
+        self.plot_config_frame = ttk.LabelFrame(self.main_frame, text="Plot Configuration", padding=10)
+        self.plot_config_frame.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+
+        ttk.Label(self.plot_config_frame, text="X-axis:").grid(row=0, column=0, sticky="w")
+        self.x_axis = ttk.Combobox(self.plot_config_frame, values=["time (s)", "applied voltage (V)", "current (A)", "polarization (uC/cm^2)"], state="readonly")
+        self.x_axis.grid(row=0, column=1, padx=5, pady=5)
+        self.x_axis.set("applied voltage (V)")
+        self.x_axis.bind("<<ComboboxSelected>>", self.plot_data)
+
+        ttk.Label(self.plot_config_frame, text="Y-axis:").grid(row=1, column=0, sticky="w")
+        self.y_axis = ttk.Combobox(self.plot_config_frame, values=["time (s)", "applied voltage (V)", "current (A)", "polarization (uC/cm^2)"], state="readonly")
+        self.y_axis.grid(row=1, column=1, padx=5, pady=5)
+        self.y_axis.set("current (A)")
+        self.y_axis.bind("<<ComboboxSelected>>", self.plot_data)
+
         # Run button
-        ttk.Button(self.main_frame, text="Run Measurement", command=self.run_measurement).grid(row=2, column=0, columnspan=2, pady=10)
+        ttk.Button(self.main_frame, text="Run Measurement", command=self.run_measurement).grid(row=3, column=0, columnspan=2, pady=10)
 
     def browse_directory(self):
         directory = filedialog.askdirectory()
@@ -82,10 +118,16 @@ class MeasurementApp:
         elif measurement_type == "ThreePulsePund":
             self.setup_pund_inputs()
 
+    def update_dynamic_defaults(self):
+        # Update defaults to currently selected values
+        for key in self.dynamic_inputs:
+            DEFAULTS[key] = self.dynamic_inputs[key].get()
+
     def setup_hysteresis_inputs(self):
         ttk.Label(self.dynamic_frame, text="Frequency (Hz):").grid(row=0, column=0, sticky="w")
         self.dynamic_inputs["frequency"] = ttk.Entry(self.dynamic_frame, width=20)
         self.dynamic_inputs["frequency"].grid(row=0, column=1, padx=5, pady=5)
+        self.dynamic_inputs["frequency"].insert(0, DEFAULTS["frequency"])
 
         ttk.Label(self.dynamic_frame, text="Amplitude (V):").grid(row=1, column=0, sticky="w")
         self.dynamic_inputs["amplitude"] = ttk.Entry(self.dynamic_frame, width=20)
@@ -129,6 +171,8 @@ class MeasurementApp:
         osc_address = self.osc_address_entry.get()
         save_dir = self.save_dir_entry.get()
         measurement_type = self.measurement_type.get()
+        awg = Keysight81150a(awg_address)
+        osc = Dsox3024a(osc_address)
 
         if measurement_type == "HysteresisLoop":
             frequency = float(self.dynamic_inputs["frequency"].get())
@@ -136,7 +180,7 @@ class MeasurementApp:
             offset = float(self.dynamic_inputs["offset"].get())
             n_cycles = int(self.dynamic_inputs["n_cycles"].get())
 
-            experiment = HysteresisLoop(awg=awg_address, osc=osc_address, frequency=frequency, amplitude=amplitude, offset=offset, n_cycles=n_cycles, save_dir=save_dir)
+            self.experiment = HysteresisLoop(awg=awg, osc=osc, frequency=frequency, amplitude=amplitude, offset=offset, n_cycles=n_cycles, save_dir=save_dir)
         elif measurement_type == "ThreePulsePund":
             reset_amp = float(self.dynamic_inputs["reset_amp"].get())
             reset_width = float(self.dynamic_inputs["reset_width"].get())
@@ -145,16 +189,21 @@ class MeasurementApp:
             p_u_width = float(self.dynamic_inputs["p_u_width"].get())
             p_u_delay = float(self.dynamic_inputs["p_u_delay"].get())
 
-            experiment = ThreePulsePund(awg=awg_address, osc=osc_address, reset_amp=reset_amp, reset_width=reset_width, reset_delay=reset_delay, p_u_amp=p_u_amp, p_u_width=p_u_width, p_u_delay=p_u_delay, save_dir=save_dir)
+            self.experiment = ThreePulsePund(awg=awg, osc=osc, reset_amp=reset_amp, reset_width=reset_width, reset_delay=reset_delay, p_u_amp=p_u_amp, p_u_width=p_u_width, p_u_delay=p_u_delay, save_dir=save_dir)
 
-        experiment.run_experiment()
-        self.plot_data(experiment.data)
+        self.experiment.run_experiment()
+        self.update_dynamic_defaults()
+        self.plot_data(self.experiment.filename)
 
-    def plot_data(self, data):
+    def plot_data(self, event=None):
         self.ax.clear()
-        self.ax.plot(data["time (s)"], data["voltage (V)"], label="Voltage")
-        self.ax.set_xlabel("Time (s)")
-        self.ax.set_ylabel("Voltage (V)")
+        metadata, data = standard_csv_to_metadata_and_data(self.experiment.filename)
+        x_data = data[self.x_axis.get()]
+        y_data = data[self.y_axis.get()]
+
+        self.ax.plot(x_data, y_data, label=f"{self.y_axis.get()} vs {self.x_axis.get()}")
+        self.ax.set_xlabel(self.x_axis.get())
+        self.ax.set_ylabel(self.y_axis.get())
         self.ax.legend()
         self.canvas.draw()
 
