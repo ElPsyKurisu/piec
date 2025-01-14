@@ -15,7 +15,8 @@ class DiscreteWaveform:
         :param awg: VISA address of the Arbitrary Waveform Generator
         :param osc: VISA address of the Oscilloscope
         :param v_div: volts per division for oscilloscope, make sure you are not clippng!
-        :param trigger_amp: V of trigger pulse in V, scope trigger level will be trigger/2
+        :param voltage_channel: awg channel to write waveform to, defaults to 1
+        :param save_dir: directory where data will be saved, if the directory does not exist it will be created
         """
         self.v_div = v_div
         self.awg = awg
@@ -116,6 +117,10 @@ class HysteresisLoop(DiscreteWaveform):
         :param n_cycles: number of triangle cycles to run
         :param voltage_channel: which channel to write to/read from, defaults to '1'
         :param area: area of sample capacitor, used for polarization math (in m^2)
+        :param time_offset: t0 of captured waveform - t0 of trigger waveform, used if auto_timeshift=False (in s)
+        :param show_plots: show matplotlib plots post analysis?
+        :param save_plots: save matplotlib plots post analysis?
+        :param auto_timeshift: try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
         super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.length = 1/frequency
@@ -190,6 +195,11 @@ class ThreePulsePund(DiscreteWaveform):
         :param p_u_width: width of p and u pulses (in s)
         :param p_u_delay: delay between p pulse and u pulse (in s)
         :param offset: Offset of the PUND waveform (in Volts)
+        :param area: area of sample capacitor, used for polarization math (in m^2)
+        :param time_offset: t0 of captured waveform - t0 of trigger waveform, used if auto_timeshift=False (in s)
+        :param show_plots: show matplotlib plots post analysis?
+        :param save_plots: save matplotlib plots post analysis?
+        :param auto_timeshift: try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
         super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.reset_amp = reset_amp
