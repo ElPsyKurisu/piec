@@ -26,6 +26,7 @@ class MCC_DAQ(Instrument):
 
     def __init__(self, address=None):
         """
+        NOTE In this case address is the dev_id which can be found via config device?
         ao_info holds all information related to the analog output
         ai_info holds all information related to the analog input
         """
@@ -33,14 +34,15 @@ class MCC_DAQ(Instrument):
             dev_id_list = []
         else:
             dev_id_list = [address]
-        self.ao_info, self.ai_info = config_device(dev_id_list=address) 
+        self.ao_info, self.ai_info = config_device(dev_id_list=dev_id_list)
+        self.board_num = 0
 
     def idn(self):
         """
         Queries the instrument for its ID
 
         """
-        return self.instrument.query("*IDN?")
+        return ul.get_board_name(self.board_num) #all boards will be initiatied via 0, need to check that two can exist simulatensly
 
     def v_in(self, board_num, channel):
         '''
