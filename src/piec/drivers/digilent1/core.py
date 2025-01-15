@@ -11,7 +11,7 @@ try:
     from mcculw.enums import InterfaceType
     from mcculw.device_info import DaqDeviceInfo
 except FileNotFoundError:
-    raise FileNotFoundError('Please check the readme file and install the required dependencies')
+    raise FileNotFoundError('Please check the readme file and install the required dependencies or try running pip install mcculw')
 import numpy as np
 
 __all__ = ('v_in', 'v_out', 'config_device', 'release_device')

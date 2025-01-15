@@ -12,3 +12,10 @@ class Instrument:
     def __init__(self, address):
         rm = ResourceManager()
         self.instrument = rm.open_resource(address)
+
+    def idn(self):
+        """
+        Queries the instrument for its ID SHOULD BE OVERRIDDEN AS NECESSARY
+
+        """
+        return "Not implemented IDN function"
