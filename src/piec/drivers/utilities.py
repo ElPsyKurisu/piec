@@ -29,7 +29,7 @@ def list_mcc_resources():
     if devices:
         #print('Found', len(devices), 'MCC DAQ device(s):')
         for device in devices:
-            formatted_list.append(device.product_name + ' (' + device.unique_id + ') - '+ 'Device ADDRESS = '+ device.product_id)
+            formatted_list.append(str(device.product_name) + ' (' + str(device.unique_id) + ') - '+ 'Device ADDRESS = '+ str(device.product_id))
     return formatted_list
 
         

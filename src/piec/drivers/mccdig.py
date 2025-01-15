@@ -12,6 +12,7 @@ try:
     from mcculw.device_info import DaqDeviceInfo
 except FileNotFoundError:
     raise FileNotFoundError('Please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
+from typing import Union
 import numpy as np
 
 
@@ -34,8 +35,7 @@ class MCC_DAQ(Instrument):
             dev_id_list = []
         else:
             dev_id_list = [address]
-        self.ao_info, self.ai_info = config_device(dev_id_list=dev_id_list)
-        self.board_num = 0
+        self.ao_info, self.ai_info, self.board_num = config_device(dev_id_list=dev_id_list)
 
     def idn(self):
         """
@@ -44,33 +44,77 @@ class MCC_DAQ(Instrument):
         """
         return ul.get_board_name(self.board_num) #all boards will be initiatied via 0, need to check that two can exist simulatensly
 
-    def v_in(self, board_num, channel):
+    def v_in(self, channel):
         '''
         Wrapper for UL.v_in.
         '''
         ul_range = self.ai_info.supported_ranges[0]
-        value = ul.v_in(board_num, channel, ul_range)
+        value = ul.v_in(self.board_num, channel, ul_range)
         return value
 
-    def v_out(self, board_num, channel, data_value):
+    def v_out(self, channel, data_value):
         '''
         Wrapper for UL.v_out, dont change ul_range
         '''
         ul_range = self.ao_info.supported_ranges[0]
-        ul.v_out(board_num, channel, ul_range, data_value)
+        ul.v_out(self.board_num, channel, ul_range, data_value)
 
-    def release_device(board_num):
+    def release_device(self):
         '''
         Wrapper for ul.release_daq_device
         '''
-        ul.release_daq_device(board_num)
+        ul.release_daq_device(self.board_num)
+
+    """
+    BELOW ARE FAKE AWG COMMANDS, UNSURE HOW TO STRUCTURE
+    """
+    def create_arb_wf(self, data: Union[np.array, list], name=None, channel='1'):
+        """
+        Fake method to use MCC_DAQ as an awg Basically saves the data in python memory
+        then is passed through to the configure_wf
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): MCC DAQ
+            data (ndarray or list): Data to be converted to wf
+            name (str): Name of waveform, must start with A-Z
+            channel (str): What channel to put the volatile WF on
+        """
+        self.arb_wf = data
+    
+    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
+                      num_cycles=None, invert: bool=False):
+        """
+        This function configures the named func with the given parameters. Works on both user defined and built-in functions
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): MCC DAQ
+            channel (str): Desired Channel to configure
+            func (str): The function name ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+            voltage (str): The V_pp of the waveform in volts
+            offset (str): The voltage offset in units of volts
+            frequency (str): the frequency in units of Hz for the arbitrary waveform
+            duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
+            num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
+            invert (bool): Inverts the waveform by flipping the polarity
+        """
+        ao_range = self.ao_info.supported_ranges[0]
+        freq = float(frequency)
+        sampling_rate = 1000 #temp need to figure out a way to extract it from get_config
+
 
 """
 Custom Helper Functions
 """
 
-def config_device(use_device_detection=True, dev_id_list=[],
-                         board_num=0):
+def is_device_connected(board_num):
+    try:
+        # Try to get the board name to check if the device is connected
+        board_name = ul.get_board_name(board_num)
+        print(f"Device connected at board number {board_num}: {board_name}")
+        return True
+    except Exception as e:
+        print(f"No device connected at board number {board_num}")
+        return False
+
+def config_device(use_device_detection=True, dev_id_list=[]):
     '''
     Configures the device and returns the accepted params from the device
     args:
@@ -87,9 +131,20 @@ def config_device(use_device_detection=True, dev_id_list=[],
     # detected devices by device ID (see UL documentation for device IDs).
     # If use_device_detection is set to False, the board_num variable needs to
     # match the desired board number configured with Instacal.
+    max_devices = 5
+    board_num = 0
+    while board_num < max_devices:
+        if not is_device_connected(board_num):
+            break
+        board_num += 1
+        if board_num >= max_devices:
+            raise Exception("WARNING OVER THE HARDCODED LIMIT OF MAX DEVICES OR SOME UNRECOVERABLE ERROR OCCURRED")
+
 
     try:
+
         if use_device_detection:
+
             config_first_detected_device(board_num, dev_id_list)
 
         daq_dev_info = DaqDeviceInfo(board_num)
@@ -102,13 +157,14 @@ def config_device(use_device_detection=True, dev_id_list=[],
 
         ao_info = daq_dev_info.get_ao_info()
         ai_info = daq_dev_info.get_ai_info()
+        #max_sampling_rate = daq_dev_info.g
         #ao_range = ao_info.supported_ranges[0] Leave to explain how to get range
         low_chan = 0
         high_chan = min(3, ao_info.num_chans - 1)
         num_chans = high_chan - low_chan + 1
     except Exception as e:
         print('\n', e)
-    return ai_info, ao_info
+    return ai_info, ao_info, board_num
 
 '''
 Helper Functions taken directly from mcculw examples library
@@ -117,6 +173,7 @@ Helper Functions taken directly from mcculw examples library
 def config_first_detected_device(board_num, dev_id_list=None):
     """Adds the first available device to the UL.  If a types_list is specified,
     the first available device in the types list will be add to the UL.
+    NOTE: Edited to allow for multiple devices to be connected
 
     Parameters
     ----------
@@ -127,7 +184,8 @@ def config_first_detected_device(board_num, dev_id_list=None):
         A list of product IDs used to filter the results. Default is None.
         See UL documentation for device IDs.
     """
-    ul.ignore_instacal()
+    if board_num == 0:
+        ul.ignore_instacal() #aka on first run we ignore instacal, then subsequnetly we dont want to override the config file
     devices = ul.get_daq_device_inventory(InterfaceType.ANY)
     if not devices:
         raise Exception('Error: No DAQ devices found')
