@@ -72,6 +72,7 @@ class MeasurementApp:
         self.awg_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
         self.awg_address_entry.grid(row=1, column=1, padx=5, pady=5)
         self.awg_address_entry.set(DEFAULTS["awg_address"])
+        ttk.Button(self.static_frame, text="Refresh", command=self.refresh_instruments, style="TButton").grid(row=1, column=2, rowspan=2, padx=5)
 
         ttk.Label(self.static_frame, text="Oscilloscope Address:").grid(row=2, column=0, sticky="w")
         self.osc_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
@@ -176,6 +177,16 @@ class MeasurementApp:
         # Update defaults to currently selected values
         for key in self.dynamic_inputs:
             DEFAULTS[key] = self.dynamic_inputs[key].get()
+    
+    def refresh_instruments(self):
+        try:
+            print('Refreshing VISA instruments...')
+            rm = ResourceManager()
+            visa_resources = rm.list_resources()
+            self.awg_address_entry.values=["VIRTUAL"]+list(visa_resources)
+            self.osc_address_entry.values=["VIRTUAL"]+list(visa_resources)
+        except:
+            print('WARNING: visa failure, check driver dependencies')
 
     def setup_hysteresis_inputs(self):
         ttk.Label(self.dynamic_frame, text="Frequency (Hz):").grid(row=0, column=0, sticky="w")
