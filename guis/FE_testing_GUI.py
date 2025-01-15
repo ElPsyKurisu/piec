@@ -13,6 +13,8 @@ from piec.drivers.keysightdsox3024a import Dsox3024a
 DEFAULTS = {"awg_address":"VIRTUAL",
             "osc_address":"VIRTUAL",
             "save_dir":r"\\files22.brown.edu\Research\ENG_Caretta_Shared\Group\probe_station\test",
+            "vdiv":0.01,
+            "time_offset":10,
             "frequency": 1.0e6,
             }
 
@@ -31,10 +33,10 @@ class MeasurementApp:
 
         # Style configuration
         self.style = ttk.Style()
-        self.style.configure("TFrame", background="#f0f0f0")
-        self.style.configure("TLabel", background="#f0f0f0", font=("Arial", 10))
-        self.style.configure("TButton", font=("Arial", 10), padding=5)
-        self.style.configure("TCombobox", font=("Arial", 10))
+        self.style.configure("TFrame", background="#f1f1f1")
+        self.style.configure("TLabel", background="#f0f0f0", font=("Comic Sans", 10))
+        self.style.configure("TButton", font=("Comic Sans", 10), padding=5)
+        self.style.configure("TCombobox", font=("Comic Sans", 10))
 
         # Main frame
         self.main_frame = ttk.Frame(root)
@@ -44,30 +46,51 @@ class MeasurementApp:
         self.static_frame = ttk.LabelFrame(self.main_frame, text="Static Inputs", padding=10)
         self.static_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
-        ttk.Label(self.static_frame, text="AWG Address:").grid(row=0, column=0, sticky="w")
+        ttk.Label(self.static_frame, text="Save Directory:").grid(row=0, column=0, sticky="w")
+        self.save_dir_entry = ttk.Entry(self.static_frame, width=30)
+        self.save_dir_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.save_dir_entry.insert(0, DEFAULTS["save_dir"])
+        ttk.Button(self.static_frame, text="Browse", command=self.browse_directory).grid(row=0, column=2, padx=5)
+
+        ttk.Label(self.static_frame, text="AWG Address:").grid(row=1, column=0, sticky="w")
         self.awg_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
-        self.awg_address_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.awg_address_entry.grid(row=1, column=1, padx=5, pady=5)
         self.awg_address_entry.set(DEFAULTS["awg_address"])
 
-        ttk.Label(self.static_frame, text="Oscilloscope Address:").grid(row=1, column=0, sticky="w")
+        ttk.Label(self.static_frame, text="Oscilloscope Address:").grid(row=2, column=0, sticky="w")
         self.osc_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
-        self.osc_address_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.osc_address_entry.grid(row=2, column=1, padx=5, pady=5)
         self.osc_address_entry.set(DEFAULTS["osc_address"])
 
-        ttk.Label(self.static_frame, text="Save Directory:").grid(row=2, column=0, sticky="w")
-        self.save_dir_entry = ttk.Entry(self.static_frame, width=30)
-        self.save_dir_entry.grid(row=2, column=1, padx=5, pady=5)
-        self.save_dir_entry.insert(0, DEFAULTS["save_dir"])
-        ttk.Button(self.static_frame, text="Browse", command=self.browse_directory).grid(row=2, column=2, padx=5)
+        ttk.Label(self.static_frame, text="Oscilloscope V/div:").grid(row=3, column=0, sticky="w")
+        self.vdiv_entry = ttk.Entry(self.static_frame, width=20)
+        self.vdiv_entry.grid(row=3, column=1, padx=5, pady=5)
+        self.vdiv_entry.insert(0, DEFAULTS["vdiv"])
+
+        ttk.Label(self.static_frame, text="Time Offset (ns):").grid(row=4, column=0, sticky="w")
+        self.timeshift_entry = ttk.Entry(self.static_frame, width=20)
+        self.timeshift_entry.grid(row=4, column=1, padx=5, pady=5)
+        self.timeshift_entry.insert(0, DEFAULTS["time_offset"])
+
+        # Add a checkbox for auto_timeshift
+        self.auto_timeshift_entry = tk.BooleanVar(value=True)  # Default state is checked
+        self.auto_timeshift_checkbox = ttk.Checkbutton(
+            self.static_frame,
+            text="Automatic?",
+            variable=self.auto_timeshift_entry,
+            onvalue=True,
+            offvalue=False
+        )
+        self.auto_timeshift_checkbox.grid(row=4, column=2, columnspan=1, pady=5, sticky="w")
 
         # Measurement type selection
-        ttk.Label(self.static_frame, text="Measurement Type:").grid(row=3, column=0, sticky="w")
+        ttk.Label(self.static_frame, text="Measurement Type:").grid(row=5, column=0, sticky="w")
         self.measurement_type = ttk.Combobox(self.static_frame, values=["HysteresisLoop", "ThreePulsePund"], state="readonly")
-        self.measurement_type.grid(row=3, column=1, padx=5, pady=5)
+        self.measurement_type.grid(row=5, column=1, padx=5, pady=5)
         self.measurement_type.bind("<<ComboboxSelected>>", self.update_dynamic_inputs)
 
         # Dynamic inputs section
-        self.dynamic_frame = ttk.LabelFrame(self.main_frame, text="Dynamic Inputs", padding=10)
+        self.dynamic_frame = ttk.LabelFrame(self.main_frame, text=f"{str(self.measurement_type.get())} Inputs", padding=10)
         self.dynamic_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
         # Placeholder for dynamic inputs
@@ -97,6 +120,17 @@ class MeasurementApp:
         self.y_axis.set("current (A)")
         self.y_axis.bind("<<ComboboxSelected>>", self.plot_data)
 
+        # Add a checkbox for plot saving
+        self.saveplots_entry = tk.BooleanVar(value=False)  # Default state is unchecked
+        self.enable_feature_checkbox = ttk.Checkbutton(
+            self.plot_config_frame,
+            text="Save Plots?",
+            variable=self.saveplots_entry,
+            onvalue=True,
+            offvalue=False
+        )
+        self.enable_feature_checkbox.grid(row=2, column=0, columnspan=2, pady=5, sticky="w")
+
         # Run button
         ttk.Button(self.main_frame, text="Run Measurement", command=self.run_measurement).grid(row=3, column=0, columnspan=2, pady=10)
 
@@ -111,7 +145,7 @@ class MeasurementApp:
         for widget in self.dynamic_frame.winfo_children():
             widget.destroy()
         self.dynamic_inputs = {}
-
+        self.dynamic_frame.config(text=f"{str(self.measurement_type.get())} Inputs")
         measurement_type = self.measurement_type.get()
         if measurement_type == "HysteresisLoop":
             self.setup_hysteresis_inputs()
@@ -173,6 +207,9 @@ class MeasurementApp:
         measurement_type = self.measurement_type.get()
         awg = Keysight81150a(awg_address)
         osc = Dsox3024a(osc_address)
+        v_div = float(self.vdiv_entry.get())
+        save_plots = bool(self.saveplots_entry.get())
+        auto_timeshift = bool(self.auto_timeshift_entry.get())
 
         if measurement_type == "HysteresisLoop":
             frequency = float(self.dynamic_inputs["frequency"].get())
@@ -180,7 +217,12 @@ class MeasurementApp:
             offset = float(self.dynamic_inputs["offset"].get())
             n_cycles = int(self.dynamic_inputs["n_cycles"].get())
 
-            self.experiment = HysteresisLoop(awg=awg, osc=osc, frequency=frequency, amplitude=amplitude, offset=offset, n_cycles=n_cycles, save_dir=save_dir)
+            self.experiment = HysteresisLoop(awg=awg, osc=osc,
+                                             frequency=frequency, amplitude=amplitude,
+                                             offset=offset, n_cycles=n_cycles,
+                                             save_dir=save_dir, v_div=v_div,
+                                             save_plots=save_plots, auto_timeshift=auto_timeshift)
+            
         elif measurement_type == "ThreePulsePund":
             reset_amp = float(self.dynamic_inputs["reset_amp"].get())
             reset_width = float(self.dynamic_inputs["reset_width"].get())
@@ -189,7 +231,11 @@ class MeasurementApp:
             p_u_width = float(self.dynamic_inputs["p_u_width"].get())
             p_u_delay = float(self.dynamic_inputs["p_u_delay"].get())
 
-            self.experiment = ThreePulsePund(awg=awg, osc=osc, reset_amp=reset_amp, reset_width=reset_width, reset_delay=reset_delay, p_u_amp=p_u_amp, p_u_width=p_u_width, p_u_delay=p_u_delay, save_dir=save_dir)
+            self.experiment = ThreePulsePund(awg=awg, osc=osc,
+                                             reset_amp=reset_amp, reset_width=reset_width, reset_delay=reset_delay,
+                                             p_u_amp=p_u_amp, p_u_width=p_u_width, p_u_delay=p_u_delay,
+                                             save_dir=save_dir, v_div=v_div,
+                                             save_plots=save_plots, auto_timeshift=auto_timeshift)
 
         self.experiment.run_experiment()
         self.update_dynamic_defaults()
