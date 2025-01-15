@@ -116,7 +116,7 @@ class MeasurementApp:
         self.plot_frame = ttk.LabelFrame(self.main_frame, text="Acquired Data", padding=10, style="TFrame")
         self.plot_frame.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="nsew")
 
-        self.fig, self.ax = plt.subplots(figsize=(6, 4))
+        self.fig, self.ax = plt.subplots(figsize=(6, 4), tight_layout=True)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -285,10 +285,10 @@ class MeasurementApp:
         self.timeshift_entry.delete(0, tk.END)
         self.timeshift_entry.insert(0, metadata["time_offset"].values[0]*1e9) # update time offset input in case auto is used
 
-        self.ax.plot(x_data, y_data, label=f"{self.y_axis.get()} vs {self.x_axis.get()}")
+        self.ax.plot(x_data, y_data, marker='.',color='k', label=f"{self.y_axis.get()} vs {self.x_axis.get()}")
         self.ax.set_xlabel(self.x_axis.get())
         self.ax.set_ylabel(self.y_axis.get())
-        self.ax.legend()
+        # self.ax.legend()
         self.canvas.draw()
 
 if __name__ == "__main__":
