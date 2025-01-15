@@ -64,8 +64,7 @@ def process_raw_hyst(path:str, show_plots=False, save_plots=False, auto_timeshif
         if save_plots:
             plt.savefig(path[:-4]+'_trace.png')
 
-    #TO DO: add plot saving
-
+    metadata['time_offset'] = time_offset
     metadata['processed'] = True
     # update csv with new processed data
     metadata_and_data_to_csv(metadata, processed_df, path)
