@@ -255,6 +255,7 @@ class MeasurementApp:
         v_div = float(self.vdiv_entry.get())
         time_offset = float(self.timeshift_entry.get())*1.0e-9
         save_plots = bool(self.saveplots_entry.get())
+        show_plots = save_plots
         auto_timeshift = bool(self.auto_timeshift_entry.get())
 
         if measurement_type == "HysteresisLoop":
@@ -267,7 +268,7 @@ class MeasurementApp:
                                              frequency=frequency, amplitude=amplitude,
                                              offset=offset, n_cycles=n_cycles,
                                              save_dir=save_dir, v_div=v_div, time_offset=time_offset,
-                                             save_plots=save_plots, auto_timeshift=auto_timeshift)
+                                             save_plots=save_plots, show_plots=show_plots, auto_timeshift=auto_timeshift)
             
         elif measurement_type == "ThreePulsePund":
             reset_amp = float(self.dynamic_inputs["reset_amp"].get())
@@ -282,8 +283,8 @@ class MeasurementApp:
                                              reset_amp=reset_amp, reset_width=reset_width, reset_delay=reset_delay,
                                              p_u_amp=p_u_amp, p_u_width=p_u_width, p_u_delay=p_u_delay,
                                              save_dir=save_dir, v_div=v_div, time_offset=time_offset, offset=offset,
-                                             save_plots=save_plots, auto_timeshift=auto_timeshift)
-
+                                             save_plots=save_plots, show_plots=show_plots, auto_timeshift=auto_timeshift)
+        print(self.experiment.save_plots)
         self.experiment.run_experiment()
         self.update_dynamic_defaults()
         self.plot_data(self.experiment.filename)

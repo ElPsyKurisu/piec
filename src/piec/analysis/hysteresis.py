@@ -56,14 +56,43 @@ def process_raw_hyst(path:str, show_plots=False, save_plots=False, auto_timeshif
     processed_df['applied voltage (V)'] = v_applied[:len(processed_df)]
 
     # optional plotting
-    if show_plots:
-        processed_df.plot(x='applied voltage (V)', y='polarization (uC/cm^2)')
+    if show_plots or save_plots:
+        #PV Loop plot
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.plot(processed_df['applied voltage (V)'], processed_df['polarization (uC/cm^2)'], color='k')
+        ax.set_xlabel('applied voltage (V)')
+        ax.set_ylabel('polarization (uC/cm^2)''applied voltage (V)')
         if save_plots:
-            plt.savefig(path[:-4]+'_PV.png')
-        processed_df.plot(x='time (s)', y=['polarization (uC/cm^2)', 'applied voltage (V)',], secondary_y=['applied voltage (V)',])
-        if save_plots:
-            plt.savefig(path[:-4]+'_trace.png')
+            fig.savefig(path[:-4]+'_PV.png')
+        if show_plots:
+            plt.show()
+        plt.close()
 
+        #IV Loop plot
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.plot(processed_df['applied voltage (V)'], processed_df['current (A)'], color='k')
+        ax.set_xlabel('applied voltage (V)')
+        ax.set_ylabel('current (A)')
+        if save_plots:
+            fig.savefig(path[:-4]+'_IV.png')
+        if show_plots:
+            plt.show()
+        plt.close()
+
+        #Polarization vs applied current plot
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.plot(processed_df['time (s)'], processed_df['polarization (uC/cm^2)'], color='k')
+        ax.set_xlabel('time (s)')
+        ax.set_ylabel('polarization (uC/cm^2)')
+        ax1 = ax.twinx()
+        ax1.plot(processed_df['time (s)'], processed_df['applied voltage (V)',], color='r')
+        ax1.set_ylabel('applied voltage (V)')
+        if save_plots:
+            fig.savefig(path[:-4]+'_trace.png')
+        if show_plots:
+            plt.show()
+        plt.close()
+        
     metadata['time_offset'] = time_offset
     metadata['processed'] = True
     # update csv with new processed data
