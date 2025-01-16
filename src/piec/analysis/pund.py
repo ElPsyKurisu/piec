@@ -126,7 +126,7 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
         ax.set_xlabel('time (s)')
         ax.set_ylabel('current (A)')
         ax1 = ax.twinx()
-        ax1.plot(processed_df['time (s)'], processed_df['applied voltage (V)',], color='r')
+        ax1.plot(processed_df['time (s)'], processed_df['applied voltage (V)'], color='r')
         ax1.set_ylabel('applied voltage (V)')
         if save_plots:
             fig.savefig(path[:-4]+'_trace.png')
