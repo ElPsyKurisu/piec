@@ -177,16 +177,22 @@ class MeasurementApp:
         # Update defaults to currently selected values
         for key in self.dynamic_inputs:
             DEFAULTS[key] = self.dynamic_inputs[key].get()
-    
+
     def refresh_instruments(self):
         try:
             print('Refreshing VISA instruments...')
             rm = ResourceManager()
             visa_resources = rm.list_resources()
-            self.awg_address_entry.values=["VIRTUAL"]+list(visa_resources)
-            self.osc_address_entry.values=["VIRTUAL"]+list(visa_resources)
-        except:
-            print('WARNING: visa failure, check driver dependencies')
+            
+            self.awg_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
+            self.osc_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
+            
+            self.awg_address_entry.set("")
+            self.awg_address_entry.set("VIRTUAL")
+            self.osc_address_entry.set("")
+            self.osc_address_entry.set("VIRTUAL")
+        except Exception as e:
+            print(f"Error refreshing VISA resources: {e}")
 
     def setup_hysteresis_inputs(self):
         ttk.Label(self.dynamic_frame, text="Frequency (Hz):").grid(row=0, column=0, sticky="w")
