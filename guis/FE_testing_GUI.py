@@ -16,6 +16,7 @@ DEFAULTS = {"awg_address":"VIRTUAL",
             "osc_address":"VIRTUAL",
             "save_dir":r"\\files22.brown.edu\Research\ENG_Caretta_Shared\Group\probe_station\test",
             "vdiv":0.01,
+            "area":'1.0e-5**2',
             "time_offset":140,
             "frequency": 1.0e6,
             "amplitude": 1.0,
@@ -84,9 +85,14 @@ class MeasurementApp:
         self.vdiv_entry.grid(row=3, column=1, padx=5, pady=5)
         self.vdiv_entry.insert(0, DEFAULTS["vdiv"])
 
-        ttk.Label(self.static_frame, text="Time Offset (ns):").grid(row=4, column=0, sticky="w")
+        ttk.Label(self.static_frame, text="Sample Area (m^2):").grid(row=4, column=0, sticky="w")
+        self.area_entry = ttk.Entry(self.static_frame, width=24)
+        self.area_entry.grid(row=4, column=1, padx=5, pady=5)
+        self.area_entry.insert(0, DEFAULTS["area"])
+
+        ttk.Label(self.static_frame, text="Time Offset (ns):").grid(row=5, column=0, sticky="w")
         self.timeshift_entry = ttk.Entry(self.static_frame, width=24)
-        self.timeshift_entry.grid(row=4, column=1, padx=5, pady=5)
+        self.timeshift_entry.grid(row=5, column=1, padx=5, pady=5)
         self.timeshift_entry.insert(0, DEFAULTS["time_offset"])
 
         # Add a checkbox for auto_timeshift
@@ -98,12 +104,12 @@ class MeasurementApp:
             onvalue=True,
             offvalue=False
         )
-        self.auto_timeshift_checkbox.grid(row=4, column=2, columnspan=1, pady=5, sticky="w")
+        self.auto_timeshift_checkbox.grid(row=5, column=2, columnspan=1, pady=5, sticky="w")
 
         # Measurement type selection
-        ttk.Label(self.static_frame, text="Measurement Type:").grid(row=5, column=0, sticky="w")
+        ttk.Label(self.static_frame, text="Measurement Type:").grid(row=6, column=0, sticky="w")
         self.measurement_type = ttk.Combobox(self.static_frame, values=["HysteresisLoop", "ThreePulsePund"], state="readonly")
-        self.measurement_type.grid(row=5, column=1, padx=5, pady=5)
+        self.measurement_type.grid(row=6, column=1, padx=5, pady=5)
         self.measurement_type.bind("<<ComboboxSelected>>", self.update_dynamic_inputs)
 
         # Dynamic inputs section
@@ -252,6 +258,7 @@ class MeasurementApp:
         self.dynamic_inputs["offset"].insert(0, DEFAULTS["offset"])
 
     def run_measurement(self):
+        # get static inputs for passthrough to measurment object
         awg_address = self.awg_address_entry.get()
         osc_address = self.osc_address_entry.get()
         save_dir = self.save_dir_entry.get()
@@ -259,24 +266,27 @@ class MeasurementApp:
         awg = Keysight81150a(awg_address)
         osc = Dsox3024a(osc_address)
         v_div = float(self.vdiv_entry.get())
+        area = float(eval(str(self.area_entry.get())))
         time_offset = float(self.timeshift_entry.get())*1.0e-9
         save_plots = bool(self.saveplots_entry.get())
         show_plots = save_plots
         auto_timeshift = bool(self.auto_timeshift_entry.get())
 
         if measurement_type == "HysteresisLoop":
+            # get hyst specific inputs for passthrough to measurment object
             frequency = float(self.dynamic_inputs["frequency"].get())
             amplitude = float(self.dynamic_inputs["amplitude"].get())
             offset = float(self.dynamic_inputs["offset"].get())
             n_cycles = int(self.dynamic_inputs["n_cycles"].get())
-
+            # initiate hyst object
             self.experiment = HysteresisLoop(awg=awg, osc=osc,
                                              frequency=frequency, amplitude=amplitude,
                                              offset=offset, n_cycles=n_cycles,
-                                             save_dir=save_dir, v_div=v_div, time_offset=time_offset,
+                                             save_dir=save_dir, v_div=v_div, time_offset=time_offset, area=area,
                                              save_plots=save_plots, show_plots=show_plots, auto_timeshift=auto_timeshift)
             
         elif measurement_type == "ThreePulsePund":
+            # get pund specific inputs for passthrough to measurment object
             reset_amp = float(self.dynamic_inputs["reset_amp"].get())
             reset_width = float(self.dynamic_inputs["reset_width"].get())
             reset_delay = float(self.dynamic_inputs["reset_delay"].get())
@@ -284,13 +294,12 @@ class MeasurementApp:
             p_u_width = float(self.dynamic_inputs["p_u_width"].get())
             p_u_delay = float(self.dynamic_inputs["p_u_delay"].get())
             offset = float(self.dynamic_inputs["offset"].get())
-
+            # initiate pund object
             self.experiment = ThreePulsePund(awg=awg, osc=osc,
                                              reset_amp=reset_amp, reset_width=reset_width, reset_delay=reset_delay,
                                              p_u_amp=p_u_amp, p_u_width=p_u_width, p_u_delay=p_u_delay,
-                                             save_dir=save_dir, v_div=v_div, time_offset=time_offset, offset=offset,
+                                             save_dir=save_dir, v_div=v_div, time_offset=time_offset, area=area, offset=offset,
                                              save_plots=save_plots, show_plots=show_plots, auto_timeshift=auto_timeshift)
-        print(self.experiment.save_plots)
         self.experiment.run_experiment()
         self.update_dynamic_defaults()
         self.plot_data(self.experiment.filename)
