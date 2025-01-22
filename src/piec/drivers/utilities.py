@@ -2,21 +2,28 @@
 This is a temp thing to override ResourceManager
 """
 
-from pyvisa import ResourceManager
 try:
+    from pyvisa import ResourceManager
     from mcculw import ul
     from mcculw.enums import InterfaceType
 except FileNotFoundError:
     raise FileNotFoundError('Please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
 
-class PiecManager(ResourceManager):
+class PiecManager():
     """
     Basically Resource Manager that melds MCC digilent stuff into it
     """
-    def list_resources(self, query = "?*::INSTR"):
-        one = super().list_resources(query)
-        two = list_mcc_resources()
-        return tuple(list(one) + two)
+    def __init__(self):
+        self.rm = ResourceManager()
+
+    def list_resources(self):
+        visa = self.rm.list_resources()
+        mcc = list_mcc_resources()
+        return tuple(list(visa) + mcc)
+    
+    def list_open_resources(self):
+        visa = self.rm.list_opened_resources()
+        return tuple(list(visa))
         
 
 """

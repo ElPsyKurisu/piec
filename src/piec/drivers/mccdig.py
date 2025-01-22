@@ -6,6 +6,8 @@ from the original probe to the instrument in the __init__ file
 
 
 """
+from piec.analysis.utilities import interpolate_sparse_to_dense
+
 try:
     from mcculw import ul
     from mcculw.enums import InterfaceType, BoardInfo, ScanOptions, InfoType, FunctionType
@@ -37,7 +39,12 @@ class MCC_DAQ(Instrument):
         else:
             dev_id_list = [address]
         self.ao_info, self.ai_info, self.board_num = config_device(dev_id_list=dev_id_list)
+        self.max_sampling_rate_in = ul.get_config(InfoType.BOARDINFO, self.board_num, 0, BoardInfo.ADMAXRATE)
+        self.max_sampling_rate_out = 5000
+        #used to store data maybe make a new class for this
         self.data = None
+        self.memhandle = None
+        self.data_len = None
 
     def idn(self):
         """
@@ -75,13 +82,18 @@ class MCC_DAQ(Instrument):
         Fake method to use MCC_DAQ as an awg Basically saves the data in python memory
         then is passed through to the configure_wf
         Basically just holds the data to pass into the next function where the math is
+        NOTE: Ensures data is scaled to a max value of 1
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): MCC DAQ
             data (ndarray or list): Data to be converted to wf
             name (str): Name of waveform, must start with A-Z
             channel (str): What channel to put the volatile WF on
         """
-        self.arb_wf = data
+        #need to make sure its scaled between -1 and 1 unless greater than zero
+        self.data_len = len(data)
+        abs_max_val = np.max(np.abs(data))
+        scaled_data = data/abs_max_val
+        self.data = scaled_data
     
     def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
                       num_cycles=None, invert: bool=False):
@@ -98,10 +110,16 @@ class MCC_DAQ(Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC']
+        if func in built_in_list:
+            self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
+        else:
+            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
         if self.data is None:
             num_points = 5000
             pass
             #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
+        '''
         """
         scan_options = (ScanOptions.BACKGROUND |
                         ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
@@ -111,29 +129,126 @@ class MCC_DAQ(Instrument):
         max_sampling_rate = 5000
         """
         freq = float(frequency)
+        amplitude = float(voltage)/2
+
         
         #memhandle = ul.scaled_win_buf_alloc(num_points)
         #data_array = cast(memhandle, POINTER(c_double))
-        if func is "SIN":
+        if func == "SIN":
             """
             Creates a memhandle that holds the sine wave as we want it in ctypes
             """
-            max_sampling_rate = 5000 #returns int of max sample rate
-            num_points = 5000 #just keep at same value
-            memhandle = ul.scaled_win_buf_alloc(num_points)
-            data_array = cast(memhandle, POINTER(c_double))
+            self.memhandle = ul.scaled_win_buf_alloc(self.max_sampling_rate_out)
+            num_points = self.max_sampling_rate_out
+            data_array = cast(self.memhandle, POINTER(c_double))
             y_offset = 0
-            amplitude = float(voltage)
             for i in range(num_points):
-                value = amplitude*np.sin(2*np.pi*freq*i/max_sampling_rate) + y_offset
+                value = amplitude*np.sin(2*np.pi*freq*i/self.max_sampling_rate_out) + y_offset
                 data_array[i] = value
-            self.data = memhandle
         #actual output
         #low chan and high chan should be the same and is just the channel number so it only outputs on 1 channel
         """
         ul.a_out_scan(self.board_num, int(channel), int(channel),
                           num_points, max_sampling_rate, ao_range, memhandle,
                           scan_options) #technically this should not be called here, should be called on enable_output
+        """
+        '''
+    def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
+        """
+        Decides what built-in wf to send - by default sin
+
+        args:
+            self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
+            channel (str): Desired Channel to configure accepted params are [1,2]
+            func (str): Desired output function, allowed args are [SIN (sinusoid), SQU (square), RAMP, PULSe, NOISe, DC, USER (arb)]
+            frequency (str): frequency in Hz (have not added suffix funcitonaility yet)
+            voltage (str): The V_pp of the waveform in volts
+            offset (str): DC offset for waveform in volts
+            duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
+            num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
+            invert (bool): Inverts the waveform by flipping the polarity
+        """
+        self.data_len = self.max_sampling_rate_out #sets to max so it works
+        num_points = self.data_len
+        self.memhandle = ul.scaled_win_buf_alloc(num_points)
+        data_array = cast(self.memhandle, POINTER(c_double))
+        amplitude = float(voltage)/2 #converts to V_pp unsure how it works for assymetrical stuff
+        freq = float(frequency)
+        y_offset = float(offset)
+        if func == "SIN":
+            for i in range(num_points):
+                value = amplitude*np.sin(2*np.pi*freq*i/num_points) + y_offset
+                data_array[i] = value
+        if func == "RAMP":
+            freq = int(freq)
+            y_arr = [0,1,0,-1]*freq +[0] #doulbes it 
+            x_arr = np.linspace(0, len(y_arr), len(y_arr))
+            #frequnecy is 1 hz if we use max_sampling rate_out
+            new_data = interpolate_sparse_to_dense(x_arr, y_arr, self.max_sampling_rate_out)
+            for i in range(num_points):
+                value = amplitude*new_data[i] + y_offset
+                data_array[i] = value
+        """
+        self.instrument.write(":SOUR:FUNC{} {}".format(channel, func)) 
+        self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
+        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
+        self.instrument.write(":VOLT{} {}".format(channel, voltage))
+        if func.lower() == 'squ' or func.lower() == 'square':
+            self.instrument.write(":SOUR:FUNC{}:SQU:DCYC {}".format(channel, duty_cycle)) 
+        if func.lower() == 'pulse' or func.lower() == 'puls':
+            self.instrument.write(":SOUR:FUNC{}:PULS:DCYC {}".format(channel, duty_cycle))
+        if invert:
+            self.instrument.write(":OUTP{}:POL INV".format(channel))
+        else:
+            self.instrument.write(":OUTP{}:POL NORM".format(channel))
+        """
+
+    def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
+        """
+        This program configures arbitrary waveform already saved on the instrument. Adapted from EKPY.
+        Name is useless for the digilent series. But could implement that the name is saved in memory so that you can store multiple etc
+        then can delete shit via the ul.freewinbuffer, but thats for later 
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            channel (str): Desired Channel to configure accepted params are [1,2]
+            name (str): The Arbitrary Waveform name as saved on the instrument, by default VOLATILE
+            voltage (str): The V_pp of the waveform in volts
+            offset (str): The voltage offset in units of volts
+            frequency (str): the frequency in units of Hz for the arbitrary waveform
+            invert (bool): Inverts the waveform by flipping the polarity
+        """
+        amplitude = float(voltage) / 2
+        y_offset = float(offset)
+        freq = float(frequency) #this is basically supposed to equal the rate 5000/num_points
+        if invert:
+            self.data = -1*self.data
+        num_points = self.data_len
+        self.memhandle = ul.scaled_win_buf_alloc(num_points)
+        num_points = self.data_len
+        data_array = cast(self.memhandle, POINTER(c_double))
+        y_offset = 0
+        for i in range(num_points):
+            value = amplitude*self.data[i] + y_offset
+            data_array[i] = value
+
+
+        """
+        dict_to_check = locals()
+        dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
+        self._check_params(dict_to_check)
+        if self.slew_rate is not None:
+            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
+            if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
+                    print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
+        self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
+        self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
+        self.instrument.write(":VOLT{} {}".format(channel, voltage))
+        self.instrument.write(":FREQ{} {}".format(channel, frequency))
+        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
+        if invert:
+            self.instrument.write(":OUTP{}:POL INV".format(channel))
+        else:
+            self.instrument.write(":OUTP{}:POL NORM".format(channel))
         """
 
     def output_enable(self, channel: str='0', on=True):
@@ -152,10 +267,12 @@ class MCC_DAQ(Instrument):
                         ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
         if on:
             ul.a_out_scan(self.board_num, int(channel), int(channel),
-                          num_points=5000, rate=5000, ul_range=self.ao_info.supported_ranges[0], memhandle=self.data,
+                          num_points=self.data_len, rate=self.max_sampling_rate_out, 
+                          ul_range=self.ao_info.supported_ranges[0], memhandle=self.memhandle,
                           options=scan_options)
         else:
             ul.stop_background(0, FunctionType.AOFUNCTION)
+
 
 
 """
@@ -236,6 +353,7 @@ def make_sin_wave(freq):
         value = amplitude*np.sin(2*np.pi*freq*i/max_sampling_rate) + y_offset
         data_array[i] = value
         meow.append(value)
+
 
 '''
 Helper Functions taken directly from mcculw examples library

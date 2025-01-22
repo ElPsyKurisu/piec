@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
-from piec.analysis.utilities import *
+#from piec.analysis.utilities import *
+from utilities import*
 
 def process_raw_hyst(path:str, show_plots=False, save_plots=False, auto_timeshift=False):
     """
