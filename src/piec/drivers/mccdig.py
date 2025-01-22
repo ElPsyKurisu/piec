@@ -8,8 +8,9 @@ from the original probe to the instrument in the __init__ file
 """
 try:
     from mcculw import ul
-    from mcculw.enums import InterfaceType
+    from mcculw.enums import InterfaceType, BoardInfo, ScanOptions, InfoType, FunctionType
     from mcculw.device_info import DaqDeviceInfo
+    from ctypes import cast, POINTER, c_double
 except FileNotFoundError:
     raise FileNotFoundError('Please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
 from typing import Union
@@ -36,6 +37,7 @@ class MCC_DAQ(Instrument):
         else:
             dev_id_list = [address]
         self.ao_info, self.ai_info, self.board_num = config_device(dev_id_list=dev_id_list)
+        self.data = None
 
     def idn(self):
         """
@@ -54,7 +56,7 @@ class MCC_DAQ(Instrument):
 
     def v_out(self, channel, data_value):
         '''
-        Wrapper for UL.v_out, dont change ul_range
+        Wrapper for UL.v_out
         '''
         ul_range = self.ao_info.supported_ranges[0]
         ul.v_out(self.board_num, channel, ul_range, data_value)
@@ -68,10 +70,11 @@ class MCC_DAQ(Instrument):
     """
     BELOW ARE FAKE AWG COMMANDS, UNSURE HOW TO STRUCTURE
     """
-    def create_arb_wf(self, data: Union[np.array, list], name=None, channel='1'):
+    def create_arb_wf(self, data: Union[np.array, list], name=None, channel='0'):
         """
         Fake method to use MCC_DAQ as an awg Basically saves the data in python memory
         then is passed through to the configure_wf
+        Basically just holds the data to pass into the next function where the math is
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): MCC DAQ
             data (ndarray or list): Data to be converted to wf
@@ -95,9 +98,64 @@ class MCC_DAQ(Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        if self.data is None:
+            num_points = 5000
+            pass
+            #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
+        """
+        scan_options = (ScanOptions.BACKGROUND |
+                        ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
         ao_range = self.ao_info.supported_ranges[0]
+        max_sampling_rate = ul.get_config(InfoType.BOARDINFO, self.board_num, 0, BoardInfo.ADMAXRATE) #returns int of max sample rate
+        #NOTE there is no function to get  max output analog rate. currently 5k is the max
+        max_sampling_rate = 5000
+        """
         freq = float(frequency)
-        sampling_rate = 1000 #temp need to figure out a way to extract it from get_config
+        
+        #memhandle = ul.scaled_win_buf_alloc(num_points)
+        #data_array = cast(memhandle, POINTER(c_double))
+        if func is "SIN":
+            """
+            Creates a memhandle that holds the sine wave as we want it in ctypes
+            """
+            max_sampling_rate = 5000 #returns int of max sample rate
+            num_points = 5000 #just keep at same value
+            memhandle = ul.scaled_win_buf_alloc(num_points)
+            data_array = cast(memhandle, POINTER(c_double))
+            y_offset = 0
+            amplitude = float(voltage)
+            for i in range(num_points):
+                value = amplitude*np.sin(2*np.pi*freq*i/max_sampling_rate) + y_offset
+                data_array[i] = value
+            self.data = memhandle
+        #actual output
+        #low chan and high chan should be the same and is just the channel number so it only outputs on 1 channel
+        """
+        ul.a_out_scan(self.board_num, int(channel), int(channel),
+                          num_points, max_sampling_rate, ao_range, memhandle,
+                          scan_options) #technically this should not be called here, should be called on enable_output
+        """
+
+    def output_enable(self, channel: str='0', on=True):
+        """
+        This program toggles the selected output. 
+        CURRENTLY ONLY USED IF YOU SET UP A WAVEFORM
+
+        NOTE: For this to work properly we need to change hella.
+        add a self.data as the memhandle how it works in testing atm
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): MCC DAQ
+            channel (str): Desired Channel to configure accepted params are [0,1, etc]
+            on (boolean): True for on, False for off
+        """
+        scan_options = (ScanOptions.BACKGROUND |
+                        ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
+        if on:
+            ul.a_out_scan(self.board_num, int(channel), int(channel),
+                          num_points=5000, rate=5000, ul_range=self.ao_info.supported_ranges[0], memhandle=self.data,
+                          options=scan_options)
+        else:
+            ul.stop_background(0, FunctionType.AOFUNCTION)
 
 
 """
@@ -165,6 +223,19 @@ def config_device(use_device_detection=True, dev_id_list=[]):
     except Exception as e:
         print('\n', e)
     return ai_info, ao_info, board_num
+
+def make_sin_wave(freq):
+    max_sampling_rate = 5000 #returns int of max sample rate
+    num_points = 1000
+    memhandle = ul.scaled_win_buf_alloc(num_points)
+    data_array = cast(memhandle, POINTER(c_double))
+    meow = []
+    y_offset = 0
+    amplitude = 5
+    for i in range(num_points):
+        value = amplitude*np.sin(2*np.pi*freq*i/max_sampling_rate) + y_offset
+        data_array[i] = value
+        meow.append(value)
 
 '''
 Helper Functions taken directly from mcculw examples library
@@ -236,4 +307,33 @@ def add_example_data(board_num, data_array, ao_range, num_chans, rate,
 
     return frequencies
 
+def add_data(data, board_num, data_array, ao_range, num_chans, rate, points_per_channel):
+    """
+    My version of add_example_data
+    """
+    #data should be a np array or a list that is the arb waveform
+    # Calculate frequencies that will work well with the size of the array
+    frequencies = []
+    for channel_num in range(num_chans):
+        frequencies.append(
+            (channel_num + 1) / (points_per_channel / rate) * 10)
 
+    # Calculate an amplitude and y-offset for the signal
+    # to fill the analog output range
+    amplitude = (ao_range.range_max - ao_range.range_min) / 2
+    y_offset = (amplitude + ao_range.range_min) / 2
+
+    # Fill the array with sine wave data at the calculated frequencies.
+    # Note that since we are using the SCALEDATA option, the values
+    # added to data_array are the actual voltage values that the device
+    # will output
+    data_index = 0
+    for point_num in range(points_per_channel):
+        for channel_num in range(num_chans):
+            freq = frequencies[channel_num]
+            value = amplitude * np.sin(2 * np.pi * freq * point_num / rate) + y_offset
+            raw_value = ul.from_eng_units(board_num, ao_range, value)
+            data_array[data_index] = raw_value
+            data_index += 1
+
+    return frequencies
