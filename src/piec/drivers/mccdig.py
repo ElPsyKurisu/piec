@@ -42,6 +42,8 @@ class MCC_DAQ(Instrument):
         self.max_sampling_rate_in = ul.get_config(InfoType.BOARDINFO, self.board_num, 0, BoardInfo.ADMAXRATE)
         self.max_sampling_rate_out = 5000
         #used to store data maybe make a new class for this
+        self.waveforms = [] #initialize a holder to hold all the waveforms. starts empty
+        self.active_waveform = None
         self.data = None
         self.memhandle = None
         self.data_len = None
@@ -93,7 +95,21 @@ class MCC_DAQ(Instrument):
         self.data_len = len(data)
         abs_max_val = np.max(np.abs(data))
         scaled_data = data/abs_max_val
-        self.data = scaled_data
+        if name is None:
+            name = "VOLATILE" #default name that can be overridden
+        #initialize waveform holder
+        waveform_list = self.waveforms
+        #check if name is already used
+        for i in range(len(waveform_list)):
+            wave_name = waveform_list[i].name #gets the name
+            if name ==  wave_name and name == "VOLATILE":
+                del waveform_list[i]
+                print("WARNING, OVERWRITTEN VOLATILE WAVEFORM")
+            elif name == wave_name:
+                raise ValueError("Error waveform {} already saved on the instrument".format(wave_name))
+        #create waveform_holder
+        wave_holder = Waveform_holder(name, scaled_data, channel)
+        self.waveforms.append(wave_holder)
     
     def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
                       num_cycles=None, invert: bool=False):
@@ -119,6 +135,7 @@ class MCC_DAQ(Instrument):
             num_points = 5000
             pass
             #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
+        self.active_waveform = func #now we have the name of the configured waveform
         '''
         """
         scan_options = (ScanOptions.BACKGROUND |
@@ -217,18 +234,24 @@ class MCC_DAQ(Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        waveform_list = self.waveforms
+        #check if name is already used
+        for i in range(len(waveform_list)):
+            wave_name = waveform_list[i].name #gets the name
+            if name ==  wave_name:
+                waveform = waveform_list[i]
+        data = waveform.data
         amplitude = float(voltage) / 2
         y_offset = float(offset)
         freq = float(frequency) #this is basically supposed to equal the rate 5000/num_points
         if invert:
-            self.data = -1*self.data
-        num_points = self.data_len
-        self.memhandle = ul.scaled_win_buf_alloc(num_points)
-        num_points = self.data_len
-        data_array = cast(self.memhandle, POINTER(c_double))
+            data = -1*data
+        num_points = len(data)
+        waveform.memhandle = ul.scaled_win_buf_alloc(num_points)
+        data_array = cast(waveform.memhandle, POINTER(c_double))
         y_offset = 0
         for i in range(num_points):
-            value = amplitude*self.data[i] + y_offset
+            value = amplitude*data[i] + y_offset
             data_array[i] = value
 
 
@@ -263,16 +286,39 @@ class MCC_DAQ(Instrument):
             channel (str): Desired Channel to configure accepted params are [0,1, etc]
             on (boolean): True for on, False for off
         """
+        #get active waveform
+        waveform_list = self.waveforms
+        waveform = None
+        #check if name is already used
+        for i in range(len(waveform_list)):
+            wave_name = waveform_list[i].name #gets the name
+            if self.active_waveform ==  wave_name:
+                waveform = waveform_list[i]
+        if waveform is None:
+            raise ValueError("Error no correct output selected")
         scan_options = (ScanOptions.BACKGROUND |
                         ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
         if on:
             ul.a_out_scan(self.board_num, int(channel), int(channel),
-                          num_points=self.data_len, rate=self.max_sampling_rate_out, 
-                          ul_range=self.ao_info.supported_ranges[0], memhandle=self.memhandle,
+                          num_points=len(waveform.data), rate=waveform.rate, 
+                          ul_range=self.ao_info.supported_ranges[0], memhandle=waveform.memhandle,
                           options=scan_options)
         else:
-            ul.stop_background(0, FunctionType.AOFUNCTION)
+            ul.stop_background(self.board_num, FunctionType.AOFUNCTION)
 
+
+class Waveform_holder():
+    """
+    This is a helper class that is used to store the arb waveforms in memory so you have access to more
+    than just volatile. Or can have multiple arb waveforms per device split across channels.
+    """
+
+    def __init__(self, name, data, channel):
+        self.name = name
+        self.data = data
+        self.channel = channel
+        self.memhandle = None # not initialized yet
+        self.rate = 5000 #not initialized
 
 
 """
