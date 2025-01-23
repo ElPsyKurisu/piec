@@ -283,38 +283,35 @@ class MCC_DAQ(Instrument):
         if invert:
             data = -1*data
         num_points = len(data)
+        multiply_factor = int(self.max_sampling_rate_out/num_points) #this gives us the amount of times we can make the array fit in the max sampling rate
+        #need to ensure it is an integer multiple of total length
+        rate = int(freq*num_points/multiply_factor)
+        while rate < 100: #safety to ensure sufficient rate NOTE, should make this via a self.min_rate_out etc
+            if multiply_factor <=1: #note this should not happen ideally
+                print("WARNING WF OPTIMIZATION FAILED, DEFAULTING TO GIVEN POINTS")
+                multiply_factor = 1
+                break
+            multiply_factor -= 1
+            rate = int(freq*num_points/multiply_factor)
+
+
+        x_arr = np.linspace(0,num_points, num_points)
+        num_points *= multiply_factor #gives us new total
+        elongated_data = interpolate_sparse_to_dense(x_arr, data, num_points)
         waveform.memhandle = ul.scaled_win_buf_alloc(num_points)
         data_array = cast(waveform.memhandle, POINTER(c_double))
         y_offset = 0
         for i in range(num_points):
-            value = amplitude*data[i] + y_offset
+            value = amplitude*elongated_data[i] + y_offset
             data_array[i] = value
-        waveform.rate = int(freq*num_points) #this method messes with the clock, better to insert points into array and keep rate high other communication gets schlonged
         #if rate is below 100 gets dicey i think, way to fix is go back up to 5000, then adjust from there
+        #calculcate rate using mulitply factor, if 1 then as below if 2 then 
+        waveform.rate = int(freq*num_points/multiply_factor)
         if waveform.rate < 100:
             print('WARNING will most likely not work as data rate between instruments is too low. Try to send more points')
         if waveform.rate > self.max_sampling_rate_out:
             raise ValueError("ERROR: Frequency is above the limitations of the instrument")
         print(waveform.rate)
-
-        """
-        dict_to_check = locals()
-        dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
-        self._check_params(dict_to_check)
-        if self.slew_rate is not None:
-            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
-            if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
-                    print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
-        self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
-        self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
-        self.instrument.write(":VOLT{} {}".format(channel, voltage))
-        self.instrument.write(":FREQ{} {}".format(channel, frequency))
-        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
-        if invert:
-            self.instrument.write(":OUTP{}:POL INV".format(channel))
-        else:
-            self.instrument.write(":OUTP{}:POL NORM".format(channel))
-        """
 
     def output_enable(self, channel: str='0', on=True):
         """
