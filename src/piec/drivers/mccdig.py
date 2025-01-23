@@ -241,7 +241,10 @@ class MCC_DAQ(Instrument):
             if name ==  wave_name:
                 waveform = waveform_list[i]
         data = waveform.data
-        amplitude = float(voltage) / 2
+        if np.min(data) <0:
+            amplitude = float(voltage) / 2
+        else:
+            amplitude = float(voltage)
         y_offset = float(offset)
         freq = float(frequency) #this is basically supposed to equal the rate 5000/num_points
         if invert:
