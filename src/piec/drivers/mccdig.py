@@ -44,23 +44,25 @@ class MCC_DAQ(Instrument):
         #used to store data maybe make a new class for this
         self.waveforms = [] #initialize a holder to hold all the waveforms. starts empty
         self.active_waveform = None
-        #initialize_built_in_functions() #initializes the correct holder for sin, square, ramp etc
+        self._initialize_built_in_functions() #initializes the correct holder for sin, square, ramp etc
         self.data = None
         self.memhandle = None
         self.data_len = None
-    '''
+
     def _initialize_built_in_functions(self):
         """
         Helper function for internal use to create sine, square, ramp etc wf
         """
+        print("helllooooo")
         num_points = self.max_sampling_rate_out #sets to max so it works
-        self.memhandle = ul.scaled_win_buf_alloc(num_points)
-        data_array = cast(self.memhandle, POINTER(c_double))
+        data_array = []
         for i in range(num_points):
             value = np.sin(2*np.pi*i/num_points)
-            data_array[i] = value
-        waveform = Waveform_holder("SIN")
-        self.waveforms.append(waveform)
+            data_array.append(value)
+        sin_waveform = Waveform_holder("SIN", data_array, '0')
+        self.waveforms.append(sin_waveform)
+        print("initialized waveforms")
+        """
         if func == "SIN":
             for i in range(num_points):
                 value = amplitude*np.sin(2*np.pi*freq*i/num_points) + y_offset
@@ -74,7 +76,7 @@ class MCC_DAQ(Instrument):
             for i in range(num_points):
                 value = amplitude*new_data[i] + y_offset
                 data_array[i] = value
-        '''
+        """
 
 
     def idn(self):
@@ -157,7 +159,8 @@ class MCC_DAQ(Instrument):
         """
         built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC']
         if func in built_in_list:
-            self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
+            #self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
+            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
         else:
             self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
             #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
@@ -260,10 +263,14 @@ class MCC_DAQ(Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        #NOTE might be worth to do a combination of sparse_to_dense and changing rate to optimize performance
         waveform_list = self.waveforms
+        print(len(waveform_list), "len")
+        print("name")
         #check if name is already used
         for i in range(len(waveform_list)):
             wave_name = waveform_list[i].name #gets the name
+            print(wave_name)
             if name ==  wave_name:
                 waveform = waveform_list[i]
         data = waveform.data
