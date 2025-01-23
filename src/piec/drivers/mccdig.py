@@ -44,9 +44,38 @@ class MCC_DAQ(Instrument):
         #used to store data maybe make a new class for this
         self.waveforms = [] #initialize a holder to hold all the waveforms. starts empty
         self.active_waveform = None
+        #initialize_built_in_functions() #initializes the correct holder for sin, square, ramp etc
         self.data = None
         self.memhandle = None
         self.data_len = None
+    '''
+    def _initialize_built_in_functions(self):
+        """
+        Helper function for internal use to create sine, square, ramp etc wf
+        """
+        num_points = self.max_sampling_rate_out #sets to max so it works
+        self.memhandle = ul.scaled_win_buf_alloc(num_points)
+        data_array = cast(self.memhandle, POINTER(c_double))
+        for i in range(num_points):
+            value = np.sin(2*np.pi*i/num_points)
+            data_array[i] = value
+        waveform = Waveform_holder("SIN")
+        self.waveforms.append(waveform)
+        if func == "SIN":
+            for i in range(num_points):
+                value = amplitude*np.sin(2*np.pi*freq*i/num_points) + y_offset
+                data_array[i] = value
+        if func == "RAMP":
+            freq = int(freq)
+            y_arr = [0,1,0,-1]*freq +[0] #doulbes it 
+            x_arr = np.linspace(0, len(y_arr), len(y_arr))
+            #frequnecy is 1 hz if we use max_sampling rate_out
+            new_data = interpolate_sparse_to_dense(x_arr, y_arr, self.max_sampling_rate_out)
+            for i in range(num_points):
+                value = amplitude*new_data[i] + y_offset
+                data_array[i] = value
+        '''
+
 
     def idn(self):
         """
@@ -131,9 +160,6 @@ class MCC_DAQ(Instrument):
             self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
         else:
             self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
-        if self.data is None:
-            num_points = 5000
-            pass
             #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
         self.active_waveform = func #now we have the name of the configured waveform
         '''
@@ -256,7 +282,13 @@ class MCC_DAQ(Instrument):
         for i in range(num_points):
             value = amplitude*data[i] + y_offset
             data_array[i] = value
-
+        waveform.rate = int(freq*num_points) #this method messes with the clock, better to insert points into array and keep rate high other communication gets schlonged
+        #if rate is below 100 gets dicey i think, way to fix is go back up to 5000, then adjust from there
+        if waveform.rate < 100:
+            print('WARNING will most likely not work as data rate between instruments is too low. Try to send more points')
+        if waveform.rate > self.max_sampling_rate_out:
+            raise ValueError("ERROR: Frequency is above the limitations of the instrument")
+        print(waveform.rate)
 
         """
         dict_to_check = locals()
@@ -327,6 +359,9 @@ class Waveform_holder():
 """
 Custom Helper Functions
 """
+
+def initialize_built_in_functions():
+    pass
 
 def is_device_connected(board_num):
     try:
