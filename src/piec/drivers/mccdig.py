@@ -52,6 +52,8 @@ class MCC_DAQ(Instrument):
     def _initialize_built_in_functions(self):
         """
         Helper function for internal use to create sine, square, ramp etc wf
+        THIS WONT WORK SINCE I NEED TO CALCULATE EACH TIME FOR THE FREQ TO MAKE IT WORK BEST
+        OTHERWISE WE LIMITED TO UNDER 1HZ
         """
         print("helllooooo")
         num_points = self.max_sampling_rate_out #sets to max so it works
@@ -159,8 +161,8 @@ class MCC_DAQ(Instrument):
         """
         built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC']
         if func in built_in_list:
-            #self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
-            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
+            self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
+            #self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
         else:
             self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
             #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
@@ -214,6 +216,46 @@ class MCC_DAQ(Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
+        
+        waveform_list = self.waveforms
+        print(len(waveform_list), "len")
+        print("name")
+        #check if name is already used
+        for i in range(len(waveform_list)):
+            wave_name = waveform_list[i].name #gets the name
+            print(wave_name)
+            if func ==  wave_name:
+                waveform = waveform_list[i]
+        data = waveform.data
+        freq = float(frequency)
+        """
+        if func == "SIN":
+            rate = self.max_sampling_rate_out
+            num_points = rate
+            #check low freq okay
+            rate = int(freq*num_points)
+            #this ensures stuff at high freq works??
+            if rate > self.max_sampling_rate_out:
+                num_points = int(self.max_sampling_rate_out/freq) #gets me 2.5k
+            if num_points < 10:
+                pass
+            while rate > 5000:
+                num_points -= 1
+                rate = int(freq*num_points)
+            
+            num_points_per_sin = freq/rate
+            while num_points_per_sin < 8:
+                
+            if freq/self.max_sampling_rate_out > 10:
+                pass
+            divide_factor = 1
+            num_points = self.max_sampling_rate_out
+            while num_points > self.max_sampling_rate_out/4:
+                divide_factor +=1
+                num_points = 
+            for i in range()
+        """
+
         self.data_len = self.max_sampling_rate_out #sets to max so it works
         num_points = self.data_len
         self.memhandle = ul.scaled_win_buf_alloc(num_points)
@@ -223,6 +265,7 @@ class MCC_DAQ(Instrument):
         y_offset = float(offset)
         if func == "SIN":
             for i in range(num_points):
+                #wont work for under 1Hz
                 value = amplitude*np.sin(2*np.pi*freq*i/num_points) + y_offset
                 data_array[i] = value
         if func == "RAMP":
@@ -252,6 +295,7 @@ class MCC_DAQ(Instrument):
     def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
         """
         This program configures arbitrary waveform already saved on the instrument. Adapted from EKPY.
+        NOTE: Communicating is very jank, may need to try several times to ensure working correctly
         Name is useless for the digilent series. But could implement that the name is saved in memory so that you can store multiple etc
         then can delete shit via the ul.freewinbuffer, but thats for later 
         args:
@@ -265,8 +309,6 @@ class MCC_DAQ(Instrument):
         """
         #NOTE might be worth to do a combination of sparse_to_dense and changing rate to optimize performance
         waveform_list = self.waveforms
-        print(len(waveform_list), "len")
-        print("name")
         #check if name is already used
         for i in range(len(waveform_list)):
             wave_name = waveform_list[i].name #gets the name
@@ -282,36 +324,45 @@ class MCC_DAQ(Instrument):
         freq = float(frequency) #this is basically supposed to equal the rate 5000/num_points
         if invert:
             data = -1*data
+        #first set the rate to the maximum since we want it to be as high as possible for stability
+        #before we unsparce, we should check the other case if our num_points isnt a problem
         num_points = len(data)
-        multiply_factor = int(self.max_sampling_rate_out/num_points) #this gives us the amount of times we can make the array fit in the max sampling rate
-        #need to ensure it is an integer multiple of total length
-        rate = int(freq*num_points/multiply_factor)
-        while rate < 100: #safety to ensure sufficient rate NOTE, should make this via a self.min_rate_out etc
-            if multiply_factor <=1: #note this should not happen ideally
-                print("WARNING WF OPTIMIZATION FAILED, DEFAULTING TO GIVEN POINTS")
-                multiply_factor = 1
-                break
-            multiply_factor -= 1
-            rate = int(freq*num_points/multiply_factor)
-
-
-        x_arr = np.linspace(0,num_points, num_points)
-        num_points *= multiply_factor #gives us new total
-        elongated_data = interpolate_sparse_to_dense(x_arr, data, num_points)
+        rate = int(freq*num_points)
+        if  rate > self.max_sampling_rate_out:
+            #we have too many points, need to optimize and make thing more sparse if we can, then lower rate in that order
+            data = get_sparse_array(data) #this is min number to create the waveform, so we need to make it denser now
+            num_points = len(data)
+            #check if we can make it denser while maximizing rate
+            rate = int(freq*num_points)
+            if rate > self.max_sampling_rate_out: #still overthreshold
+                #COULD NOT OPTIMIZE, raise error that freq is too high for given data
+                raise ValueError("ERROR: Frequency to high for a calculcated rate of {}/{} for the given number of points {}".format(rate, self.max_sampling_rate_out, num_points))
+        #now we are assuming that the rate is below the max rate so we try to add points while keeping rate max
+        #set rate to max to try
+        rate = self.max_sampling_rate_out
+        desired_points = int(rate/freq)
+        multiply_factor = int(desired_points/num_points) #this gives how much to add impossible to be less than 1
+        num_points = multiply_factor * num_points #gives us new total
+        #add in data preserving the shape, DOES NOT LINEARLY INTERPOLATE BETWEEN POINTS
+        elongated_data = []
+        for val in data:
+            elongated_data.extend([val]*multiply_factor)
+        elongated_data = [float(i) for i in elongated_data]
         waveform.memhandle = ul.scaled_win_buf_alloc(num_points)
         data_array = cast(waveform.memhandle, POINTER(c_double))
         y_offset = 0
+        meow = []
         for i in range(num_points):
             value = amplitude*elongated_data[i] + y_offset
             data_array[i] = value
-        #if rate is below 100 gets dicey i think, way to fix is go back up to 5000, then adjust from there
-        #calculcate rate using mulitply factor, if 1 then as below if 2 then 
-        waveform.rate = int(freq*num_points/multiply_factor)
+            meow.append(value)
+        waveform.rate = int(freq*num_points)
+        waveform.length = num_points
+        #last safety net
         if waveform.rate < 100:
             print('WARNING will most likely not work as data rate between instruments is too low. Try to send more points')
         if waveform.rate > self.max_sampling_rate_out:
             raise ValueError("ERROR: Frequency is above the limitations of the instrument")
-        print(waveform.rate)
 
     def output_enable(self, channel: str='0', on=True):
         """
@@ -339,7 +390,7 @@ class MCC_DAQ(Instrument):
                         ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
         if on:
             ul.a_out_scan(self.board_num, int(channel), int(channel),
-                          num_points=len(waveform.data), rate=waveform.rate, 
+                          num_points=waveform.length, rate=waveform.rate, 
                           ul_range=self.ao_info.supported_ranges[0], memhandle=waveform.memhandle,
                           options=scan_options)
         else:
@@ -358,11 +409,48 @@ class Waveform_holder():
         self.channel = channel
         self.memhandle = None # not initialized yet
         self.rate = 5000 #not initialized
+        if data is not None:
+            self.length = len(data)
+        else:
+            self.length = None
 
 
 """
 Custom Helper Functions
 """
+
+def get_sparse_array(arr):
+    """
+    Taken with help from Deepseek V3 Deepthink 
+    Used to re sparse an array from a dense array
+    """
+    
+    # Step 1: Create groups of consecutive elements
+    groups = []
+    current_val = arr[0]
+    current_count = 1
+    for val in arr[1:]:
+        if val == current_val:
+            current_count += 1
+        else:
+            groups.append((current_val, current_count))
+            current_val = val
+            current_count = 1
+    groups.append((current_val, current_count))
+    
+    # Step 2: Check if all group counts are even
+    all_even = all(count % 2 == 0 for (_, count) in groups)
+    if not all_even:
+        return arr.copy()
+    
+    # Step 3: Construct the result by taking half from each group
+    result = []
+    for val, count in groups:
+        result.extend([val] * (count // 2))
+    
+    return result
+
+        
 
 def initialize_built_in_functions():
     pass
