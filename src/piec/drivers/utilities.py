@@ -12,11 +12,16 @@ except FileNotFoundError:
 class PiecManager():
     """
     Basically Resource Manager that melds MCC digilent stuff into it
+    Alllows to get all resources
     """
     def __init__(self):
         self.rm = ResourceManager()
 
-    def list_resources(self):
+    def parse_resources(self):
+        """
+        Runs list_resources() and then tries to idn each resource
+        want waht drivers can be used for it as well
+        """
         visa = self.rm.list_resources()
         mcc = list_mcc_resources()
         return tuple(list(visa) + mcc)

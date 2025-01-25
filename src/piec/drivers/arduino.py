@@ -8,7 +8,6 @@ import time
 import re
 import pyvisa
 from pyvisa import ResourceManager
-timeout = 10
 class Arduino_Stepper(Instrument):
     """
     Custom Class for using an arduino as a stepper motor driver. See https://github.com/ElPsyKurisu/STFMR/tree/main/Arduino for more information

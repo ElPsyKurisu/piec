@@ -112,3 +112,4 @@ def interpolate_sparse_to_dense(x_sparse, y_sparse, total_points=100):
         y_dense.append(y_dense[-1])
 
     return np.array(y_dense)
+

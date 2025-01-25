@@ -2,6 +2,7 @@
 This is the top level instrument that dictates if something is scpi, dac, arduino, etc.
 """
 from pyvisa import ResourceManager
+#ovverride resource manager with digilient
 #good
 class Instrument:
     # Initializer / Instance attributes
