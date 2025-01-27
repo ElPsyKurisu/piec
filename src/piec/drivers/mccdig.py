@@ -44,39 +44,6 @@ class MCC_DAQ(Instrument):
         #used to store data maybe make a new class for this
         self.waveforms = [] #initialize a holder to hold all the waveforms. starts empty
         self.active_waveform = None
-        self._initialize_built_in_functions() #initializes the correct holder for sin, square, ramp etc
-
-    def _initialize_built_in_functions(self):
-        """
-        Helper function for internal use to create sine, square, ramp etc wf
-        THIS WONT WORK SINCE I NEED TO CALCULATE EACH TIME FOR THE FREQ TO MAKE IT WORK BEST
-        OTHERWISE WE LIMITED TO UNDER 1HZ
-        """
-        print("helllooooo")
-        num_points = self.max_sampling_rate_out #sets to max so it works
-        data_array = []
-        for i in range(num_points):
-            value = np.sin(2*np.pi*i/num_points)
-            data_array.append(value)
-        sin_waveform = Waveform_holder("SIN", data_array, '0')
-        self.waveforms.append(sin_waveform)
-        print("initialized waveforms")
-        """
-        if func == "SIN":
-            for i in range(num_points):
-                value = amplitude*np.sin(2*np.pi*freq*i/num_points) + y_offset
-                data_array[i] = value
-        if func == "RAMP":
-            freq = int(freq)
-            y_arr = [0,1,0,-1]*freq +[0] #doulbes it 
-            x_arr = np.linspace(0, len(y_arr), len(y_arr))
-            #frequnecy is 1 hz if we use max_sampling rate_out
-            new_data = interpolate_sparse_to_dense(x_arr, y_arr, self.max_sampling_rate_out)
-            for i in range(num_points):
-                value = amplitude*new_data[i] + y_offset
-                data_array[i] = value
-        """
-
 
     def idn(self):
         """
@@ -158,48 +125,15 @@ class MCC_DAQ(Instrument):
         built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC']
         if func in built_in_list:
             self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
-            #self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
         else:
             self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
-            #raise ValueError("No valid waveform defined need to change so built in work (fake built in)")
         self.active_waveform = func #now we have the name of the configured waveform
-        '''
-        """
-        scan_options = (ScanOptions.BACKGROUND |
-                        ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
-        ao_range = self.ao_info.supported_ranges[0]
-        max_sampling_rate = ul.get_config(InfoType.BOARDINFO, self.board_num, 0, BoardInfo.ADMAXRATE) #returns int of max sample rate
-        #NOTE there is no function to get  max output analog rate. currently 5k is the max
-        max_sampling_rate = 5000
-        """
-        freq = float(frequency)
-        amplitude = float(voltage)/2
 
-        
-        #memhandle = ul.scaled_win_buf_alloc(num_points)
-        #data_array = cast(memhandle, POINTER(c_double))
-        if func == "SIN":
-            """
-            Creates a memhandle that holds the sine wave as we want it in ctypes
-            """
-            self.memhandle = ul.scaled_win_buf_alloc(self.max_sampling_rate_out)
-            num_points = self.max_sampling_rate_out
-            data_array = cast(self.memhandle, POINTER(c_double))
-            y_offset = 0
-            for i in range(num_points):
-                value = amplitude*np.sin(2*np.pi*freq*i/self.max_sampling_rate_out) + y_offset
-                data_array[i] = value
-        #actual output
-        #low chan and high chan should be the same and is just the channel number so it only outputs on 1 channel
-        """
-        ul.a_out_scan(self.board_num, int(channel), int(channel),
-                          num_points, max_sampling_rate, ao_range, memhandle,
-                          scan_options) #technically this should not be called here, should be called on enable_output
-        """
-        '''
     def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
         """
         Decides what built-in wf to send - by default sin
+
+        NOTE: Currently only works with SIN, SQU, RAMP, NOIS, DC, SIN must be above 1Hz, SQU must be 50% duty cycle, and invert does nothing
 
         args:
             self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
@@ -212,51 +146,11 @@ class MCC_DAQ(Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        #NOTE I think i will just do it all manually here, since the built in functions are limited
-        waveform_list = self.waveforms
-        print(len(waveform_list), "len")
-        print("name")
-        #check if name is already used
-        for i in range(len(waveform_list)):
-            wave_name = waveform_list[i].name #gets the name
-            print(wave_name)
-            if func ==  wave_name:
-                waveform = waveform_list[i]
-        #data = waveform.data
-        #freq = float(frequency)
-        """
-        if func == "SIN":
-            rate = self.max_sampling_rate_out
-            num_points = rate
-            #check low freq okay
-            rate = int(freq*num_points)
-            #this ensures stuff at high freq works??
-            if rate > self.max_sampling_rate_out:
-                num_points = int(self.max_sampling_rate_out/freq) #gets me 2.5k
-            if num_points < 10:
-                pass
-            while rate > 5000:
-                num_points -= 1
-                rate = int(freq*num_points)
-            
-            num_points_per_sin = freq/rate
-            while num_points_per_sin < 8:
-                
-            if freq/self.max_sampling_rate_out > 10:
-                pass
-            divide_factor = 1
-            num_points = self.max_sampling_rate_out
-            while num_points > self.max_sampling_rate_out/4:
-                divide_factor +=1
-                num_points = 
-            for i in range()
-        """
-        #NOTE START HERE
         num_points = self.max_sampling_rate_out #sets to max
-        amplitude = float(voltage)/2 #converts to V_pp unsure how it works for assymetrical stuff
+        amplitude = float(voltage)/2 #converts to V_pp assuming symmetrical
         freq = float(frequency)
         y_offset = float(offset)
-        #check if waveform previsouly made then delete if happened
+        #check if waveform exists made then delete if happened
         waveforms = self.waveforms
         for i in range(len(waveforms)):
             wave_name = waveforms[i].name
@@ -286,12 +180,6 @@ class MCC_DAQ(Instrument):
             #NOTE DOES NOT WORK WITH DUTY CYCLE.
             if duty_cycle != '50':
                 raise ValueError("ERROR: Duty cycle not supported for driver atm")
-            """
-            for i in range(len(waveforms)):
-                wave_name = waveforms[i].name
-                if wave_name == "SQU": #dumb method to work with arb for now
-                    del waveforms[i]
-            """
             data = [-1,1]
             self.create_arb_wf(data, "SQU", channel)
             self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
@@ -314,14 +202,8 @@ class MCC_DAQ(Instrument):
                 value = amplitude*new_data[i] + y_offset
                 data_array[i] = value
         if func == "PULS":
-            raise ValueError("ERROR: PULS not supported for driver atm")
+            raise ValueError("ERROR: PULS not supported for driver atm, USE ARB WF")
         if func == "NOIS":
-            """
-            for i in range(len(waveforms)):
-                wave_name = waveforms[i].name
-                if wave_name == "NOIS": #dumb method to work with arb for now
-                    del waveforms[i]
-            """
             length = self.max_sampling_rate_out
             data = [random.uniform(-1, 1) for _ in range(length)]
             self.create_arb_wf(data, "NOIS", channel)
