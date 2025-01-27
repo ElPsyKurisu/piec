@@ -132,8 +132,9 @@ class MCC_DAQ(Instrument):
     def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
         """
         Decides what built-in wf to send - by default sin
+        CURRENTLY ONLY WORKS IN CONTINOUS MODE NO TRIGGER SYSTEM SETUP YET
 
-        NOTE: Currently only works with SIN, SQU, RAMP, NOIS, DC, SIN must be above 1Hz, SQU must be 50% duty cycle, and invert does nothing
+        NOTE: Currently only works with SIN, SQU, RAMP, NOIS, DC, SIN must be above 1Hz, SQU must be 50% duty cycle, and invert only for noise or square
 
         args:
             self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
