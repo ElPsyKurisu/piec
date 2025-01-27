@@ -7,7 +7,7 @@ from the original probe to the instrument in the __init__ file
 
 """
 from piec.analysis.utilities import interpolate_sparse_to_dense
-
+import random
 try:
     from mcculw import ul
     from mcculw.enums import InterfaceType, BoardInfo, ScanOptions, InfoType, FunctionType
@@ -45,9 +45,6 @@ class MCC_DAQ(Instrument):
         self.waveforms = [] #initialize a holder to hold all the waveforms. starts empty
         self.active_waveform = None
         self._initialize_built_in_functions() #initializes the correct holder for sin, square, ramp etc
-        self.data = None
-        self.memhandle = None
-        self.data_len = None
 
     def _initialize_built_in_functions(self):
         """
@@ -125,7 +122,6 @@ class MCC_DAQ(Instrument):
             channel (str): What channel to put the volatile WF on
         """
         #need to make sure its scaled between -1 and 1 unless greater than zero
-        self.data_len = len(data)
         abs_max_val = np.max(np.abs(data))
         scaled_data = data/abs_max_val
         if name is None:
@@ -216,7 +212,7 @@ class MCC_DAQ(Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        
+        #NOTE I think i will just do it all manually here, since the built in functions are limited
         waveform_list = self.waveforms
         print(len(waveform_list), "len")
         print("name")
@@ -226,8 +222,8 @@ class MCC_DAQ(Instrument):
             print(wave_name)
             if func ==  wave_name:
                 waveform = waveform_list[i]
-        data = waveform.data
-        freq = float(frequency)
+        #data = waveform.data
+        #freq = float(frequency)
         """
         if func == "SIN":
             rate = self.max_sampling_rate_out
@@ -255,42 +251,85 @@ class MCC_DAQ(Instrument):
                 num_points = 
             for i in range()
         """
-
-        self.data_len = self.max_sampling_rate_out #sets to max so it works
-        num_points = self.data_len
-        self.memhandle = ul.scaled_win_buf_alloc(num_points)
-        data_array = cast(self.memhandle, POINTER(c_double))
+        #NOTE START HERE
+        num_points = self.max_sampling_rate_out #sets to max
         amplitude = float(voltage)/2 #converts to V_pp unsure how it works for assymetrical stuff
         freq = float(frequency)
         y_offset = float(offset)
+        #check if waveform previsouly made then delete if happened
+        waveforms = self.waveforms
+        for i in range(len(waveforms)):
+            wave_name = waveforms[i].name
+            if wave_name == func:
+                del waveforms[i]
+        #create waveform_holder
+        wave_holder = Waveform_holder(func, None, channel) #data wont matter since we are using built in
         if func == "SIN":
+            self.waveforms.append(wave_holder)
+            #calculate the number of points per sin wave for given freq aka if under 1HZ, make num points bigger
+            #NOTE WIP FOR NOW UNDER 1HZ not allowed
+            if freq < 1: #place holder for 1Hz
+                raise ValueError("ERROR: Frequency is below the limitations of the driver")
+                #num_points = int(self.max_sampling_rate_out/freq)
+            else:
+                num_points = self.max_sampling_rate_out
+            #create memhandle
+            wave_holder.memhandle = ul.scaled_win_buf_alloc(num_points)
+            data_array = cast(wave_holder.memhandle, POINTER(c_double))
+            wave_holder.length = num_points
+            wave_holder.rate = self.max_sampling_rate_out
             for i in range(num_points):
-                #wont work for under 1Hz
+                #wont work for under 1Hz MAYBE WILL NOW CHECK
                 value = amplitude*np.sin(2*np.pi*freq*i/num_points) + y_offset
                 data_array[i] = value
+        if func == "SQU" or func == "SQUARE":
+            #NOTE DOES NOT WORK WITH DUTY CYCLE.
+            if duty_cycle != '50':
+                raise ValueError("ERROR: Duty cycle not supported for driver atm")
+            """
+            for i in range(len(waveforms)):
+                wave_name = waveforms[i].name
+                if wave_name == "SQU": #dumb method to work with arb for now
+                    del waveforms[i]
+            """
+            data = [-1,1]
+            self.create_arb_wf(data, "SQU", channel)
+            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
         if func == "RAMP":
+            self.waveforms.append(wave_holder)
+            #NOTE HAS slight drift in time.
+            if freq < 1:
+                raise ValueError("ERROR: Frequency is below the limitations of the driver")
+            wave_holder.memhandle = ul.scaled_win_buf_alloc(num_points)
+            data_array = cast(wave_holder.memhandle, POINTER(c_double))
+            wave_holder.length = num_points
+            wave_holder.rate = self.max_sampling_rate_out
             freq = int(freq)
-            y_arr = [0,1,0,-1]*freq +[0] #doulbes it 
+            y_arr = [0,1,0,-1]*freq +[0] #NEEDS TO START AND END WITH SAME THING OTHERWISE GETS MESSED UP
             x_arr = np.linspace(0, len(y_arr), len(y_arr))
             #frequnecy is 1 hz if we use max_sampling rate_out
-            new_data = interpolate_sparse_to_dense(x_arr, y_arr, self.max_sampling_rate_out)
+            new_data = interpolate_sparse_to_dense(x_arr, y_arr, self.max_sampling_rate_out+1)
+            new_data = new_data[:-1] #removes the last element
             for i in range(num_points):
                 value = amplitude*new_data[i] + y_offset
                 data_array[i] = value
-        """
-        self.instrument.write(":SOUR:FUNC{} {}".format(channel, func)) 
-        self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
-        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
-        self.instrument.write(":VOLT{} {}".format(channel, voltage))
-        if func.lower() == 'squ' or func.lower() == 'square':
-            self.instrument.write(":SOUR:FUNC{}:SQU:DCYC {}".format(channel, duty_cycle)) 
-        if func.lower() == 'pulse' or func.lower() == 'puls':
-            self.instrument.write(":SOUR:FUNC{}:PULS:DCYC {}".format(channel, duty_cycle))
-        if invert:
-            self.instrument.write(":OUTP{}:POL INV".format(channel))
-        else:
-            self.instrument.write(":OUTP{}:POL NORM".format(channel))
-        """
+        if func == "PULS":
+            raise ValueError("ERROR: PULS not supported for driver atm")
+        if func == "NOIS":
+            """
+            for i in range(len(waveforms)):
+                wave_name = waveforms[i].name
+                if wave_name == "NOIS": #dumb method to work with arb for now
+                    del waveforms[i]
+            """
+            length = self.max_sampling_rate_out
+            data = [random.uniform(-1, 1) for _ in range(length)]
+            self.create_arb_wf(data, "NOIS", channel)
+            self._configure_arb_wf(channel, func, voltage, offset, 1, invert)
+        if func == "DC":
+            #NOTE NO checking for if out of range, aak if you give 11 volts it will just output the max of the instrument (10)
+            self.waveforms.append(wave_holder)
+            wave_holder.data = float(voltage) + y_offset
 
     def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
         """
@@ -385,11 +424,14 @@ class MCC_DAQ(Instrument):
             if self.active_waveform ==  wave_name:
                 waveform = waveform_list[i]
         if waveform is None:
-            raise ValueError("Error no correct output selected")
+            raise ValueError("Error nothing to output, please configure a waveform")
         scan_options = (ScanOptions.BACKGROUND |
                         ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
         if on:
-            ul.a_out_scan(self.board_num, int(channel), int(channel),
+            if waveform.name == 'DC':
+                self.v_out(int(channel), waveform.data)
+            else:
+                ul.a_out_scan(self.board_num, int(channel), int(channel),
                           num_points=waveform.length, rate=waveform.rate, 
                           ul_range=self.ao_info.supported_ranges[0], memhandle=waveform.memhandle,
                           options=scan_options)
