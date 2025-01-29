@@ -1,2 +1,4 @@
+from .instrument import *
 from .scpi_instrument import *
-#from pymeasure.instruments import* no more
+from .arduino import *
+from .mccdig import *
