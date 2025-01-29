@@ -3,7 +3,7 @@ Set's up the arduino instrument class that all arduino instruments will inherit 
 
 """
 
-from .instrument import Instrument
+from piec.drivers.instrument import Instrument
 import time
 import re
 import pyvisa

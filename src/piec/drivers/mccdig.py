@@ -20,7 +20,7 @@ import numpy as np
 
 
 
-from .instrument import Instrument
+from piec.drivers.instrument import Instrument
 
 class MCC_DAQ(Instrument):
     """
@@ -311,6 +311,8 @@ class MCC_DAQ(Instrument):
         scan_options = (ScanOptions.BACKGROUND |
                         ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA)
         if on:
+            #turns off first in case
+            ul.stop_background(self.board_num, FunctionType.AOFUNCTION) #warning this will stop ALL channels atm
             if waveform.name == 'DC':
                 self.v_out(int(channel), waveform.data)
             else:
