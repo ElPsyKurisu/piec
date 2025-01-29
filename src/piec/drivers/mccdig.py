@@ -6,6 +6,7 @@ from the original probe to the instrument in the __init__ file
 
 
 """
+import numpy as np
 from piec.analysis.utilities import interpolate_sparse_to_dense
 import random
 try:
@@ -16,7 +17,6 @@ try:
 except FileNotFoundError:
     raise FileNotFoundError('Please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
 from typing import Union
-import numpy as np
 
 
 
