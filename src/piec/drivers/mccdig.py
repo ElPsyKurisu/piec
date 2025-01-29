@@ -20,7 +20,7 @@ import numpy as np
 
 
 
-from instrument import Instrument
+from .instrument import Instrument
 
 class MCC_DAQ(Instrument):
     """
