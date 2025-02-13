@@ -52,12 +52,14 @@ class Arduino_Stepper(Instrument):
         """
         Hardcoded command that sets the arduinos position tracker to zero
         """
+        time.sleep(2) #ensure that arduino has time to recieve the data
         self.step(0,9)
 
     def read_position(self):
         """
         Reads the current position without stepping the stepper
         """
+        time.sleep(2) #ensure that arduino has time to recieve the data
         position = self.step(0,99)
         if position is not None:
             return position
