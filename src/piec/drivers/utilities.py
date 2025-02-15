@@ -29,7 +29,7 @@ class PiecManager():
             print('Warning MCCULW not installed')
             mcc = []
         return tuple(list(visa) + mcc)
-    
+
     def list_open_resources(self):
         visa = self.rm.list_opened_resources()
         return tuple(list(visa))

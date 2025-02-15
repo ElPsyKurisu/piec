@@ -22,75 +22,55 @@ class EDC522(Instrument):
         """Query the instrument for any error messages."""
         self.device.write("?")
         return self.device.read()
+     
 
     def set_output(self, value, mode="voltage"):
         """
-        Configures the ouput of the EDC 522 to a valid output
+        Formats a current or voltage value into an 8-character string for instrument control.
+        Automatically determines the appropriate range.
 
-        args:
-            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
-            value (str): Desired output value (either current or voltage)
-            mode (str): mode args = [voltage, current]
+        Args:
+            value (float or int): The value to send to the instrument.
+            mode (str, optional): "voltage" or "current". Defaults to "voltage".
+
+        Returns:
+            str: An 8-character command string, or None if input is invalid or value is out of range.
         """
+
+        if mode not in ("voltage", "current"):
+            return None  # Invalid data type
+
+        if value == 0:
+            return "00000000"  # Crowbar for 0 (all zeros)
+
+        polarity = "+" if value > 0 else "-"
+        abs_value = abs(value)
 
         if mode == "voltage":
-            self.set_voltage(value)
+            ranges = [0.1, 10, 100, 1000]  # Volts
+            range_chars = "0123"  # Corresponding range characters
         elif mode == "current":
-            self.set_current(value)
+            ranges = [0.01, 0.1]  # Amps
+            range_chars = "45" # Corresponding range characters
         else:
-            raise ValueError("Invalid mode. Must be 'voltage' or 'current'")        
+            return None
 
-        def set_current(self, current):
-            """
-            Set the output voltage.
+        best_range_index = -1
+        scaled_value = 0
 
-            :param voltage: Desired output voltage in volts.
-            """
-            if not (-.111111 <= current <= .111111):
-                raise ValueError("Current out of range (-.111111V to .111111V)")
-            
-            sign = "+" if current >= 0 else "-"
-            abs_current = abs(current)
-            
-            # Convert voltage to six-character string
-            magnitude = f"{abs_current:06.3f}".replace(".", "")
+        for i, r in enumerate(ranges):
+            scaled = abs_value / r
+            if 0 <= scaled < 10:  # Value fits in this range
+                best_range_index = i
+                scaled_value = scaled
+                break
 
-            # Select range based on voltage
-            if abs_current <= 10e-3:
-                range_code = "4"
-            elif abs_current <= 100e-3:
-                range_code = "5"
+        if best_range_index == -1:
+            return None  # Value is out of all available ranges
 
-            command = f"{sign}{magnitude}{range_code}"
-            self.device.write(command)
-
-    def set_voltage(self, voltage):
-        """
-        Set the output voltage.
-
-        :param voltage: Desired output voltage in volts.
-        """
-        if not (-111.111 <= voltage <= 111.111):
-            raise ValueError("Voltage out of range (-111.111V to 111.111V)")
-        
-        sign = "+" if voltage >= 0 else "-"
-        abs_voltage = abs(voltage)
-        
-        #NOTE hiding J functionality used instead of 10 
-        #example would be "+JJJJJJ1" would send 11.111V
-        # Convert voltage to six-character string
-        magnitude = f"{abs_voltage:06.3f}".replace(".", "")
-
-        # Select range based on voltage
-        if abs_voltage <= 0.1:
-            range_code = "0"
-        elif abs_voltage <= 10:
-            range_code = "1"
-        else:
-            range_code = "2"
-
-        command = f"{sign}{magnitude}{range_code}"
-        self.device.write(command)
+        digits_str = "{:06.0f}".format(scaled_value * 100000)
+        command = f"{polarity}{digits_str}{range_chars[best_range_index]}"
+        self.instrument.write(command)
 
 #helper func
 import re
@@ -102,3 +82,57 @@ def extract_number(input_string):
         return match.group(0)
     else:
         return None
+    
+"""
+Old function to allow for the range 10 and 11.1111 values
+
+def format_instrument_command(value, data_type="voltage"):
+    '''Formats a value into an 8-character instrument command string.'''
+
+    if data_type not in ("voltage", "current"):
+        return None
+
+    if value == 0:
+        return "00000000"
+
+    polarity = "+" if value > 0 else "-"
+    abs_value = abs(value)
+
+    if data_type == "voltage":
+        ranges = [0.1, 10, 100, 1000]
+        range_chars = "0123"
+        max_values = [0.9999999, 11.11111, 111.1111, 1111.111]  # Slightly higher max values
+    elif data_type == "current":
+        ranges = [0.01, 0.1]
+        range_chars = "45"
+        max_values = [0.00999999, 0.1111111]  # Slightly higher max values
+    else:
+        return None
+
+    for i, r in enumerate(ranges):
+        if abs_value <= max_values[i]:  # Check against max value for the range
+            scaled = abs_value / r
+            best_range_index = i
+            scaled_value = scaled
+            break
+    else:  # No suitable range was found
+        return None
+
+    digits_str = "{:06.0f}".format(scaled_value * 100000)
+
+    # J handling:
+    if best_range_index == 1 and scaled_value == 10:  # Exactly 10V
+        digits_str = "J00000"
+    elif best_range_index == 1 and 1 <= scaled_value < 10: # 1V to 9.99999V in 10V range
+        digits = []
+        for digit in str(int(scaled_value * 100000)):
+            if digit == '1':
+                digits.append('J')
+            else:
+                digits.append(digit)
+        digits_str = "".join(digits).zfill(6)
+
+    return f"{polarity}{digits_str}{range_chars[best_range_index]}"
+
+"""
+

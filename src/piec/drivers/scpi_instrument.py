@@ -315,9 +315,11 @@ class Scope(SCPI_Instrument):
 
     def initiate(self):
         """
-        Starts the measurement and acquires the channels currently 
-        displayed. If no channels are displayed, all channels are 
-        acquired.
+        The :DIGitize command is a specialized RUN command. It causes the instrument 
+    to acquire waveforms according to the settings of the :ACQuire commands 
+    subsystem. When the acquisition is complete, the instrument is stopped.
+    If no argument is given, :DIGitize acquires the channels currently displayed. If no 
+    channels are displayed, all channels are acquired.
 
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
@@ -667,6 +669,17 @@ class Awg(SCPI_Instrument):
             
         """
         self.instrument.write(":TRACK:CHAN1 ON")
+
+class DMM(SCPI_Instrument):
+    """
+    Sub-class of Instrument to hold the general methods used by a DMM.
+    """
+    def configure(self):
+        """
+        Configures the DMM to measure the correct thing
+        """
+        self.instrument.write(":SENS:FUNC VOLT:DC")
+
 
 
 """
