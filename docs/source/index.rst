@@ -21,6 +21,4 @@ Contents
 
    measurements
 
-   modules
-
 Sample text
