@@ -24,7 +24,7 @@ class EDC522(Instrument):
         return self.instrument.read()
      
 
-    def set_output(self, value, mode="voltage"):
+    def set_output(self, value, mode="voltage", opt=False):
         """
         Formats a current or voltage value into an 8-character string for instrument control.
         Automatically determines the appropriate range.
@@ -32,34 +32,40 @@ class EDC522(Instrument):
         Args:
             value (float or int): The value to send to the instrument.
             mode (str, optional): "voltage" or "current". Defaults to "voltage".
+            opt (bool, optional): Is only TRUE if high voltage option is connected. Enables the 1000V range
 
         Returns:
             str: An 8-character command string, or None if input is invalid or value is out of range.
         """
-
+        if opt:
+            self.voltage_range = (-1000, 1000)
         if mode not in ("voltage", "current"):
             return None
 
         if value == 0:
-            return "00000000"
+            return "00000000" #sets to crowbar mode
 
         polarity = "+" if value > 0 else "-"
         abs_value = abs(value)
 
         if mode == "voltage":
+            if abs_value >max(self.voltage_range):
+                raise ValueError("Voltage value out of range")
             ranges = [0.1, 10, 100, 1000]
             range_chars = "0123"
             max_values = [0.9999999, 10, 100, 1000]  # Slightly higher max values
         elif mode == "current":
+            if abs_value >max(self.current_range):
+                raise ValueError("Current value out of range")
             ranges = [0.01, 0.1]
             range_chars = "45"
             max_values = [0.00999999, 0.1]  # Slightly higher max values
         else:
             return None
-
+        #NOTE, want it to defaault to lowest possible range if possible. therefore iterate bottom up
         for i, r in enumerate(ranges):
             if abs_value <= max_values[i]:  # Check against max value for the range
-                scaled = abs_value / r
+                scaled = abs_value / r 
                 best_range_index = i
                 scaled_value = scaled
                 break
@@ -69,17 +75,11 @@ class EDC522(Instrument):
         digits_str = "{:06.0f}".format(scaled_value * 100000)
 
         # J handling:
-        if best_range_index == 1 and scaled_value == 10:  # Exactly 10V
+        J_vals = [100e-3, 10, 100, 1000]
+        if abs_value in J_vals:
             digits_str = "J00000"
-        elif best_range_index == 1 and 1 <= scaled_value < 10: # 1V to 9.99999V in 10V range
-            digits = []
-            for digit in str(int(scaled_value * 100000)):
-                if digit == '1':
-                    digits.append('J')
-                else:
-                    digits.append(digit)
-            digits_str = "".join(digits).zfill(6)
         command = f"{polarity}{digits_str}{range_chars[best_range_index]}"
+        print(command)
         self.instrument.write(command)
 
 #helper func
