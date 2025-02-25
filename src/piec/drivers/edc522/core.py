@@ -9,8 +9,8 @@ class EDC522(Instrument):
     """
     Specific Class for exact model of Model 522. Currently only supports a single read out funciton
     """
-    voltage_range = (-111.111, 111.111) #volts
-    current_range = (-.111111, .111111) #amps
+    voltage_range = (-100, 100) #volts
+    current_range = (-.1, .1) #amps
 
 
     def idn(self):
@@ -38,37 +38,47 @@ class EDC522(Instrument):
         """
 
         if mode not in ("voltage", "current"):
-            return None  # Invalid data type
+            return None
 
         if value == 0:
-            return "00000000"  # Crowbar for 0 (all zeros)
+            return "00000000"
 
         polarity = "+" if value > 0 else "-"
         abs_value = abs(value)
 
         if mode == "voltage":
-            ranges = [0.1, 10, 100, 1000]  # Volts
-            range_chars = "0123"  # Corresponding range characters
+            ranges = [0.1, 10, 100, 1000]
+            range_chars = "0123"
+            max_values = [0.9999999, 10, 100, 1000]  # Slightly higher max values
         elif mode == "current":
-            ranges = [0.01, 0.1]  # Amps
-            range_chars = "45" # Corresponding range characters
+            ranges = [0.01, 0.1]
+            range_chars = "45"
+            max_values = [0.00999999, 0.1]  # Slightly higher max values
         else:
             return None
 
-        best_range_index = -1
-        scaled_value = 0
-
         for i, r in enumerate(ranges):
-            scaled = abs_value / r
-            if 0 <= scaled < 10:  # Value fits in this range
+            if abs_value <= max_values[i]:  # Check against max value for the range
+                scaled = abs_value / r
                 best_range_index = i
                 scaled_value = scaled
                 break
-
-        if best_range_index == -1:
-            return None  # Value is out of all available ranges
+        else:  # No suitable range was found
+            return None
 
         digits_str = "{:06.0f}".format(scaled_value * 100000)
+
+        # J handling:
+        if best_range_index == 1 and scaled_value == 10:  # Exactly 10V
+            digits_str = "J00000"
+        elif best_range_index == 1 and 1 <= scaled_value < 10: # 1V to 9.99999V in 10V range
+            digits = []
+            for digit in str(int(scaled_value * 100000)):
+                if digit == '1':
+                    digits.append('J')
+                else:
+                    digits.append(digit)
+            digits_str = "".join(digits).zfill(6)
         command = f"{polarity}{digits_str}{range_chars[best_range_index]}"
         self.instrument.write(command)
 
