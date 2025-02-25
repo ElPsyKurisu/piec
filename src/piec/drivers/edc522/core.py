@@ -31,7 +31,7 @@ class EDC522(Instrument):
 
         Args:
             value (float or int): The value to send to the instrument.
-            mode (str, optional): "voltage" or "current". Defaults to "voltage".
+            mode (str, optional): "voltage" or "current" or "crowbar". Defaults to "voltage".
             opt (bool, optional): Is only TRUE if high voltage option is connected. Enables the 1000V range
 
         Returns:
@@ -39,11 +39,16 @@ class EDC522(Instrument):
         """
         if opt:
             self.voltage_range = (-1000, 1000)
-        if mode not in ("voltage", "current"):
+        if mode not in ("voltage", "current", "crowbar"):
             return None
-
+        if mode == "crowbar":
+            self.instrument.write("00000000") #puts it in crowbar mode
         if value == 0:
-            return "00000000" #sets to crowbar mode
+            self.instrument.write("+0000000") #defaults to positive mode
+            return
+        if value == "-0":
+            self.instrument.write("-0000000") #negative negative mode
+            return
 
         polarity = "+" if value > 0 else "-"
         abs_value = abs(value)
