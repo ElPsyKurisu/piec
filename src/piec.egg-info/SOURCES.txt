@@ -26,6 +26,10 @@ src/piec/drivers/virtual_osc_trace.csv
 src/piec/drivers/virtual_scpi_queries.json
 src/piec/drivers/digilent1/__init__.py
 src/piec/drivers/digilent1/core.py
+src/piec/drivers/edc522/__init__.py
+src/piec/drivers/edc522/core.py
+src/piec/drivers/keithley193a/__init__.py
+src/piec/drivers/keithley193a/core.py
 src/piec/drivers/keysight81150a/__init__.py
 src/piec/drivers/keysight81150a/core.py
 src/piec/drivers/keysightdsox3024a/__init__.py

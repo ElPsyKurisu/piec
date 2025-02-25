@@ -15,13 +15,13 @@ class EDC522(Instrument):
 
     def idn(self):
         """Query the instrument identity."""
-        self.device.write("ID?")
-        return self.device.read()
+        self.instrument.write("ID?")
+        return self.instrument.read()
 
     def query_error(self):
         """Query the instrument for any error messages."""
-        self.device.write("?")
-        return self.device.read()
+        self.instrument.write("?")
+        return self.instrument.read()
      
 
     def set_output(self, value, mode="voltage"):
