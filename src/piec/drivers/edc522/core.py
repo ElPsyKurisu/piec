@@ -72,7 +72,7 @@ class EDC522(Instrument):
         else:  # No suitable range was found
             return None
 
-        digits_str = "{:06.0f}".format(scaled_value * 100000)
+        digits_str = "{:06.0f}".format(scaled_value * 1000000)
 
         # J handling:
         J_vals = [100e-3, 10, 100, 1000]
