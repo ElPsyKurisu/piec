@@ -4,7 +4,7 @@ This is for the KEYSIGHT 81150A Arbitrary Waveform Generator and requires the KE
 import numpy as np
 import time
 from piec.drivers.instrument import Instrument
-#yes
+import pyvisa
 
 class Keithley193a(Instrument):
     """
@@ -14,7 +14,20 @@ class Keithley193a(Instrument):
         """
         Queries the instrument for its ID SHOULD BE OVERRIDDEN AS NECESSARY
         """
-        return self.instrument.query('*IDN?')
+        start_time = time.time()
+        try:
+            while True:
+                # Check if 5 seconds have passed
+                if time.time() - start_time > 5:
+                    raise pyvisa.errors.VisaIOError(pyvisa.constants.VI_ERROR_TMO)
+
+                if self.read_voltage() is not None:
+                    return "Custom Keithley193a Object at {}".format(self.instrument.resource_name)
+                
+        except pyvisa.errors.VisaIOError as e: 
+            if e.error_code == pyvisa.constants.VI_ERROR_TMO:
+                print("Timeout error occurred while waiting for the Keithley.")
+                return "Not connected"
     def read_voltage(self):
         """
         Reads the voltage from the DMM and returns a string
