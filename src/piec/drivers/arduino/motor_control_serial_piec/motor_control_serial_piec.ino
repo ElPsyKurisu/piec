@@ -1,5 +1,5 @@
 /*
-1/10/2025 Geo Fratian Brown University
+2/25/2025 Geo Fratian Brown University
 
 This code is used to read out from the Serial (sent via pyvisa) and move a stepper motor 
 a given amount of steps. It is used in conjuction with the python package PIEC
@@ -38,6 +38,9 @@ void loop()
       }
       if (dir == 99){//function to give out current position
         Serial.println(pos);
+      }
+      if (dir == 999){//function to check if serial connection works
+        Serial.println("Connected");
       }
       if (dir == 1){
         digitalWrite(directionPin, HIGH);

@@ -18,7 +18,25 @@ class Arduino_Stepper(Instrument):
         self.instrument.timeout = 20000 #20s
 
     def idn(self):
-        return "Custom Arduino_Stepper Object at {}".format(self.instrument.resource_name)
+        self.instrument.write("0,999") #calls in builtin method to check if serial communication works
+        start_time = time.time()
+        try:
+            while True:
+                # Check if 5 seconds have passed
+                if time.time() - start_time > 5:
+                    raise pyvisa.errors.VisaIOError(pyvisa.constants.VI_ERROR_TMO)
+                
+                # Read a line from the Arduino
+                line = self.instrument.read().strip()
+                
+                # Check if the line contains the "Connected" message
+                if "Connected" in line:
+                    return "Custom Arduino_Stepper Object at {}".format(self.instrument.resource_name)
+                
+        except pyvisa.errors.VisaIOError as e: 
+            if e.error_code == pyvisa.constants.VI_ERROR_TMO:
+                print("Timeout error occurred while waiting for the Arduino.")
+                return "Not connected"
     
     def step(self, num_steps, direction):
         """
