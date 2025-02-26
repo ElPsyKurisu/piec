@@ -6,7 +6,7 @@ Submodules
 
 piec.measurement_waveforms  module
 ------------------------------
-.. automodule:: piec.measurement_waveforms
+.. automodule:: piec.measurement_waveforms.discrete_waveform
    :members:
    :undoc-members:
    :show-inheritance:
