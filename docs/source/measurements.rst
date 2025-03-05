@@ -15,4 +15,4 @@ Single Pulse Waveform Measurment
 
 Single Pulse Waveform Measurments are measurments performed by applying one custom waveform through a sample with an 
 Arbitrary Waveform Generator (AWG) and measuring the current response via an oscilloscope (scope) measuring the voltage across a 50Ohm
-termination to ground. These measurments are handled by measurement objects in the :doc:`measurement_waveforms` module.
+termination to ground. These measurments are handled by measurement objects in the :doc:`piec.measurement_waveforms` module.
