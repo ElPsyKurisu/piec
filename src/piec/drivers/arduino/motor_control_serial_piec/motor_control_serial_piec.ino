@@ -68,5 +68,5 @@ void moveSteps()
   }
   delay(100); //slight delay before turning off the LED
   digitalWrite(ledPin, LOW);
-
+  Serial.println("Completed! Current Positon is: " + String(pos));
 }
