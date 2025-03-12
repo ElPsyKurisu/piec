@@ -7,17 +7,36 @@ from piec.analysis.pund import *
 from piec.analysis.hysteresis import *
 
 class DiscreteWaveform:
+    """
+    Parent class for managing discrete waveform generation and measurement experiments.
+
+    Provides core functionality for configuring Arbitrart Waveform Generator (awg)
+    and oscilloscope (osc), capturing waveforms, saving data, and running analysis
+    on captured waveforms. Designed to be subclassed for specific measurement types.
+    Currently implemented subclasses are Hysteresis and ThreePulsePUND.
+
+    Attributes:
+        awg (visa.Resource): AWG instrument object (REQUIRED)
+        osc (visa.Resource): Oscilloscope instrument object (REQUIRED)
+        v_div (float): Oscilloscope vertical scale in volts/division
+        voltage_channel (str): AWG channel used for voltage output
+        save_dir (str): Directory path for data storage
+        filename (str): Name of saved data file
+        data (pd.DataFrame): Captured waveform data (time and voltage)
+        metadata (pd.DataFrame): Measurement parameters and metadata
+    """
 
     def __init__(self, awg, osc, v_div=0.01, voltage_channel:str='1', save_dir=r'\\scratch'):
+        """Initialize core waveform measurement system.
+
+        Args:
+            awg: VISA address or initialized AWG object
+            osc: VISA address or initialized oscilloscope object
+            v_div: Oscilloscope vertical sensitivity (volts/division)
+            voltage_channel: AWG channel number for voltage output (default '1')
+            save_dir: Data storage directory path (default network scratch)
         """
-        General waveform parent class.
-        
-        :param awg: VISA address of the Arbitrary Waveform Generator
-        :param osc: VISA address of the Oscilloscope
-        :param v_div: volts per division for oscilloscope, make sure you are not clippng!
-        :param voltage_channel: awg channel to write waveform to, defaults to 1
-        :param save_dir: directory where data will be saved, if the directory does not exist it will be created
-        """
+
         self.v_div = v_div
         self.awg = awg
         self.osc = osc
@@ -26,14 +45,25 @@ class DiscreteWaveform:
         self.filename = None
 
     def initialize_awg(self):
+        """
+        Configure basic AWG settings for waveform generation.
+        
+        Sets up impedance matching (50Ω), and manual triggering.
+        Should be called before any waveform-specific configuration.
+        """
         self.awg.initialize()
-        #self.awg.couple_channels() #should not be needed
         self.awg.configure_impedance(channel='1', source_impedance='50.0', load_impedance='50')
         self.awg.configure_trigger(channel='1', trigger_source='MAN')
 
     def configure_oscilloscope(self, channel:str = 1):
         """
-        Configures the Oscilloscope to capture the waveform.
+        Set up oscilloscope for waveform capture.
+        
+        Configures timebase, triggering, and channel settings optimized for
+        capturing the generated waveform. Uses external triggering.
+
+        Args:
+            channel: Oscilloscope channel to configure (default 1)
         """
         self.osc.initialize()
         self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
@@ -43,13 +73,19 @@ class DiscreteWaveform:
 
     def configure_awg(self):
         """
-        Should be defined in the specific measurment child class
+        Placeholder for waveform-specific AWG configuration.
+        
+        Raises:
+            AttributeError: If not implemented in child class
         """
         raise AttributeError("configure_awg() must be defined in the child class specific to a waveform")
 
     def apply_and_capture_waveform(self):
         """
-        Captures the waveform data from the oscilloscope.
+        Execute waveform generation and data acquisition sequence.
+        
+        Coordinates instrument triggering, captures time-voltage data from oscilloscope,
+        and stores results in self.data attribute (pandas DataFrame object). Includes instrument synchronization.
         """
         print(f"Capturing waveform of type {self.type} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
         self.osc.initiate()
@@ -63,9 +99,10 @@ class DiscreteWaveform:
 
     def save_waveform(self):
         """
-        Saves the captured waveform data to a file.
+        Save captured waveform data to CSV file.
         
-        :param directory: Directory where the waveform will be saved (CSV format).
+        Uses meaurement type and notes to generate filename.
+        Requires successful waveform capture prior to calling (self.data must not be None).
         """
         if self.data is not None:
             self.filename = create_measurement_filename(self.save_dir, self.type, self.notes)
@@ -76,9 +113,10 @@ class DiscreteWaveform:
 
     def analyze(self):
         """
-        Analyzes the most recently captured waveform. Should be overwritten by child class.
+        Placeholder for measurement-specific analysis.
         
-        :param directory: Directory where the waveform will be saved (CSV format).
+        Intended for post-processing of captured data. Child classes should
+        implement analysis routines for their specific measurement type.
         """
         if self.data is not None:
             print(f"Analysis method not defined. Not changing {self.filename}")
@@ -87,9 +125,15 @@ class DiscreteWaveform:
         
     def run_experiment(self):
         """
-        Runs the entire experiment by configuring the AWG, capturing the waveform, saving the data, and analyzing the data.
+        Execute complete measurement workflow.
         
-        :param save_path: Directory where the waveform will be saved (default: "\\scratch")
+        Standard sequence:
+        1. Configure oscilloscope
+        2. Initialize AWG
+        3. Apply waveform-specific configuration
+        4. Capture waveform data
+        5. Save results
+        6. Perform analysis
         """
         self.configure_oscilloscope()
         self.initialize_awg()
@@ -102,26 +146,43 @@ class DiscreteWaveform:
 
 class HysteresisLoop(DiscreteWaveform):
 
+
     type = "hysteresis"
-        
+    """
+    Hysteresis loop measurement using triangular excitation waveform.
+    
+    Specializes DiscreteWaveform for ferroelectric hysteresis measurements.
+    Generates bipolar triangle waves and analyzes polarization-voltage loops.
+
+    Attributes:
+        type (str): Measurement type identifier ('hysteresis')
+        frequency (float): Excitation frequency in Hz
+        amplitude (float): Peak voltage amplitude in volts
+        n_cycles (int): Number of waveform cycles to capture
+        area (float): Capacitor area for polarization calculation (m²)
+        show_plots (bool): Display interactive plots flag
+        save_plots (bool): Save plot images flag
+    """
+
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
                  n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8,
                  show_plots=False, save_plots=True, auto_timeshift=False,
                  save_dir=r'\\scratch'):
         """
-        Initializes the HysteresisLoop class.
-        
-        :param frequency: Frequency of the triangle wave (in Hz)
-        :param amplitude: Peak amplitude of the triangle wave (in Volts)
-        :param offset: Offset of the triangle wave (in Volts)
-        :param n_cycles: number of triangle cycles to run
-        :param voltage_channel: which channel to write to/read from, defaults to '1'
-        :param area: area of sample capacitor, used for polarization math (in m^2)
-        :param time_offset: t0 of captured waveform - t0 of trigger waveform, used if auto_timeshift=False (in s)
-        :param show_plots: show matplotlib plots post analysis?
-        :param save_plots: save matplotlib plots post analysis?
-        :param auto_timeshift: try to automatically determine t0 of captured waveform - t0 of trigger waveform?
+        Initialize hysteresis measurement parameters.
+
+        Args:
+            frequency: Triangle wave frequency (1-1000 Hz typical)
+            amplitude: Peak-to-peak voltage amplitude (V)
+            offset: DC voltage offset (V)
+            n_cycles: Number of complete bipolar cycles
+            area: Device capacitor area for polarization calc (m²)
+            time_offset: Manual trigger-capture time alignment (s)
+            show_plots: Show matplotlib plots post analysis?
+            save_plots: Save analysis plots to disk?
+            auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
+        
         super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.length = 1/frequency
 
@@ -144,9 +205,10 @@ class HysteresisLoop(DiscreteWaveform):
 
     def analyze(self):
         """
-        Analyzes the most recently captured waveform. Should be overwritten by child class.
+        Process hysteresis data and calculate polarization parameters.
         
-        :param directory: Directory where the waveform will be saved (CSV format).
+        Performs time alignment, integration for polarization calculation,
+        and generates hysteresis loop plots. Results appended to CSV.
         """
         if self.data is not None:
             process_raw_hyst(self.filename, show_plots=self.show_plots, save_plots=self.save_plots, auto_timeshift=self.auto_timeshift)
@@ -156,7 +218,10 @@ class HysteresisLoop(DiscreteWaveform):
 
     def configure_awg(self):
         """
-        Configures the Arbitrary Waveform Generator (AWG) to output a triangle wave.
+        Generate AWG triangle waveform for hysteresis measurement.
+        
+        Creates multi-cycle bipolar triangle wave with specified parameters.
+        Automatically checks against AWG slew rate limitations.
         """
         # Set the AWG to generate a triangle wave
         interp_v_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
@@ -176,7 +241,21 @@ class HysteresisLoop(DiscreteWaveform):
         self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(self.amplitude)*2}', frequency=f'{self.frequency}', invert=invert) 
 
 class ThreePulsePund(DiscreteWaveform):
+    """
+    PUND (Positive-Up-Negative-Down) pulse measurement system.
+    
+    Implements 3-pulse sequence for ferroelectric capacitor characterization:
+    Reset + Positive (P) + Up (U) (arbitrary polarity) pulses with delay intervals.
+    Measures difference in switching currents between P and U pulse responses to
+    calculate remanent polarization.
 
+    Attributes:
+        type (str): Measurement type identifier ('3pulsepund')
+        reset_amp (float): Reset pulse amplitude (V)
+        p_u_amp (float): Measurement pulse amplitude (V)
+        reset_width (float): Reset pulse duration (s)
+        p_u_width (float): Measurement pulse duration (s)
+    """
     type = "3pulsepund"
 
     def __init__(self, awg=None, osc=None, v_div=0.1,
@@ -185,22 +264,22 @@ class ThreePulsePund(DiscreteWaveform):
                  offset=0, voltage_channel:str='1', area=1e-5, time_offset=1e-8,
                  show_plots=False, save_plots=True, auto_timeshift=True,
                  save_dir=r'\\scratch'):
+        """Initialize PUND pulse parameters.
+
+        Args:
+            reset_amp: Reset pulse amplitude (V)
+            reset_width: Reset pulse duration (s)
+            reset_delay: Post-reset delay (s)
+            p_u_amp: Measurement pulse amplitude (V)
+            p_u_width: Measurement pulse duration (s)
+            p_u_delay: Inter-pulse delay (s)
+            area: Capacitor area for polarization calc (m²)
+            time_offset: Manual trigger-capture time alignment (s)
+            show_plots: Show matplotlib plots post analysis?
+            save_plots: Save analysis plots to disk?
+            auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
-        Initializes the ThreePulsePund class.
-        
-        :param reset_amp: amplitude of reset pulse, polarity is polarity of P and u pulses x(-1) (in Volts)
-        :param reset_width: width of reset pulse (in s)
-        :param reset_delay: delay between reset pulse and p pulse (in s)
-        :param p_u_amp: amplitude of p and u pulses (in Volts)
-        :param p_u_width: width of p and u pulses (in s)
-        :param p_u_delay: delay between p pulse and u pulse (in s)
-        :param offset: Offset of the PUND waveform (in Volts)
-        :param area: area of sample capacitor, used for polarization math (in m^2)
-        :param time_offset: t0 of captured waveform - t0 of trigger waveform, used if auto_timeshift=False (in s)
-        :param show_plots: show matplotlib plots post analysis?
-        :param save_plots: save matplotlib plots post analysis?
-        :param auto_timeshift: try to automatically determine t0 of captured waveform - t0 of trigger waveform?
-        """
+
         super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.reset_amp = reset_amp
         self.reset_width = reset_width
@@ -225,9 +304,10 @@ class ThreePulsePund(DiscreteWaveform):
 
     def analyze(self):
         """
-        Analyzes the most recently captured waveform. Should be overwritten by child class.
+        Analyze PUND data to calculate switching polarization.
         
-        :param directory: Directory where the waveform will be saved (CSV format).
+        Processes current transients, integrates charge, and calculates
+        switched charge values. Generates time-domain and polarization plots.
         """
         if self.data is not None:
             process_raw_3pp(self.filename, show_plots=self.show_plots, save_plots=self.save_plots, auto_timeshift=self.auto_timeshift)
@@ -237,7 +317,11 @@ class ThreePulsePund(DiscreteWaveform):
 
     def configure_awg(self):
         """
-        Configures the Arbitrary Waveform Generator (AWG) to output a triangle wave.
+        Generate PUND pulse waveform for AWG output.
+        
+        Constructs pulse sequence with specified amplitudes and timing.
+        Automatically scales pulses to AWG voltage range and handles
+        polarity inversion when needed.
         """
         # calculate time steps for voltage trace
         times = [0, self.reset_width, self.reset_delay, self.p_u_width, self.p_u_delay, self.p_u_width, self.p_u_delay,]
@@ -269,4 +353,5 @@ class ThreePulsePund(DiscreteWaveform):
 # Example usage:
 # experiment = HysteresisLoop(keysight81150a("GPIB::10::INSTR"), keysightdsox3024a("GPIB::1::INSTR"))
 # experiment.run_experiment(save_path="pad1_hysteresis_data.csv")
+# NOTE Docstrings written with help from DeepSeekR1 LLM
 
