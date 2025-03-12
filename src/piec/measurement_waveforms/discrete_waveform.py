@@ -10,31 +10,31 @@ class DiscreteWaveform:
     """
     Parent class for managing discrete waveform generation and measurement experiments.
 
-    Provides core functionality for configuring Arbitrart Waveform Generator (awg)
+    Provides core functionality for configuring Arbitrary Waveform Generator (awg)
     and oscilloscope (osc), capturing waveforms, saving data, and running analysis
     on captured waveforms. Designed to be subclassed for specific measurement types.
     Currently implemented subclasses are Hysteresis and ThreePulsePUND.
 
     Attributes:
-        awg (visa.Resource): AWG instrument object (REQUIRED)
-        osc (visa.Resource): Oscilloscope instrument object (REQUIRED)
-        v_div (float): Oscilloscope vertical scale in volts/division
-        voltage_channel (str): AWG channel used for voltage output
-        save_dir (str): Directory path for data storage
-        filename (str): Name of saved data file
-        data (pd.DataFrame): Captured waveform data (time and voltage)
-        metadata (pd.DataFrame): Measurement parameters and metadata
+        :awg (visa.Resource): AWG instrument object (REQUIRED)
+        :osc (visa.Resource): Oscilloscope instrument object (REQUIRED)
+        :v_div (float): Oscilloscope vertical scale in volts/division
+        :voltage_channel (str): AWG channel used for voltage output
+        :save_dir (str): Directory path for data storage
+        :filename (str): Name of saved data file
+        :data (pd.DataFrame): Captured waveform data (time and voltage)
+        :metadata (pd.DataFrame): Measurement parameters and metadata
     """
 
     def __init__(self, awg, osc, v_div=0.01, voltage_channel:str='1', save_dir=r'\\scratch'):
         """Initialize core waveform measurement system.
 
         Args:
-            awg: VISA address or initialized AWG object
-            osc: VISA address or initialized oscilloscope object
-            v_div: Oscilloscope vertical sensitivity (volts/division)
-            voltage_channel: AWG channel number for voltage output (default '1')
-            save_dir: Data storage directory path (default network scratch)
+            :awg: VISA address or initialized AWG object
+            :osc: VISA address or initialized oscilloscope object
+            :v_div: Oscilloscope vertical sensitivity (volts/division)
+            :voltage_channel: AWG channel number for voltage output (default '1')
+            :save_dir: Data storage directory path (default network scratch)
         """
 
         self.v_div = v_div
@@ -63,7 +63,7 @@ class DiscreteWaveform:
         capturing the generated waveform. Uses external triggering.
 
         Args:
-            channel: Oscilloscope channel to configure (default 1)
+            :channel: Oscilloscope channel to configure (default 1)
         """
         self.osc.initialize()
         self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
@@ -76,7 +76,7 @@ class DiscreteWaveform:
         Placeholder for waveform-specific AWG configuration.
         
         Raises:
-            AttributeError: If not implemented in child class
+            :AttributeError: If not implemented in child class
         """
         raise AttributeError("configure_awg() must be defined in the child class specific to a waveform")
 
@@ -155,13 +155,13 @@ class HysteresisLoop(DiscreteWaveform):
     Generates bipolar triangle waves and analyzes polarization-voltage loops.
 
     Attributes:
-        type (str): Measurement type identifier ('hysteresis')
-        frequency (float): Excitation frequency in Hz
-        amplitude (float): Peak voltage amplitude in volts
-        n_cycles (int): Number of waveform cycles to capture
-        area (float): Capacitor area for polarization calculation (m²)
-        show_plots (bool): Display interactive plots flag
-        save_plots (bool): Save plot images flag
+        :type (str): Measurement type identifier ('hysteresis')
+        :frequency (float): Excitation frequency in Hz
+        :amplitude (float): Peak voltage amplitude in volts
+        :n_cycles (int): Number of waveform cycles to capture
+        :area (float): Capacitor area for polarization calculation (m²)
+        :show_plots (bool): Display interactive plots flag
+        :save_plots (bool): Save plot images flag
     """
 
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
@@ -172,15 +172,15 @@ class HysteresisLoop(DiscreteWaveform):
         Initialize hysteresis measurement parameters.
 
         Args:
-            frequency: Triangle wave frequency (1-1000 Hz typical)
-            amplitude: Peak-to-peak voltage amplitude (V)
-            offset: DC voltage offset (V)
-            n_cycles: Number of complete bipolar cycles
-            area: Device capacitor area for polarization calc (m²)
-            time_offset: Manual trigger-capture time alignment (s)
-            show_plots: Show matplotlib plots post analysis?
-            save_plots: Save analysis plots to disk?
-            auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
+            :frequency: Triangle wave frequency (1-1000 Hz typical)
+            :amplitude: Peak-to-peak voltage amplitude (V)
+            :offset: DC voltage offset (V)
+            :n_cycles: Number of complete bipolar cycles
+            :area: Device capacitor area for polarization calc (m²)
+            :time_offset: Manual trigger-capture time alignment (s)
+            :show_plots: Show matplotlib plots post analysis?
+            :save_plots: Save analysis plots to disk?
+            :auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
         
         super().__init__(awg, osc, v_div, voltage_channel, save_dir)
@@ -250,11 +250,11 @@ class ThreePulsePund(DiscreteWaveform):
     calculate remanent polarization.
 
     Attributes:
-        type (str): Measurement type identifier ('3pulsepund')
-        reset_amp (float): Reset pulse amplitude (V)
-        p_u_amp (float): Measurement pulse amplitude (V)
-        reset_width (float): Reset pulse duration (s)
-        p_u_width (float): Measurement pulse duration (s)
+        :type (str): Measurement type identifier ('3pulsepund')
+        :reset_amp (float): Reset pulse amplitude (V)
+        :p_u_amp (float): Measurement pulse amplitude (V)
+        :reset_width (float): Reset pulse duration (s)
+        :p_u_width (float): Measurement pulse duration (s)
     """
     type = "3pulsepund"
 
@@ -267,17 +267,17 @@ class ThreePulsePund(DiscreteWaveform):
         """Initialize PUND pulse parameters.
 
         Args:
-            reset_amp: Reset pulse amplitude (V)
-            reset_width: Reset pulse duration (s)
-            reset_delay: Post-reset delay (s)
-            p_u_amp: Measurement pulse amplitude (V)
-            p_u_width: Measurement pulse duration (s)
-            p_u_delay: Inter-pulse delay (s)
-            area: Capacitor area for polarization calc (m²)
-            time_offset: Manual trigger-capture time alignment (s)
-            show_plots: Show matplotlib plots post analysis?
-            save_plots: Save analysis plots to disk?
-            auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
+            :reset_amp: Reset pulse amplitude (V)
+            :reset_width: Reset pulse duration (s)
+            :reset_delay: Post-reset delay (s)
+            :p_u_amp: Measurement pulse amplitude (V)
+            :p_u_width: Measurement pulse duration (s)
+            :p_u_delay: Inter-pulse delay (s)
+            :area: Capacitor area for polarization calc (m²)
+            :time_offset: Manual trigger-capture time alignment (s)
+            :show_plots: Show matplotlib plots post analysis?
+            :save_plots: Save analysis plots to disk?
+            :auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
 
         super().__init__(awg, osc, v_div, voltage_channel, save_dir)
