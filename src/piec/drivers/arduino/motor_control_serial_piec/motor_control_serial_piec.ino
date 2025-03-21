@@ -36,19 +36,22 @@ void loop()
       if (dir == 9){//set position to zero
         pos = 0;
       }
-      if (dir == 99){//function to give out current position
-        Serial.println(pos);
-      }
-      if (dir == 999){//function to check if serial connection works
+      if (dir == 99){//function to check if serial connection works
         Serial.println("Connected");
       }
       if (dir == 1){
         digitalWrite(directionPin, HIGH);
+        pos += steps;
       }
       if (dir == 0){
         digitalWrite(directionPin, LOW);
+        pos -= steps;
       }
       moveSteps();
+      // Clear any remaining characters (e.g., newline) from the serial buffer
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
     }
   
   delay(1000);

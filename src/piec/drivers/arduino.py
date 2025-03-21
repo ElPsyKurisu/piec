@@ -15,10 +15,10 @@ class Arduino_Stepper(Instrument):
     def __init__(self, address):
         rm = ResourceManager()
         self.instrument = rm.open_resource(address)
-        self.instrument.timeout = 20000 #20s
+        self.instrument.timeout = 10000 #10s
 
     def idn(self):
-        self.instrument.write("0,999") #calls in builtin method to check if serial communication works
+        self.instrument.write("0,99") #calls in builtin method to check if serial communication works
         start_time = time.time()
         try:
             while True:
@@ -78,7 +78,7 @@ class Arduino_Stepper(Instrument):
         Reads the current position without stepping the stepper
         """
         time.sleep(2) #ensure that arduino has time to recieve the data
-        position = self.step(0,99)
+        position = self.step(0,0) #steps 0 steps, so doesnt change position
         if position is not None:
             return position
         else:
