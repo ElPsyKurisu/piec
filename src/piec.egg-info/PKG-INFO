@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: piec
-Version: 0.0.30
+Version: 0.0.31
 Summary: A collection of control and analysis code for experiments
 Home-page: https://github.com/ElPsyKurisu/piec
 Author: Geo Fratian
@@ -23,6 +23,8 @@ Requires-Dist: PyVISA-py>=0.7.2
 Requires-Dist: IPython>=7.22.0
 Requires-Dist: sphinx==7.1.2
 Requires-Dist: sphinx-rtd-theme==1.3.0rc1
+Requires-Dist: mcculw==1.0.0
+Dynamic: license-file
 
 # PIEC
  Python Integrated Experimental Control

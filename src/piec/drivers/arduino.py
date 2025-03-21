@@ -14,7 +14,7 @@ class Arduino_Stepper(Instrument):
     """
     def __init__(self, address):
         rm = ResourceManager()
-        self.instrument = rm.open_resource(address)
+        self.instrument = rm.open_resource(address, baud_rate=115200)
         self.instrument.timeout = 10000 #10s
 
     def idn(self):
@@ -82,5 +82,5 @@ class Arduino_Stepper(Instrument):
         if position is not None:
             return position
         else:
-            print("position unknown")
+            print("Position unknown")
 
