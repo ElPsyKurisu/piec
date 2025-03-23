@@ -10,7 +10,7 @@ import pyvisa
 from pyvisa import ResourceManager
 class Arduino_Stepper(Instrument):
     """
-    Custom Class for using an arduino as a stepper motor driver. See https://github.com/ElPsyKurisu/STFMR/tree/main/Arduino for more information
+    Custom Class for using an arduino as a stepper motor driver. 
     """
     def __init__(self, address):
         rm = ResourceManager()
