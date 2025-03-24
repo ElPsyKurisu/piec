@@ -664,16 +664,25 @@ class Awg(SCPI_Instrument):
             print("Warning, using generic AWG class will default to turning off only channel 1")
             self.output_enable('1', False) 
         
-    def couple_channels(self):
+    def couple_channels(self, master_channel ='1', on=True):
         """
-        Couples the channel params so Channel 1 and 2 are identical, not sure how well the outputs will sync. 
-        Convention is to make changes to channel 1 now that will affect channel 2
+        In the Channel Coupling mode, the frequency and phase of both the 
+        channels are locked. Locking the output frequency and phase of both 
+        channels does have a noticeable effect on most of the major modes of 
+        operation. Therefore, as a result of coupling, the output function, and all other 
+        parameters like, burst, sweep, and modulation are also kept identical on 
+        both channels. NOTE: Copies all values of master_channel onto other channels
 
         args:
             self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
+            master_channel (str) Allowed args are ["1", "2", etc] based on num of instrument channels
             
         """
-        self.instrument.write(":TRACK:CHAN1 ON")
+        if on:
+            self.instrument.write(":TRACK:CHAN{} ON".format(master_channel))
+        else:
+            self.instrument.write(":TRACK:CHAN{} OFF".format(master_channel))
+
 
 class Lockin(SCPI_Instrument):
     """
