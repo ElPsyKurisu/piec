@@ -700,6 +700,12 @@ class Lockin(SCPI_Instrument):
     reserve_mode = None #["high", "norm", "low"]
     time_constant = None #['10us', '30us', '100us', '300us', '1ms', '3ms', '10ms', '30ms', '100ms', '300ms', '1s', '3s', '10s', '30s', '100s', '300s', '1ks', '3ks', '10ks', '30ks']
     lp_filter_slope = None #['6','12','18','24']
+    display = None #['primary', 'secondary', 'noise', 'auxA', 'auxB']
+    ratio = None #['none', 'auxA', 'auxB']
+    display_output = None #['display', 'primary']
+    display_expand_what = None #['x', 'y', 'r']
+    display_output_offset=None #(-105.00, 105.00)
+    display_output_expand=None #['1', '10', '100']
 
     """
     NOTE: Should i just make sensitivty a range and so is time constant, and then you just pick the nearest one. I think I should offer both options ideally, basically if not in list
@@ -751,7 +757,7 @@ class Lockin(SCPI_Instrument):
         if trig == "falling":
             self.instrument.write("rslp 2")
         if phase is not None:
-            self.instrument.write("phas {}".format(phase))
+            self.instrument.write("phas {:.2f}".format(phase)) #formats to 2 decimal places
         if harmonic is not None:
             self.instrument.write("harm {}".format(harmonic))
         
@@ -760,6 +766,7 @@ class Lockin(SCPI_Instrument):
         This is set to configure the left side of the srs 830 aka time_constant, filters, gain, etc
 
         args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
             sensitivty (str): Sets the sensitivity range of the channels NOTE: either give value or set to auto in units of V/A
             reserve_mode (str): Toggles between ["high", "norm", "low"]
             time_constant (str): Sets the time constant in units of s
@@ -784,7 +791,36 @@ class Lockin(SCPI_Instrument):
                 self.instrument.write("sync 1")
             if sync == 'off':
                 self.instrument.write("sync 0")
+
+    def configure_display_outputs(self, channel=None, display=None, ratio=None, display_output=None, display_output_offset=None, display_output_expand=None, display_expand_what=None):
+        """
+        Configures the channel displays and what are output by them
+
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+            channel (str): Desired channel to configure
+            display (str): Desired param to display e.g. [X, R, Noise, Aux In1, Aux In2] Note for channel 2, X->Y R->Theta, etc but still pass in X for Y e.g. configure_display_outputs(2,X) will configure channel 2 to display Y
+            ratio (str): ratio to scale display param by [none, Aux In 1, Aux in 2] for Chn1 or [none, Aux In 3, Aux in 4] for Chn2
+            output (str): What to output via the bnc [display, default=X or Y depending on chnnl]
+            offset (str): Output offset, requires exand as well in units of percent (-105.00 ≤ x ≤ 105.00)
+            expand (str): factor to expand by [1, 10, 100]
+        """
+        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
+        if display is not None:
+            if ratio == None:
+                ratio = 'none'
+            self.instrument.write("ddef {},{},{}".format(channel, self.display.index(display), self.ratio.index(ratio))) #note channel does not use index scheme
+        if display_output is not None:
+            self.instrument.write("fpop {},{}".format(channel, self.display_output.index(display_output)))
+        if display_expand_what is not None:
+            if display_output_offset is not None:
+                if display_output_offset == 'auto':
+                    self.instrument.write("aoff {}".format(self.display_expand_what.index(display_expand_what)+1)) #need to add 1 because for this it starts at 1 for X, 2 for Y, 3 for R
+                if display_output_expand == None:
+                    display_output_expand = "1"
+                self.instrument.write("oexp {},{:.2f},{}".format(self.display_expand_what.index(display_expand_what)+1, display_output_offset, self.display_output_expand.index(display_output_expand))) #formats to 2 decimal places
         
+
         
 
 
