@@ -691,13 +691,61 @@ class Lockin(SCPI_Instrument):
     """
     #Should be overriden
     channel = None
-    voltage = None
+    voltage = None #(4e-3, 5) SRS 830 values
     frequency = None
-    func = None #might be useless since all awgs should have sin, squ, pulse etc
-    slew_rate = None #1V/ns
+    phase = None #(-360.00,729.99) notice instruemnt rounds to 0.01 for you and will convert to +-180 e.g. PHAS 541.0 command will set the phase to -179.00°
+    harmonic = None #(1,19999)
 
-    def configure_internal_awg(self, ):
-        pass
+    """
+    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
+                      num_cycles=None, invert: bool=False):
+    """
+
+    def configure_internal_oscillator(self, voltage, frequency):
+        """
+        NOTE: This function is redundant as configure_reference covers all of it
+        Function that configures the internal oscillator (based on the front panel of the SRS 830)
+        NOTE: Configures the "Reference" part of the SRS 830 which deals with the interal oscillator
+
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+            voltage (str): Desired amplitude of signal in units of volts
+            frequency (str): Desired frequnecy of signal in units of Hz
+        """
+        self.instrument.write("slvl {}".format(voltage))
+        self.instrument.write("freq {}".format(frequency))
+
+    
+    def configure_reference(self, voltage, frequency, source, trig_type, phase, harmonic):
+        """
+        Function that configures the reference part of lockin
+
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+            voltage (str): Desired amplitude of signal in units of volts
+            frequency (str): Desired frequency of signal in units of Hz
+            source (str): Configures the reference source allowed args are [internal, external]
+            trig_type (str): Configures the reference input mode. Allowed args are ["sin", "rising", "falling"] "The reference input can be a sine wave (rising zero crossing detected) or a TTL pulse or square wave (rising or falling edge). The input impedance is 1 MΩ AC coupled (>1 Hz) for the sine input. For low frequencies (<1Hz), it is necessary to use a TTL reference signal. The TTL input provides the best overall performance and should be used whenever possible."
+            phase (str): Configures the phase_shift of the reference in degrees
+            harmonic (str): Selects the desired harmonic 
+        """
+        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
+        self.instrument.write("slvl {}".format(voltage))
+        if source == 'internal':
+            self.instrument.write("fmod 1")
+            self.instrument.write("freq {}".format(frequency)) #requires internal reference to be selected, otherwise it is dictated by external source
+        if source == 'external':
+            self.instrument.write("fmod 0")
+        if trig_type == 'sin':
+            self.instrument.write("rslp 0")
+        if trig_type == "rising":
+            self.instrument.write("rslp 1")
+        if trig_type == "falling":
+            self.instrument.write("rslp 2")
+        self.instrument.write("phas {}".format(phase))
+        self.instrument.write("harm {}".format(harmonic))
+        
+
 
     def measure_params(self, param_list):
         """
@@ -729,8 +777,7 @@ class Lockin(SCPI_Instrument):
     
     def get_X_Y(self):
         """
-        Get X and Y (Measure). Calls self.measure_params to specifically get X_Y. Use this function if speed is a priority since X_Y are measured simulateneosly, but if you measure X_Y and R_Theta
-        at the same time there is 
+        Get X and Y (Measure). Calls self.measure_params to specifically get X_Y. Adapted from EKPY.
 
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): SRS830
@@ -742,7 +789,7 @@ class Lockin(SCPI_Instrument):
         
 
     def get_R_theta(self):
-        """Get R and Theta. (Measure).
+        """Get R and Theta. (Measure). Calls self.measure_params to specifically get R_Theta. Adapted from EKPY
 
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): SRS830
@@ -770,6 +817,16 @@ class DMM(SCPI_Instrument):
 """
 Helper Functions Below
 """
+
+def convert_to_lowercase(params):
+    """
+    Helper function to ensure that all params are lowercase
+    inside the func call
+    >>> locals().update(convert_to_lowercase(locals()))
+    """
+    return {key: str(value).lower() for key, value in params.items()}
+
+
 
 def ask_user_to_select(options):
     """
