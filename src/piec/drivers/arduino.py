@@ -36,7 +36,7 @@ class Arduino_Stepper(Instrument):
         returns:
             current_position (int) The current position as read from the arduino
         """
-        answer = self.instrument.query("{},{}".format(num_steps, direction)) #specially formatted string for arduino code to work. See https://github.com/ElPsyKurisu/STFMR/tree/main/Arduino for more information
+        answer = self.instrument.query("{},{}".format(num_steps, direction)) #specially formatted string for arduino code to work. See arduino code under src\piec\drivers\arduino\motor_control_serial_piec\motor_control_serial_piec.ino for more information
         number = int(re.search(r'-?\d+', answer).group())
                 
         if "Complete" in answer:
