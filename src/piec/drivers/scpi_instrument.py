@@ -690,15 +690,21 @@ class Lockin(SCPI_Instrument):
     Sub-class of Instrument to hold the general methods used by a lockin. For Now defaulted to SRS830, but can always ovveride certain lockin funcs
     """
     #Should be overriden
-    channel = None
+    channel = None #['1','2'] allowed channels
     voltage = None #(4e-3, 5) SRS 830 values
     frequency = None
     phase = None #(-360.00,729.99) notice instruemnt rounds to 0.01 for you and will convert to +-180 e.g. PHAS 541.0 command will set the phase to -179.00°
     harmonic = None #(1,19999)
+    trig = None #type of trig allowed from reference input ["sin", "rising", "falling"]
+    sensitivity = None #note this is gonna be a long list ['2nv/fa', '5nv/fa', '10nv/fa', '20nv/fa', '50nv/fa', '100nv/fa','200nv/fa', '500nv/fa', '1uv/pa', '2uv/pa', '5uv/pa', '10uv/pa','20uv/pa', '50uv/pa', '100uv/pa', '200uv/pa', '500uv/pa','1mv/na', '2mv/na', '5mv/na', '10mv/na', '20mv/na', '50mv/na', '100mv/na', '200mv/na', '500mv/na', '1v/ua']
+    reserve_mode = None #["high", "norm", "low"]
+    time_constant = None #['10us', '30us', '100us', '300us', '1ms', '3ms', '10ms', '30ms', '100ms', '300ms', '1s', '3s', '10s', '30s', '100s', '300s', '1ks', '3ks', '10ks', '30ks']
+    lp_filter_slope = None #['6','12','18','24']
 
     """
-    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
-                      num_cycles=None, invert: bool=False):
+    NOTE: Should i just make sensitivty a range and so is time constant, and then you just pick the nearest one. I think I should offer both options ideally, basically if not in list
+    then it defaults to finding the nearest one, always in SI units
+    NOTE also everything should have a default value of None so you only change what you want to change, and leave rest default
     """
 
     def configure_internal_oscillator(self, voltage, frequency):
@@ -716,7 +722,7 @@ class Lockin(SCPI_Instrument):
         self.instrument.write("freq {}".format(frequency))
 
     
-    def configure_reference(self, voltage, frequency, source, trig_type, phase, harmonic):
+    def configure_reference(self, voltage=None, frequency=None, source=None, trig=None, phase=None, harmonic=None):
         """
         Function that configures the reference part of lockin
 
@@ -725,26 +731,62 @@ class Lockin(SCPI_Instrument):
             voltage (str): Desired amplitude of signal in units of volts
             frequency (str): Desired frequency of signal in units of Hz
             source (str): Configures the reference source allowed args are [internal, external]
-            trig_type (str): Configures the reference input mode. Allowed args are ["sin", "rising", "falling"] "The reference input can be a sine wave (rising zero crossing detected) or a TTL pulse or square wave (rising or falling edge). The input impedance is 1 MΩ AC coupled (>1 Hz) for the sine input. For low frequencies (<1Hz), it is necessary to use a TTL reference signal. The TTL input provides the best overall performance and should be used whenever possible."
+            trig (str): Configures the reference input mode. Allowed args are ["sin", "rising", "falling"] "The reference input can be a sine wave (rising zero crossing detected) or a TTL pulse or square wave (rising or falling edge). The input impedance is 1 MΩ AC coupled (>1 Hz) for the sine input. For low frequencies (<1Hz), it is necessary to use a TTL reference signal. The TTL input provides the best overall performance and should be used whenever possible."
             phase (str): Configures the phase_shift of the reference in degrees
             harmonic (str): Selects the desired harmonic 
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
-        self.instrument.write("slvl {}".format(voltage))
+        if voltage is not None:
+            self.instrument.write("slvl {}".format(voltage))
         if source == 'internal':
             self.instrument.write("fmod 1")
-            self.instrument.write("freq {}".format(frequency)) #requires internal reference to be selected, otherwise it is dictated by external source
+            if frequency is not None:
+                self.instrument.write("freq {}".format(frequency)) #requires internal reference to be selected, otherwise it is dictated by external source
         if source == 'external':
             self.instrument.write("fmod 0")
-        if trig_type == 'sin':
+        if trig == 'sin':
             self.instrument.write("rslp 0")
-        if trig_type == "rising":
+        if trig == "rising":
             self.instrument.write("rslp 1")
-        if trig_type == "falling":
+        if trig == "falling":
             self.instrument.write("rslp 2")
-        self.instrument.write("phas {}".format(phase))
-        self.instrument.write("harm {}".format(harmonic))
+        if phase is not None:
+            self.instrument.write("phas {}".format(phase))
+        if harmonic is not None:
+            self.instrument.write("harm {}".format(harmonic))
         
+    def configure_gain_filters(self, sensitivity='auto', reserve_mode="norm", time_constant=None, lp_filter_slope=None, sync=None):
+        """
+        This is set to configure the left side of the srs 830 aka time_constant, filters, gain, etc
+
+        args:
+            sensitivty (str): Sets the sensitivity range of the channels NOTE: either give value or set to auto in units of V/A
+            reserve_mode (str): Toggles between ["high", "norm", "low"]
+            time_constant (str): Sets the time constant in units of s
+            lp_filter_slope (str): in units of dB/oct ['6','12','18','24']
+            sync (str): "on" for synchronous filter on (below 200 Hz harmonic*reference_freq) "off" for off 
+        """
+        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
+        if sensitivity == 'auto': #autogain
+            self.instrument.write("agan")
+        elif self.sensitivity is not None:
+            self.instrument.write("sens {}".format(self.sensitivity.index(sensitivity))) #note assumes the index of the list corresponds to the correct instrument code as it does in the SRS 830
+        else:
+            print("Warning cannot set the specified sensitivity try to autogain")
+        if self.reserve_mode is not None:
+            self.instrument.write("rmod {}".format(self.reserve_mode.index(reserve_mode)))
+        if self.time_constant is not None:
+            self.instrument.write("oflt {}".format(self.time_constant.index(time_constant)))
+        if self.lp_filter_slope is not None:
+            self.instrument.write("ofsl {}".format(self.lp_filter_slope.index(lp_filter_slope)))
+        if sync is not None:
+            if sync == "on":
+                self.instrument.write("sync 1")
+            if sync == 'off':
+                self.instrument.write("sync 0")
+        
+        
+
 
 
     def measure_params(self, param_list):
@@ -817,6 +859,58 @@ class DMM(SCPI_Instrument):
 """
 Helper Functions Below
 """
+"""
+NOTE I WILL NOT BE USING THIS SINCE DRIVERS SHOULDNT WORRY ABOUT EASE OF USE, CAN IMPLEMENT AT HIGHER LVL
+"""
+# Mapping for SI time units
+# us = microsecond, ms = millisecond, s = second, ks = kilosecond
+TIME_MULTIPLIERS = {
+    'us': 1e-6,
+    'ms': 1e-3,
+    's': 1,
+    'ks': 1e3,
+}
+
+def convert_time_str(time_str):
+    """
+    Converts a time constant string (e.g. "10us", "1ms", "30ks")
+    into its value in seconds.
+    """
+    # Find where the digits end and letters begin.
+    # This works if the time_str is in a valid format (e.g. "10us", "1ms")
+    num_part = ''
+    unit_part = ''
+    for ch in time_str:
+        if ch.isdigit() or ch == '.':
+            num_part += ch
+        else:
+            unit_part += ch
+    
+    if not num_part or unit_part not in TIME_MULTIPLIERS:
+        raise ValueError(f"Invalid time string format: {time_str}")
+    
+    return float(num_part) * TIME_MULTIPLIERS[unit_part]
+
+def find_nearest_time(input_time, time_constants_list):
+    """
+    Given an input time in seconds, this function finds and returns the time constant
+    from the list that is numerically closest to the input time.
+    
+    Parameters:
+        input_time (float): Time in seconds.
+        time_constants_list (list): List of time constant strings.
+    
+    Returns:
+        The time constant string closest to the input time.
+    """
+    # Convert all constants to their numeric values (in seconds)
+    numeric_constants = [(tc, convert_time_str(tc)) for tc in time_constants_list]
+    
+    # Find the time constant with the smallest absolute difference from the input_time
+    nearest = min(numeric_constants, key=lambda item: abs(item[1] - input_time))
+    return nearest[0]
+
+
 
 def convert_to_lowercase(params):
     """
