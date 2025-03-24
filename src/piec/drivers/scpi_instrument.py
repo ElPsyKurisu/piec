@@ -696,8 +696,62 @@ class Lockin(SCPI_Instrument):
     func = None #might be useless since all awgs should have sin, squ, pulse etc
     slew_rate = None #1V/ns
 
-    
+    def configure_internal_awg(self, ):
+        pass
 
+    def measure_params(self, param_list):
+        """
+        Function that returns the requested params
+        NOTE:
+        The values of X and Y are recorded at a single instant. The values of R
+        and θ are also recorded at a single instant. Thus reading X,Y OR R,θ
+        yields a coherent snapshot of the output signal. If X,Y,R and θ are all
+        read, then the values of X,Y are recorded approximately 10µs apart from
+        R,θ. Thus, the values of X and Y may not yield the exact values of R and
+        θ from a single SNAP? query. Call get_X_Y or get_R_theta intead if speed is priority.
+
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+            param_list (list): List of requested params with mapping as follows (for SRS830): [(input, output): (1,X), (2,Y), (3,R), (4,Theta), (5, AUX In1), (6, AUX In2), (7, AUX In3), (8, AUX In4), (9, REF freq), (10,Ch1 Display), (11, Ch2 Display)]
+        returns:
+            (list): Returns float values if possible of selected params
+        """
+        params = ",".join(map(str, param_list))
+        return_list = self.instrument.query('SNAP? {}'.format(params)).split('\n')[0].split(',')
+        return_vals = []
+        for i in return_list:
+            try:
+                return_vals.append(float(i))
+            except:
+                print("warning couldn't convert to float, raw data is preserved instead")
+                return_vals.append(i)
+        return return_vals
+    
+    def get_X_Y(self):
+        """
+        Get X and Y (Measure). Calls self.measure_params to specifically get X_Y. Use this function if speed is a priority since X_Y are measured simulateneosly, but if you measure X_Y and R_Theta
+        at the same time there is 
+
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+
+        returns:
+            (list): X, Y
+        """
+        return self.measure_params([1,2])
+        
+
+    def get_R_theta(self):
+        """Get R and Theta. (Measure).
+
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+
+        returns:
+            (list): R, Theta
+
+        """
+        return self.measure_params([3,4])
 
 
 
