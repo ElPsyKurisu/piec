@@ -656,8 +656,13 @@ class Awg(SCPI_Instrument):
         args:
             self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
         """
-        self.output_enable('1', False) #should change to take into account channels available from class attributes
-        self.output_enable('2', False)
+        if self.channel is not None:
+            for i in self.channel:
+                self.output_enable(i, False) #sets all listed channels to false
+        else:
+            #Using generic code
+            print("Warning, using generic AWG class will default to turning off only channel 1")
+            self.output_enable('1', False) 
         
     def couple_channels(self):
         """
@@ -669,6 +674,22 @@ class Awg(SCPI_Instrument):
             
         """
         self.instrument.write(":TRACK:CHAN1 ON")
+
+class Lockin(SCPI_Instrument):
+    """
+    Sub-class of Instrument to hold the general methods used by a lockin. For Now defaulted to SRS830, but can always ovveride certain lockin funcs
+    """
+    #Should be overriden
+    channel = None
+    voltage = None
+    frequency = None
+    func = None #might be useless since all awgs should have sin, squ, pulse etc
+    slew_rate = None #1V/ns
+
+    
+
+
+
 
 class DMM(SCPI_Instrument):
     """
