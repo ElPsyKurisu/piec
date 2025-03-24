@@ -675,7 +675,8 @@ class Awg(SCPI_Instrument):
 
         args:
             self (pyvisa.resources.ENET-Serial INSTR): Keysight 81150A
-            master_channel (str) Allowed args are ["1", "2", etc] based on num of instrument channels
+            master_channel (str): Allowed args are ["1", "2", etc] based on num of instrument channels
+            on (Boolean): True for on and False for off, toggles channel coupling
             
         """
         if on:
