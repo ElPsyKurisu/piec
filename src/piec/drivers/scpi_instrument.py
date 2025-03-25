@@ -149,6 +149,8 @@ class SCPI_Instrument(Instrument):
                 print("Warning no range-checking defined for \033[1m{}\033[0m, skipping _check_params".format(key)) #makes bold text
                 continue
             input_value = locals_dict[key]
+            if input_value is None:
+                continue #skips checking for placeholder values
             if type(attribute_value) == tuple:
                 if not is_value_between(input_value, attribute_value): #will error need to make jey values correct
                     exit_with_error("Error input value of \033[1m{}\033[0m for arg \033[1m{}\033[0m is out of acceptable Range \033[1m{}\033[0m".format(input_value, key, attribute_value))
