@@ -21,6 +21,9 @@ class Keysight81150a(Awg):
     slew_rate = 1.0e9 # V/s
     arb_wf_points_range = (2, 524288)
 
+    def __init__(self, address, check_params=True): #sets the check_params true by default, since we want at this layer to be as safe as possible
+        super().__init__(address, check_params)
+
     def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
         """
         This program configures the output amplifier for either maximum bandwith or amplitude. Taken from EKPY.

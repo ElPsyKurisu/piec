@@ -11,6 +11,40 @@ import json
 import os
 from piec.drivers.instrument import Instrument
 
+"""
+Code added to help support self._check_params, with help from ChatGPT
+"""
+import functools
+import inspect
+
+def auto_check_params(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if getattr(self, 'check_params', False):
+            # Bind the arguments to the function's signature.
+            sig = inspect.signature(func)
+            bound_args = sig.bind(self, *args, **kwargs)
+            bound_args.apply_defaults()
+            # Convert the bound arguments to lowercase if desired.
+            params = convert_to_lowercase(bound_args.arguments)
+            # Call the parameter checking method.
+            self._check_params(params)
+        return func(self, *args, **kwargs)
+    return wrapper
+
+class AutoCheckMeta(type):
+    def __new__(metacls, name, bases, class_dict):
+        new_class_dict = {}
+        for attr_name, attr_value in class_dict.items():
+            # Skip decoration for special methods and for _check_params.
+            if callable(attr_value) and not attr_name.startswith("__") and attr_name != '_check_params':
+                attr_value = auto_check_params(attr_value)
+            new_class_dict[attr_name] = attr_value
+        return super().__new__(metacls, name, bases, new_class_dict)
+
+"""
+self._check_params support code complete
+"""
 
 class VirtualRMInstrument:
     """
@@ -37,7 +71,7 @@ class VirtualRMInstrument:
             return self.query_dict[input]
         except:
             print('QUERY: ', input, ' NOT IN virtual_scpi_queries.json')
-            return "VIRTUAL QUERY:"+input
+            return "VIRTUAL QUERY:"+ input
 
 
     def write(self, input:str):
@@ -51,15 +85,16 @@ class VirtualRMInstrument:
             print('Binary write recieved: ', data, scaled_data, datatype)
 
 # Define a class
-class SCPI_Instrument(Instrument):
+class SCPI_Instrument(Instrument, metaclass=AutoCheckMeta):
     # Initializer / Instance attributes
-    def __init__(self, address):
+    def __init__(self, address, check_params=False):
         rm = ResourceManager()
         if address == 'VIRTUAL':
             self.instrument = VirtualRMInstrument() # initiate instrument in virtual mode
         else:
             self.instrument = rm.open_resource(address) #comment out to debug without VISA connection
         self.virtual = (address=='VIRTUAL')
+        self.check_params = check_params
 
     def _debug(self, **args):
         """
@@ -179,7 +214,7 @@ class Scope(SCPI_Instrument):
     time_scale = None
     time_base_type = None
 
-    def setup(self, channel: str=1, voltage_range: str=16, voltage_offset: str=1.00, delay: str='100e-6',
+    def setup(self, channel: str='1', voltage_range: str='16', voltage_offset: str='1.00', delay: str='100e-6',
           time_range: str='1e-3', autoscale=True):
         """
         Sets up the oscilliscope with the given paramaters. If autoscale is turned on it will ignore
@@ -195,7 +230,6 @@ class Scope(SCPI_Instrument):
             delay (str): The delay in units of s
             time_range (str): The x scale of the oscilloscope, min 20ns, max 500s
         """
-        self._check_params(locals())
         self.reset()
         if autoscale:
             self.instrument.write(":AUToscale")
@@ -219,7 +253,6 @@ class Scope(SCPI_Instrument):
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
             vernier (boolean): Enables Vernier scale
         """
-        self._check_params(locals())
         if time_base_type is not None:
             self.instrument.write("TIM:MODE {}".format(time_base_type))
         if position is not None:
@@ -253,7 +286,6 @@ class Scope(SCPI_Instrument):
             impedance (str): Configures if we are in high impedance mode or impedance match. Allowed factors are 'ONEM' for 1 M Ohm and 'FIFT' for 50 Ohm
             enable_channel (boolean): Enables the channel
         """
-        self._check_params(locals())
         if scale_mode:
             self.instrument.write("CHAN{}:SCAL {}".format(channel, voltage_scale))
         else:
@@ -282,7 +314,6 @@ class Scope(SCPI_Instrument):
             enable_high_freq_filter (boolean): Toggles the high frequency filter
             enable_noise_filter (boolean): Toggles the noise filter
         """
-        self._check_params(locals())
         if enable_high_freq_filter:
             self.instrument.write(":TRIG:HFR ON")
         else:
@@ -308,7 +339,6 @@ class Scope(SCPI_Instrument):
             level (str): Trigger level in volts
             filter_type (str): Allowed values = [OFF, LFR (High-pass filter), HFR (Low-pass filter)] Note: Low Frequency reject == High-pass
         """
-        self._check_params(locals())
         self.instrument.write(":TRIG:SOUR {}".format(trigger_source))
         self.instrument.write(":TRIG:COUP {}".format(input_coupling))
         self.instrument.write(":TRIG:LEV {}".format(level))
@@ -341,7 +371,6 @@ class Scope(SCPI_Instrument):
             points_mode (str): Mode for points allowed args are [NORM (normal), MAX (maximum), RAW]
             unsigned (str): Allows to switch between unsigned and signed integers [OFF (signed), ON (unsigned)]
         """
-        self._check_params(locals())
         self.instrument.write(":WAVeform:SOURce {}".format(source))
         self.instrument.write(":WAVeform:BYTeorder {}".format(byte_order))
         self.instrument.write(":WAVeform:FORMat {}".format(format))
@@ -380,7 +409,6 @@ class Scope(SCPI_Instrument):
             time (list): Python list with all the scaled time (x_data array)
             wfm (list): Python list with all the scaled y_values (y_data array) 
         """
-        self._check_params(locals())
         check = self.operation_complete_query() #add error handling if not returns 1
         if check != '1':
             exit_with_error("Scope Not Ready: Operation Complete Query Failed")
@@ -492,9 +520,7 @@ class Awg(SCPI_Instrument):
         # Ensure data is a numpy array
         data = np.array(data)
         #check length of data is valid
-        dict_to_check = locals()
-        dict_to_check['arb_wf_points_range'] = len(data) #this adds to our _check_params the class attribute 'arb_wf_points_range'
-        self._check_params(dict_to_check)
+        self._check_params({"arb_wf_points_range":len(data)}) #add extra item to check, so we have to manually call self._check_params here
 
         # Scale the waveform data to the valid range See scale_waveform_data
         scaled_data = scale_waveform_data(data)  
@@ -575,7 +601,6 @@ class Awg(SCPI_Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        self._check_params(locals())
         self.instrument.write(":SOUR:FUNC{} {}".format(channel, func)) 
         self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
         self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
@@ -603,7 +628,6 @@ class Awg(SCPI_Instrument):
         """
         dict_to_check = locals()
         dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
-        self._check_params(dict_to_check)
         if self.slew_rate is not None:
             points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
             if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
@@ -744,7 +768,6 @@ class Lockin(SCPI_Instrument):
             harmonic (str): Selects the desired harmonic 
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
-        self._check_params(locals()) #turns on type checking
         if voltage is not None:
             self.instrument.write("slvl {}".format(voltage))
         if source == 'internal':
@@ -777,7 +800,6 @@ class Lockin(SCPI_Instrument):
             sync (str): "on" for synchronous filter on (below 200 Hz harmonic*reference_freq) "off" for off 
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
-        self._check_params(locals()) #turns on type checking
         if sensitivity == 'auto': #autogain
             self.instrument.write("agan")
         elif self.sensitivity is not None:
@@ -803,15 +825,14 @@ class Lockin(SCPI_Instrument):
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): SRS830
             channel (str): Desired channel to configure
-            display (str): Desired param to display e.g. [X, R, Noise, Aux In1, Aux In2] Note for channel 2, X->Y R->Theta, etc but still pass in X for Y e.g. configure_display_outputs(2,X) will configure channel 2 to display Y
-            ratio (str): ratio to scale display param by [none, Aux In 1, Aux in 2] for Chn1 or [none, Aux In 3, Aux in 4] for Chn2
-            display_output (str): What to output via the bnc [display, default=X or Y depending on chnnl]
+            display (str): Desired param to display e.g. [primary, secondary, noise, AuxinA, AuxinB] Note for channel 2, X->Y R->Theta, etc but still pass in X for Y e.g. configure_display_outputs(2,X) will configure channel 2 to display Y
+            ratio (str): ratio to scale display param by [none, auxA, auxB] 
+            display_output (str): What to output via the bnc [display, primary]
             display_output_offset (str): Output offset, requires exand as well in units of percent (-105.00 ≤ x ≤ 105.00)
             display_output_expand (str): factor to expand by [1, 10, 100]
             display_expand_what (str): What to expand [x, y, r] NOTE: R is only available on Chn1, X and Y on both
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
-        self._check_params(locals()) #turns on type checking
         if display is not None:
             if ratio == None:
                 ratio = 'none'
@@ -1102,7 +1123,7 @@ def scale_waveform_data(data: np.array, preserve_vertical_resolution: bool=False
     scaled_data = data*scale_factor
     total = 8191*2 + 1
     loss = 100* (abs(np.max(scaled_data)) + abs(np.min(scaled_data)))/total
-    print("Estimated Peak-to-Peak Ratio of targetted value is {:.1f}%".format(loss))
+    print("Estimated Peak-to-Peak Ratio of targeted value is {:.1f}%".format(loss))
     return scaled_data.astype(np.int32)
 
 

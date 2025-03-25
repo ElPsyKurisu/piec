@@ -30,6 +30,9 @@ class Sr830(Lockin):
     display_output_offset= (-105.00, 105.00)
     display_output_expand= ['1', '10', '100']
 
+    def __init__(self, address, check_params=True): #sets the check_params true by default, since we want at this layer to be as safe as possible
+        super().__init__(address, check_params)
+
     def __class_specific(self): 
         """
         Place to define instrument specific stuff. Ideally never needed if Parent class is robust enough and instead
