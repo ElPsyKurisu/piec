@@ -735,19 +735,20 @@ class Lockin(SCPI_Instrument):
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): SRS830
             voltage (str): Desired amplitude of signal in units of volts
-            frequency (str): Desired frequency of signal in units of Hz
+            frequency (str): Desired frequency of signal in units of Hz, requires source to be set to internal
             source (str): Configures the reference source allowed args are [internal, external]
             trig (str): Configures the reference input mode. Allowed args are ["sin", "rising", "falling"] "The reference input can be a sine wave (rising zero crossing detected) or a TTL pulse or square wave (rising or falling edge). The input impedance is 1 MΩ AC coupled (>1 Hz) for the sine input. For low frequencies (<1Hz), it is necessary to use a TTL reference signal. The TTL input provides the best overall performance and should be used whenever possible."
             phase (str): Configures the phase_shift of the reference in degrees
             harmonic (str): Selects the desired harmonic 
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
+        self._check_params(locals()) #turns on type checking
         if voltage is not None:
             self.instrument.write("slvl {}".format(voltage))
         if source == 'internal':
             self.instrument.write("fmod 1")
-            if frequency is not None:
-                self.instrument.write("freq {}".format(frequency)) #requires internal reference to be selected, otherwise it is dictated by external source
+        if frequency is not None:
+            self.instrument.write("freq {}".format(frequency)) #requires internal reference to be selected, otherwise it is dictated by external source
         if source == 'external':
             self.instrument.write("fmod 0")
         if trig == 'sin':
@@ -757,7 +758,9 @@ class Lockin(SCPI_Instrument):
         if trig == "falling":
             self.instrument.write("rslp 2")
         if phase is not None:
-            self.instrument.write("phas {:.2f}".format(phase)) #formats to 2 decimal places
+            if type(phase) == float:
+                phase = "{:.2f}".format(phase) #formats to 2 decimal places
+            self.instrument.write("phas {}".format(phase))
         if harmonic is not None:
             self.instrument.write("harm {}".format(harmonic))
         
@@ -774,6 +777,7 @@ class Lockin(SCPI_Instrument):
             sync (str): "on" for synchronous filter on (below 200 Hz harmonic*reference_freq) "off" for off 
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
+        self._check_params(locals()) #turns on type checking
         if sensitivity == 'auto': #autogain
             self.instrument.write("agan")
         elif self.sensitivity is not None:
@@ -806,6 +810,7 @@ class Lockin(SCPI_Instrument):
             expand (str): factor to expand by [1, 10, 100]
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
+        self._check_params(locals()) #turns on type checking
         if display is not None:
             if ratio == None:
                 ratio = 'none'

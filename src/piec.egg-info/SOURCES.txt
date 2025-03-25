@@ -34,5 +34,7 @@ src/piec/drivers/keysight81150a/__init__.py
 src/piec/drivers/keysight81150a/core.py
 src/piec/drivers/keysightdsox3024a/__init__.py
 src/piec/drivers/keysightdsox3024a/core.py
+src/piec/drivers/sr830/__init__.py
+src/piec/drivers/sr830/core.py
 src/piec/measurement_waveforms/__init__.py
 src/piec/measurement_waveforms/discrete_waveform.py
