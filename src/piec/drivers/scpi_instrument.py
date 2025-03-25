@@ -760,8 +760,6 @@ class Lockin(SCPI_Instrument):
         if trig == "falling":
             self.instrument.write("rslp 2")
         if phase is not None:
-            if type(phase) == float:
-                phase = "{:.2f}".format(phase) #formats to 2 decimal places
             self.instrument.write("phas {}".format(phase))
         if harmonic is not None:
             self.instrument.write("harm {}".format(harmonic))
@@ -807,9 +805,10 @@ class Lockin(SCPI_Instrument):
             channel (str): Desired channel to configure
             display (str): Desired param to display e.g. [X, R, Noise, Aux In1, Aux In2] Note for channel 2, X->Y R->Theta, etc but still pass in X for Y e.g. configure_display_outputs(2,X) will configure channel 2 to display Y
             ratio (str): ratio to scale display param by [none, Aux In 1, Aux in 2] for Chn1 or [none, Aux In 3, Aux in 4] for Chn2
-            output (str): What to output via the bnc [display, default=X or Y depending on chnnl]
-            offset (str): Output offset, requires exand as well in units of percent (-105.00 ≤ x ≤ 105.00)
-            expand (str): factor to expand by [1, 10, 100]
+            display_output (str): What to output via the bnc [display, default=X or Y depending on chnnl]
+            display_output_offset (str): Output offset, requires exand as well in units of percent (-105.00 ≤ x ≤ 105.00)
+            display_output_expand (str): factor to expand by [1, 10, 100]
+            display_expand_what (str): What to expand [x, y, r] NOTE: R is only available on Chn1, X and Y on both
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         self._check_params(locals()) #turns on type checking
@@ -825,7 +824,7 @@ class Lockin(SCPI_Instrument):
                     self.instrument.write("aoff {}".format(self.display_expand_what.index(display_expand_what)+1)) #need to add 1 because for this it starts at 1 for X, 2 for Y, 3 for R
                 if display_output_expand == None:
                     display_output_expand = "1"
-                self.instrument.write("oexp {},{:.2f},{}".format(self.display_expand_what.index(display_expand_what)+1, display_output_offset, self.display_output_expand.index(display_output_expand))) #formats to 2 decimal places
+                self.instrument.write("oexp {},{},{}".format(self.display_expand_what.index(display_expand_what)+1, display_output_offset, self.display_output_expand.index(display_output_expand))) #formats to 2 decimal places
         
 
         

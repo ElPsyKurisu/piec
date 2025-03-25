@@ -17,7 +17,7 @@ class Sr830(Lockin):
     voltage = (4e-3, 5) 
     frequency = (1e-3, 102e3)
     phase = (-360.00,729.99) #notice instruemnt rounds to 0.01 for you and will convert to +-180 e.g. PHAS 541.0 command will set the phase to -179.00°
-    harmonic = (1,170)
+    harmonic = (1,19999) #notice it is also set by the frequency, may need to add extra logic to catch errors harmonic#*frequency < 102e3
     trig = ["sin", "rising", "falling"] #type of trig allowed from reference input ["sin", "rising", "falling"]
     sensitivity = ['2nv/fa', '5nv/fa', '10nv/fa', '20nv/fa', '50nv/fa', '100nv/fa','200nv/fa', '500nv/fa', '1uv/pa', '2uv/pa', '5uv/pa', '10uv/pa','20uv/pa', '50uv/pa', '100uv/pa', '200uv/pa', '500uv/pa','1mv/na', '2mv/na', '5mv/na', '10mv/na', '20mv/na', '50mv/na', '100mv/na', '200mv/na', '500mv/na', '1v/ua'] #note this is gonna be a long list ['2nv/fa', '5nv/fa', '10nv/fa', '20nv/fa', '50nv/fa', '100nv/fa','200nv/fa', '500nv/fa', '1uv/pa', '2uv/pa', '5uv/pa', '10uv/pa','20uv/pa', '50uv/pa', '100uv/pa', '200uv/pa', '500uv/pa','1mv/na', '2mv/na', '5mv/na', '10mv/na', '20mv/na', '50mv/na', '100mv/na', '200mv/na', '500mv/na', '1v/ua']
     reserve_mode = ["high", "norm", "low"]
