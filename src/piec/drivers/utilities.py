@@ -7,7 +7,7 @@ try:
     from mcculw import ul
     from mcculw.enums import InterfaceType
 except FileNotFoundError:
-    raise FileNotFoundError('Please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
+    print('Warning, if using digilent please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
 
 class PiecManager():
     """
