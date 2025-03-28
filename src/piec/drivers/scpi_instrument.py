@@ -803,14 +803,25 @@ class Lockin(SCPI_Instrument):
         if sensitivity is not None:
             if sensitivity == 'auto':
                 self.instrument.write("agan")
-            else:
+            elif self.sensitivity is not None: #ensures that properly formatted sensitivty list exists
                 self.instrument.write("sens {}".format(self.sensitivity.index(sensitivity))) #note assumes the index of the list corresponds to the correct instrument code as it does in the SRS 830
+            else:
+                print("Warning cannot set the specified sensitivity try to autogain")
         if reserve_mode is not None:
-            self.instrument.write("rmod {}".format(self.reserve_mode.index(reserve_mode)))
+            if self.reserve_mode is not None:
+                self.instrument.write("rmod {}".format(self.reserve_mode.index(reserve_mode)))
+            else:
+                print("Warning cannot set the specified reserve mode, no reserve mode list")
         if time_constant is not None:
-            self.instrument.write("oflt {}".format(self.time_constant.index(time_constant)))
+            if self.time_constant is not None:
+                self.instrument.write("oflt {}".format(self.time_constant.index(time_constant)))
+            else:
+                print("Warning cannot set the specified time_constant, no time_constant list")
         if lp_filter_slope is not None:
-            self.instrument.write("ofsl {}".format(self.lp_filter_slope.index(lp_filter_slope)))
+            if self.lp_filter_slope is not None:
+                self.instrument.write("ofsl {}".format(self.lp_filter_slope.index(lp_filter_slope)))
+            else:
+                print("Warning cannot set the specified lp_filter_slope, no lp_filter_slope list")
         if sync is not None:
             if sync == "on":
                 self.instrument.write("sync 1")
