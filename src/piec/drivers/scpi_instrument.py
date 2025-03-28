@@ -787,7 +787,7 @@ class Lockin(SCPI_Instrument):
         if harmonic is not None:
             self.instrument.write("harm {}".format(harmonic))
         
-    def configure_gain_filters(self, sensitivity='auto', reserve_mode="norm", time_constant=None, lp_filter_slope=None, sync=None):
+    def configure_gain_filters(self, sensitivity=None, reserve_mode=None, time_constant=None, lp_filter_slope=None, sync=None):
         """
         This is set to configure the left side of the srs 830 aka time_constant, filters, gain, etc
 
@@ -800,17 +800,16 @@ class Lockin(SCPI_Instrument):
             sync (str): "on" for synchronous filter on (below 200 Hz harmonic*reference_freq) "off" for off 
         """
         locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
-        if sensitivity == 'auto': #autogain
-            self.instrument.write("agan")
-        elif self.sensitivity is not None:
-            self.instrument.write("sens {}".format(self.sensitivity.index(sensitivity))) #note assumes the index of the list corresponds to the correct instrument code as it does in the SRS 830
-        else:
-            print("Warning cannot set the specified sensitivity try to autogain")
-        if self.reserve_mode is not None:
+        if sensitivity is not None:
+            if sensitivity == 'auto':
+                self.instrument.write("agan")
+            else:
+                self.instrument.write("sens {}".format(self.sensitivity.index(sensitivity))) #note assumes the index of the list corresponds to the correct instrument code as it does in the SRS 830
+        if reserve_mode is not None:
             self.instrument.write("rmod {}".format(self.reserve_mode.index(reserve_mode)))
-        if self.time_constant is not None:
+        if time_constant is not None:
             self.instrument.write("oflt {}".format(self.time_constant.index(time_constant)))
-        if self.lp_filter_slope is not None:
+        if lp_filter_slope is not None:
             self.instrument.write("ofsl {}".format(self.lp_filter_slope.index(lp_filter_slope)))
         if sync is not None:
             if sync == "on":
