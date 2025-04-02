@@ -12,6 +12,8 @@ def metadata_and_data_to_csv(metadata, data, path):
     :param metadata: dataframe containing metadata, standard is a 1XN table (many columns with one value each)
     :param data: dataframe containing time data captured from measurment, appended to csv below metadata
     :param path: path to save csv in
+
+    ***NOTE Made with help from ChatGPT LLM***
     """
 
     metadata.to_csv(path, index=False, header=True)
@@ -53,6 +55,8 @@ def create_measurement_filename(directory, measurement_type, notes="", type="csv
     
     Returns:
     - filename (str): Full filepath of the given measurement in the form "{index}_{measurement_type}_{notes}.{type}"
+
+    ***NOTE Made with help from ChatGPT LLM***
     """
     # Ensure the directory exists
     os.makedirs(directory, exist_ok=True)
@@ -91,6 +95,8 @@ def interpolate_sparse_to_dense(x_sparse, y_sparse, total_points=100):
     
     Returns:
     - y_dense (numpy array): Dense array of linearly interpolated y coordinates.
+
+    ***NOTE Made with help from ChatGPT LLM***
     """
     y_dense = []
 

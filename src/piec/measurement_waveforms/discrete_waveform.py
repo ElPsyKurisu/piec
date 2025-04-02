@@ -145,9 +145,6 @@ class DiscreteWaveform:
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 
 class HysteresisLoop(DiscreteWaveform):
-
-
-    type = "hysteresis"
     """
     Hysteresis loop measurement using triangular excitation waveform.
     
@@ -163,6 +160,8 @@ class HysteresisLoop(DiscreteWaveform):
         :show_plots (bool): Display interactive plots flag
         :save_plots (bool): Save plot images flag
     """
+
+    type = "hysteresis"
 
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
                  n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8,
