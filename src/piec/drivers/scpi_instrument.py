@@ -216,7 +216,7 @@ class Scope(SCPI_Instrument):
     time_base_type = None
 
     def setup(self, channel: str='1', voltage_range: str='16', voltage_offset: str='1.00', delay: str='100e-6',
-          time_range: str='1e-3', autoscale=True):
+          time_range: str='1e-3', autoscale=False, reset=False):
         """
         Sets up the oscilliscope with the given paramaters. If autoscale is turned on it will ignore
         all other arguments and simply autoscale the instrument. Otherwise sample paramters are given
@@ -230,16 +230,23 @@ class Scope(SCPI_Instrument):
             voltage_offset (str): The offset for the voltage in units of volts
             delay (str): The delay in units of s
             time_range (str): The x scale of the oscilloscope, min 20ns, max 500s
+            autoscale (bool): If true sends command to autoscale
+            reset (bool): If true calls self.reset()
         """
-        self.reset()
+        if reset:
+            self.reset()
         if autoscale:
             self.instrument.write(":AUToscale")
-        else:
-            self.instrument.write("CHANel{}:RANGe {}".format(channel, voltage_range))
-            self.instrument.write("CHANel{}:OFFSet {}".format(channel, voltage_offset))
-            self.instrument.write("CHANel{}:TIMebase:RANGe {}".format(channel, time_range))
-            self.instrument.write("CHANel{}:TIMebase:DELay {}".format(channel, delay))
-        self.instrument.write(":ACQuire:TYPE NORMal")
+        else: #no point to change ranges if autoscaled
+            if voltage_range is not None:
+                self.instrument.write("CHANel{}:RANGe {}".format(channel, voltage_range))
+            if voltage_offset is not None:
+                self.instrument.write("CHANel{}:OFFSet {}".format(channel, voltage_offset))
+            if time_range is not None:
+                self.instrument.write("CHANel{}:TIMebase:RANGe {}".format(channel, time_range))
+            if delay is not None:
+                self.instrument.write("CHANel{}:TIMebase:DELay {}".format(channel, delay))
+        self.instrument.write(":ACQuire:TYPE NORMal") #why is this here
 
     def configure_timebase(self, time_base_type="MAIN", position="0.0",
                        reference="CENT", time_range=None, time_scale=None, vernier=None):
