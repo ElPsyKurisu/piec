@@ -14,8 +14,8 @@ class Keysight81150a(Awg):
     #correct syntax is tuple for ranges, list for limited amount, and dictionaries for nested things...
     channel = ['1', '2'] #allowable channels ['1', '2']
     voltage = (0, 5) #V_pp add functionality that swithches voltage depending on mode
-    frequency = {'func': {'sin': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
-    func = ['sin', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+    frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+    func = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     #might be useless since all awgs should have sin, squ, pulse etc maybe not include arb? idk
     #note that depends if we are in high voltage or high bandwidth mode, if in high bandwidth mode all are 50e6 max freq
     slew_rate = 1.0e9 # V/s

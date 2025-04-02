@@ -61,8 +61,8 @@ class AutoCheckMeta(type):
     def __new__(metacls, name, bases, class_dict):
         new_class_dict = {}
         for attr_name, attr_value in class_dict.items():
-            # Skip decoration for special methods and for _check_params.
-            if callable(attr_value) and not attr_name.startswith("__") and attr_name != '_check_params':
+            # Skip decoration for init func, and any internal functions.
+            if callable(attr_value) and not attr_name.startswith("_"): 
                 attr_value = auto_check_params(attr_value)
             new_class_dict[attr_name] = attr_value
         return super().__new__(metacls, name, bases, new_class_dict)
@@ -200,12 +200,12 @@ class SCPI_Instrument(Instrument, metaclass=AutoCheckMeta):
         """
         Want to check class attributes and arguments from the function are in acceptable ranges. Uses .locals() to get all arguments and checks
         against all class attributes and ensures if they match the range is valid NOTE: locals_dict is always lower
+        Added recursive_lower to ensure that if we have a class attribute like temp = ['one', 'two'] its the same as ['OnE', 'TWO'] etc
         """
-        class_attributes = get_class_attributes_from_instance(self)
-        print(class_attributes, 'bet')
+        class_attributes = recursive_lower(get_class_attributes_from_instance(self))
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         for key in keys_to_check:
-            attribute_value = getattr(self, key) #allowed types are strings, tuples, lists, and dicts
+            attribute_value = recursive_lower(getattr(self, key)) #allowed types are strings, tuples, lists, and dicts
             if attribute_value is None:
                 print("Warning no range-checking defined for \033[1m{}\033[0m, skipping _check_params".format(key)) #makes bold text
                 continue
@@ -617,7 +617,7 @@ class Awg(SCPI_Instrument):
         #self._check_params(locals()) #this wont work for user defined functions...
         #user_funcs = self.instrument.query(":DATA:CAT?")
         #user_funcs_list = user_funcs.replace('"', '').split(',')
-        print(locals(), 'yippie')
+        return
         if func == 'user':
             self._configure_arb_wf(channel, user_func, voltage, offset, frequency, invert)
         else: #assumes built in
@@ -1149,6 +1149,23 @@ def is_integer(n):
         return n.is_integer()
     else:
         return False
+
+def recursive_lower(obj):
+    """
+    Recursively lowercases strings within common data structures.
+    Non-string objects or numbers are returned as is.
+    """
+    if isinstance(obj, str):
+        return obj.lower()
+    elif isinstance(obj, list):
+        return [recursive_lower(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(recursive_lower(item) for item in obj)
+    elif isinstance(obj, dict):
+        return { (k.lower() if isinstance(k, str) else k): recursive_lower(v)
+                 for k, v in obj.items() }
+    else:
+        return obj
 
 
 '''
