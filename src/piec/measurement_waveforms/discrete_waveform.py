@@ -237,7 +237,7 @@ class HysteresisLoop(DiscreteWaveform):
         invert = self.amplitude < 0 # Check if we want opposite polarity
 
         self.awg.create_arb_wf(dense)
-        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(self.amplitude)*2}', frequency=f'{self.frequency}', invert=invert) 
+        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(self.amplitude)*2}', offset=f'{self.offset}', frequency=f'{self.frequency}', invert=invert) 
 
 class ThreePulsePund(DiscreteWaveform):
     """
@@ -335,8 +335,8 @@ class ThreePulsePund(DiscreteWaveform):
         # specify sparse t and v coordinates which define PUND pulse train
         sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],
                                 sum_times[4], sum_times[4], sum_times[5], sum_times[5], sum_times[6],])
-        sparse_v = np.array([-frac_reset_amp, -frac_reset_amp, 0, 0, frac_p_u_amp, frac_p_u_amp, 0, 0,
-                             frac_p_u_amp, frac_p_u_amp, 0, 0,]) * polarity
+        sparse_v = np.array([-abs(frac_reset_amp), -abs(frac_reset_amp), 0, 0, abs(frac_p_u_amp), abs(frac_p_u_amp), 0, 0,
+                             abs(frac_p_u_amp), abs(frac_p_u_amp), 0, 0,]) * polarity
         
         n_points = self.awg.arb_wf_points_range[1] # n points to use is max
 
@@ -344,7 +344,7 @@ class ThreePulsePund(DiscreteWaveform):
         dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=n_points)
         # write to awg
         self.awg.create_arb_wf(dense_v)
-        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', voltage=f'{abs(amplitude)}', frequency=f'{1/self.length}')
+        self.awg.configure_wf(self.voltage_channel, 'VOLATILE', offset=f'{self.offset}', voltage=f'{abs(amplitude)}', frequency=f'{1/self.length}')
         print("AWG configured for a PUND pulse.")
 
     
