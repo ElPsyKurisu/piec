@@ -187,7 +187,7 @@ class SCPI_Instrument(Instrument, metaclass=AutoCheckMeta):
             if input_value is None:
                 continue #skips checking for placeholder values
             if type(attribute_value) == tuple:
-                if not is_value_between(input_value, attribute_value): #will error need to make jey values correct
+                if not is_value_between(input_value, attribute_value): #will error need to make key values correct
                     exit_with_error("Error input value of \033[1m{}\033[0m for arg \033[1m{}\033[0m is out of acceptable Range \033[1m{}\033[0m".format(input_value, key, attribute_value))
             if type(attribute_value) == list:
                 if not is_contained(input_value, attribute_value): #checks if the input value is in the allowed list
@@ -210,6 +210,7 @@ class Scope(SCPI_Instrument):
     #Should be overriden
     voltage_range = None #entire screen range
     voltage_scale = None #units per division
+    reference = None
     time_range = None   
     time_scale = None
     time_base_type = None
@@ -241,7 +242,7 @@ class Scope(SCPI_Instrument):
         self.instrument.write(":ACQuire:TYPE NORMal")
 
     def configure_timebase(self, time_base_type="MAIN", position="0.0",
-                       reference="CENT", time_range=None, time_scale=None, vernier=False):
+                       reference="CENT", time_range=None, time_scale=None, vernier=None):
         """Configures the timebase of the oscilliscope. Adapted from EKPY program 'Configure Timebase (Basic)'
         Should call initialize first.
 
@@ -249,6 +250,7 @@ class Scope(SCPI_Instrument):
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             time_base_type (str): Allowed values are 'MAIN', 'WINDow', 'XY', and 'ROLL', note must use main for data acquisition
             position (str): The position in the scope, [0.0] is a good default This is actually the delay on the scope (moves in time right and left)
+            reference (str): The reference
             time_range (str): The x range of the scope min is 20ns, max is 500s
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
             vernier (boolean): Enables Vernier scale
@@ -263,10 +265,11 @@ class Scope(SCPI_Instrument):
             self.instrument.write("TIM:REF {}".format(reference))
         if time_scale is not None:
             self.instrument.write("TIM:SCAL {}".format(time_scale))
-        if vernier:
-            self.instrument.write("TIM:VERN ON")
-        else:
-            self.instrument.write("TIM:VERN OFF")
+        if vernier is not None:
+            if vernier:
+                self.instrument.write("TIM:VERN ON")
+            else:
+                self.instrument.write("TIM:VERN OFF")
 
     def configure_channel(self, channel: str='1', scale_mode=True, voltage_scale: str='4', voltage_range: str='40',
                               voltage_offset: str='0.0', coupling: str='DC', probe_attenuation: str='1.0', 
@@ -988,10 +991,11 @@ def find_nearest_time(input_time, time_constants_list):
 def convert_to_lowercase(params):
     """
     Helper function to ensure that all params are lowercase
-    inside the func call
+    inside the func call, but doesn't modify None type values.
     >>> locals().update(convert_to_lowercase(locals()))
     """
-    return {key: str(value).lower() for key, value in params.items()}
+    return {key: value.lower() if isinstance(value, str) else value for key, value in params.items()}
+
 
 
 
