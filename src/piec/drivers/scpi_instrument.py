@@ -215,6 +215,7 @@ class Scope(SCPI_Instrument):
     time_scale = None
     time_base_type = None
     acquire_type = None
+    position = None
 
     def autoscale(self):
         """
@@ -231,7 +232,7 @@ class Scope(SCPI_Instrument):
         if acquire_type is not None:
             self.instrument.write(":ACQuire:TYPE {}".format(acquire_type))
 
-    def configure_timebase(self, time_base_type="MAIN", position="0.0",
+    def configure_timebase(self, time_base_type=None, position=None,
                        reference="CENT", time_range=None, time_scale=None, vernier=None):
         """Configures the timebase of the oscilliscope. Adapted from EKPY program 'Configure Timebase (Basic)'
         Should call initialize first.
@@ -239,7 +240,7 @@ class Scope(SCPI_Instrument):
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             time_base_type (str): Allowed values are 'MAIN', 'WINDow', 'XY', and 'ROLL', note must use main for data acquisition
-            position (str): The position in the scope, [0.0] is a good default This is actually the delay on the scope (moves in time right and left)
+            position (str): The position in the scope, [0.0] is a good default This is actually the delay on the scope (moves in time right and left) max value depends on time/div settings
             reference (str): The reference
             time_range (str): The x range of the scope min is 20ns, max is 500s
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
