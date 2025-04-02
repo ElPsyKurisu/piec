@@ -208,6 +208,7 @@ class Scope(SCPI_Instrument):
     Sub-class of Instrument to hold the general methods used by scopes. For Now defaulted to DSOX3024a, but can always ovveride certain SCOPE functions
     """
     #Should be overriden
+    #Screen stuff
     voltage_range = None #entire screen range
     voltage_scale = None #units per division
     reference = None
@@ -224,6 +225,9 @@ class Scope(SCPI_Instrument):
     trigger_input_coupling = None
     trigger_edge_slope = None
     trigger_filter_type = None
+    #idk
+    channel = None
+    source = None
 
     def autoscale(self):
         """
@@ -396,12 +400,20 @@ class Scope(SCPI_Instrument):
             points_mode (str): Mode for points allowed args are [NORM (normal), MAX (maximum), RAW]
             unsigned (str): Allows to switch between unsigned and signed integers [OFF (signed), ON (unsigned)]
         """
-        self.instrument.write(":WAVeform:SOURce {}".format(source))
-        self.instrument.write(":WAVeform:BYTeorder {}".format(byte_order))
-        self.instrument.write(":WAVeform:FORMat {}".format(format))
-        self.instrument.write(":WAVeform:POINts:MODE {}".format(points_mode))
-        self.instrument.write(":WAVeform:POINts {}".format(points))
-        self.instrument.write(":WAVeform:UNSigned {}".format(unsigned))
+        if source is not None:
+            self.instrument.write(":WAVeform:SOURce {}".format(source))
+        else:
+            print("WARNING no source defined")
+        if byte_order is not None:
+            self.instrument.write(":WAVeform:BYTeorder {}".format(byte_order))
+        if format is not None:
+            self.instrument.write(":WAVeform:FORMat {}".format(format))
+        if points_mode is not None:
+            self.instrument.write(":WAVeform:POINts:MODE {}".format(points_mode))
+        if points is not None:
+            self.instrument.write(":WAVeform:POINts {}".format(points))
+        if unsigned is not None:
+            self.instrument.write(":WAVeform:UNSigned {}".format(unsigned))
 
     def query_wf(self, byte_order: str='MSBF', unsigned: str='OFF'):
         """Returns the specified channels waveform with averaging or not and of a specified format/count, call
