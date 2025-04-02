@@ -214,8 +214,16 @@ class Scope(SCPI_Instrument):
     time_range = None   
     time_scale = None
     time_base_type = None
+    time_reference = None
     acquire_type = None
-    position = None
+    impedance = None
+    #trigger attributes
+    trigger_source = None
+    trigger_type = None
+    trigger_sweep = None
+    trigger_input_coupling = None
+    trigger_edge_slope = None
+    trigger_filter_type = None
 
     def autoscale(self):
         """
@@ -233,7 +241,7 @@ class Scope(SCPI_Instrument):
             self.instrument.write(":ACQuire:TYPE {}".format(acquire_type))
 
     def configure_timebase(self, time_base_type=None, position=None,
-                       reference="CENT", time_range=None, time_scale=None, vernier=None):
+                       time_reference=None, time_range=None, time_scale=None, vernier=None):
         """Configures the timebase of the oscilliscope. Adapted from EKPY program 'Configure Timebase (Basic)'
         Should call initialize first.
 
@@ -241,7 +249,7 @@ class Scope(SCPI_Instrument):
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             time_base_type (str): Allowed values are 'MAIN', 'WINDow', 'XY', and 'ROLL', note must use main for data acquisition
             position (str): The position in the scope, [0.0] is a good default This is actually the delay on the scope (moves in time right and left) max value depends on time/div settings
-            reference (str): The reference
+            time_reference (str): The reference of where to start position
             time_range (str): The x range of the scope min is 20ns, max is 500s
             time_scale (str): The x scale of the scope in units of s/div min is 2ns, max is 50s
             vernier (boolean): Enables Vernier scale
@@ -252,8 +260,8 @@ class Scope(SCPI_Instrument):
             self.instrument.write("TIM:POS {}".format(position))
         if time_range is not None:
             self.instrument.write("TIM:RANG {}".format(time_range))
-        if reference is not None:
-            self.instrument.write("TIM:REF {}".format(reference))
+        if time_reference is not None:
+            self.instrument.write("TIM:REF {}".format(time_reference))
         if time_scale is not None:
             self.instrument.write("TIM:SCAL {}".format(time_scale))
         if vernier is not None:
@@ -262,16 +270,15 @@ class Scope(SCPI_Instrument):
             else:
                 self.instrument.write("TIM:VERN OFF")
 
-    def configure_channel(self, channel: str='1', scale_mode=True, voltage_scale: str='4', voltage_range: str='40',
-                              voltage_offset: str='0.0', coupling: str='DC', probe_attenuation: str='1.0', 
-                              impedance: str='ONEM', display_channel=True):
-        """Sets up the voltage measurement on the desired channel with the desired paramaters. Taken from
+    def configure_channel(self, channel: str='1', voltage_scale: str=None, voltage_range: str=None,
+                              voltage_offset: str=None, coupling: str=None, probe_attenuation: str=None, 
+                              impedance: str=None, display_channel=None):
+        """Sets up the voltage measurement on the desired channel with the desired paramaters. Adapted from
         EKPY. 
 
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             channel (str): Desired channel allowed values are 1,2,3,4
-            scale_mode (boolean): Allows us to select between a vertical scale or range setting [see options below]
             voltage_scale (str): The vertical scale in units of v/div
             voltage_range (str): The verticale scale range min: 8mv, max: 40V
             voltage_offset (str): The offset for the vertical scale in units of volts
@@ -280,64 +287,84 @@ class Scope(SCPI_Instrument):
             impedance (str): Configures if we are in high impedance mode or impedance match. Allowed factors are 'ONEM' for 1 M Ohm and 'FIFT' for 50 Ohm
             display_channel (boolean): Toggles the display of the channel
         """
-        if scale_mode:
+        if voltage_scale is not None:
             self.instrument.write("CHAN{}:SCAL {}".format(channel, voltage_scale))
-        else:
+        if voltage_range is not None:
             self.instrument.write("CHAN{}:RANG {}".format(channel, voltage_range))
-        self.instrument.write("CHAN{}:OFFS {}".format(channel, voltage_offset))
-        self.instrument.write("CHAN{}:COUP {}".format(channel, coupling))
-        self.instrument.write("CHAN{}:PROB {}".format(channel, probe_attenuation))
-        self.instrument.write("CHAN{}:IMP {}".format(channel, impedance))
-        if display_channel:
-            self.instrument.write("CHAN{}:DISP ON".format(channel))
-        else:
-            self.instrument.write("CHAN{}:DISP OFF".format(channel))
+        if voltage_offset is not None:
+            self.instrument.write("CHAN{}:OFFS {}".format(channel, voltage_offset))
+        if coupling is not None:
+            self.instrument.write("CHAN{}:COUP {}".format(channel, coupling))
+        if probe_attenuation is not None:
+            self.instrument.write("CHAN{}:PROB {}".format(channel, probe_attenuation))
+        if impedance is not None:
+            self.instrument.write("CHAN{}:IMP {}".format(channel, impedance))
+        if display_channel is not None:
+            if display_channel:
+                self.instrument.write("CHAN{}:DISP ON".format(channel))
+            else:
+                self.instrument.write("CHAN{}:DISP OFF".format(channel))
     
-    def configure_trigger_characteristics(self, type: str='EDGE', holdoff_time: str='4E-8', low_voltage_level: str='1',
-                                      high_voltage_level: str='1', trigger_source: str='CHAN1', sweep: str='AUTO',
-                                       enable_high_freq_filter=False, enable_noise_filter=False):
+    def configure_trigger_characteristics(self, trigger_type: str=None, trigger_holdoff_time: str=None, trigger_low_level: str=None,
+                                      trigger_high_level: str=None, trigger_source: str=None, trigger_sweep: str=None,
+                                       enable_high_freq_filter=None, enable_noise_filter=None):
         """Configures the trigger characteristics Taken from EKPY. 'Configures the basic settings of the trigger.'
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
-            type (str): Trigger type, accepted params are: [EDGE (Edge), GLIT (Glitch), PATT (Pattern), TV (TV), EBUR (Edge Burst), RUNT (Runt), NFC (Setup Hold), TRAN (Transition), SBUS1 (Serial Bus 1), SBUS2 (Serial Bus 2), USB (USB), DEL (Delay), OR (OR), NFC (Near Field Communication)]
-            holdoff_time (str): Additional Delay in units of sec before re-arming trigger circuit
-            low_voltage_level (str): The low trigger voltage level units of volts
-            high_voltage_level (str): The high trigger voltage level units of volts
+            trigger_type (str): Trigger type, accepted params are: [EDGE (Edge), GLIT (Glitch), PATT (Pattern), TV (TV), EBUR (Edge Burst), RUNT (Runt), NFC (Setup Hold), TRAN (Transition), SBUS1 (Serial Bus 1), SBUS2 (Serial Bus 2), USB (USB), DEL (Delay), OR (OR), NFC (Near Field Communication)]
+            trigger_holdoff_time (str): Additional Delay in units of sec before re-arming trigger circuit
+            trigger_low_level (str): The low trigger voltage level units of volts
+            trigger_high_level (str): The high trigger voltage level units of volts
             trigger_source (str): Desired channel to trigger on allowed values are [CHAN1,CHAN2,CHAN3,CHAN4, EXT (there are more)]
-            sweep (str): Allowed values are [AUTO (automatic), NORM (Normal)]
+            trigger_sweep (str): Allowed values are [AUTO (automatic), NORM (Normal)]
             enable_high_freq_filter (boolean): Toggles the high frequency filter
             enable_noise_filter (boolean): Toggles the noise filter
         """
-        if enable_high_freq_filter:
-            self.instrument.write(":TRIG:HFR ON")
+        if trigger_type is not None:
+            self.instrument.write(":TRIG:MODE {}".format(trigger_type))
+        if enable_high_freq_filter is not None:
+            if enable_high_freq_filter:
+                self.instrument.write(":TRIG:HFR ON")
+            else:
+                self.instrument.write(":TRIG:HFR OFF")
+        if trigger_holdoff_time is not None:
+            self.instrument.write(":TRIG:HOLD {}".format(trigger_holdoff_time))
+        if trigger_source is not None and trigger_low_level or trigger_high_level is not None:
+            if trigger_high_level is not None:
+                self.instrument.write(":TRIG:LEV:HIGH {}, {}".format(trigger_high_level, trigger_source))
+            if trigger_low_level is not None:
+                self.instrument.write(":TRIG:LEV:LOW {}, {}".format(trigger_low_level, trigger_source))
         else:
-            self.instrument.write(":TRIG:HFR OFF")
-        self.instrument.write(":TRIG:HOLD {}".format(holdoff_time))
-        self.instrument.write(":TRIG:LEV:HIGH {}, {}".format(high_voltage_level, trigger_source))
-        self.instrument.write(":TRIG:LEV:LOW {}, {}".format(low_voltage_level, trigger_source))
-        self.instrument.write(":TRIG:MODE {}".format(type))
-        if enable_noise_filter:
-            self.instrument.write(":TRIG:NREJ ON")
-        else:
-            self.instrument.write(":TRIG:NREJ OFF")
-        self.instrument.write(":TRIG:SWE {}".format(sweep))
+            print("WARNING \033trigger_source\033 has not been set, allowed args are {}".format(self.trigger_source))
+        if trigger_sweep is not None:
+            self.instrument.write(":TRIG:SWE {}".format(trigger_sweep))
+        if enable_noise_filter is not None:
+            if enable_noise_filter:
+                self.instrument.write(":TRIG:NREJ ON")
+            else:
+                self.instrument.write(":TRIG:NREJ OFF")
 
-    def configure_trigger_edge(self, trigger_source: str='CHAN1', input_coupling: str='AC', edge_slope: str='POS', 
-                           level: str='0', filter_type: str='OFF'):
+    def configure_trigger_edge(self, trigger_source: str='CHAN1', trigger_input_coupling: str='AC', trigger_edge_slope: str='POS', 
+                           trigger_level: str='0', trigger_filter_type: str='OFF'):
         """Configures the trigger characteristics Taken from EKPY. 'Configures the basic settings of the trigger.'
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             trigger_source (str): Desired channel/source to trigger on allowed values are: [CHAN1,CHAN2,CHAN3,CHAN4,DIG0,DIG1 (there are more)]
-            input_coupling (str): Allowed values = [AC, DC, LFR (Low Frequency Coupling)]
-            edge_slope (str): Allowed values = [POS, NEG, EITH (either), ALT (alternate)]
-            level (str): Trigger level in volts
-            filter_type (str): Allowed values = [OFF, LFR (High-pass filter), HFR (Low-pass filter)] Note: Low Frequency reject == High-pass
+            trigger_input_coupling (str): Allowed values = [AC, DC, LFR (Low Frequency Coupling)]
+            trigger_edge_slope (str): Allowed values = [POS, NEG, EITH (either), ALT (alternate)]
+            trigger_level (str): Trigger level in volts
+            trigger_filter_type (str): Allowed values = [OFF, LFR (High-pass filter), HFR (Low-pass filter)] Note: Low Frequency reject == High-pass
         """
-        self.instrument.write(":TRIG:SOUR {}".format(trigger_source))
-        self.instrument.write(":TRIG:COUP {}".format(input_coupling))
-        self.instrument.write(":TRIG:LEV {}".format(level))
-        self.instrument.write(":TRIG:REJ {}".format(filter_type))
-        self.instrument.write(":TRIG:SLOP {}".format(edge_slope))
+        if trigger_source is not None:
+            self.instrument.write(":TRIG:SOUR {}".format(trigger_source))
+        if trigger_input_coupling is not None:
+            self.instrument.write(":TRIG:COUP {}".format(trigger_input_coupling))
+        if trigger_level is not None:
+            self.instrument.write(":TRIG:LEV {}".format(trigger_level))
+        if trigger_filter_type is not None:
+            self.instrument.write(":TRIG:REJ {}".format(trigger_filter_type))
+        if trigger_edge_slope is not None:
+            self.instrument.write(":TRIG:SLOP {}".format(trigger_edge_slope))
 
     def initiate(self):
         """
@@ -353,6 +380,10 @@ class Scope(SCPI_Instrument):
         self.instrument.write(":DIG")
         self.instrument.write("*CLS")
     
+    """
+    NOTE: GOT UP TO HERE FOR CLEANING UP SCOPE
+    """
+
     def setup_wf(self, source: str='CHAN1', byte_order: str='MSBF', format: str='byte', points: str='1000', 
              points_mode: str='NORMal', unsigned: str='OFF'):
         """Sets up the waveform with averaging or not and of a specified format/count  
