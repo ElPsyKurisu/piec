@@ -16,23 +16,15 @@ Code added to help support self._check_params, with help from ChatGPT
 """
 import functools
 import inspect
-"""
+
 def auto_check_params(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if getattr(self, 'check_params', False):
-            # Bind the arguments to the function's signature.
-            sig = inspect.signature(func)
-            bound_args = sig.bind(self, *args, **kwargs)
-            bound_args.apply_defaults()
-            # Convert the bound arguments to lowercase if desired.
-            params = convert_to_lowercase(bound_args.arguments)
-            # Call the parameter checking method.
-            self._check_params(params)
-        return func(self, *args, **kwargs)
-    return wrapper
-"""
-def auto_check_params(func):
+    """
+    This was taken with help from ChatGPT. Used to call self._check_params first whenever
+    a function is called if the class boolean flag check_params=True. Note, it also has a secondary
+    function that intercepts all arguments given to a function and converts them to lowercase.
+    This is done to ensure that our logic can be case-insensitive and when writing functions we ALWAYS
+    write things using lowercase.
+    """
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         # Bind the passed arguments to the function's signature.
@@ -463,13 +455,13 @@ class Scope(SCPI_Instrument):
         'y_origin': np.float32(preamble_list[8]),
         'y_reference': np.int32(preamble_list[9]),
         }
-        if byte_order == 'MSBF':
+        if byte_order == 'msbf':
             is_big_endian = True
-        if byte_order == 'LSBF':
+        if byte_order == 'lsbf':
             is_big_endian = False
-        if unsigned == 'OFF':
+        if unsigned == 'off':
             is_unsigned = False
-        if unsigned == 'ON':
+        if unsigned == 'on':
             is_unsigned = True
         if self.virtual:
             data_df = pd.read_csv(os.path.join(os.path.dirname(__file__), "virtual_osc_trace.csv"))
@@ -617,7 +609,6 @@ class Awg(SCPI_Instrument):
         #self._check_params(locals()) #this wont work for user defined functions...
         #user_funcs = self.instrument.query(":DATA:CAT?")
         #user_funcs_list = user_funcs.replace('"', '').split(',')
-        return
         if func == 'user':
             self._configure_arb_wf(channel, user_func, voltage, offset, frequency, invert)
         else: #assumes built in
@@ -664,10 +655,8 @@ class Awg(SCPI_Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        dict_to_check = locals()
-        dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
         if self.slew_rate is not None:
-            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
+            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip() #seems like trouble
             if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
                     print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
         self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
@@ -805,7 +794,6 @@ class Lockin(SCPI_Instrument):
             phase (str): Configures the phase_shift of the reference in degrees
             harmonic (str): Selects the desired harmonic 
         """
-        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         if voltage is not None:
             self.instrument.write("slvl {}".format(voltage))
         if source == 'internal':
@@ -837,7 +825,6 @@ class Lockin(SCPI_Instrument):
             lp_filter_slope (str): in units of dB/oct ['6','12','18','24']
             sync (str): "on" for synchronous filter on (below 200 Hz harmonic*reference_freq) "off" for off 
         """
-        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         if sensitivity is not None:
             if sensitivity == 'auto':
                 self.instrument.write("agan")
@@ -880,7 +867,6 @@ class Lockin(SCPI_Instrument):
             display_output_expand (str): factor to expand by [1, 10, 100]
             display_expand_what (str): What to expand [x, y, r] NOTE: R is only available on Chn1, X and Y on both
         """
-        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         if display is not None:
             if ratio == None:
                 ratio = 'none'
@@ -895,10 +881,6 @@ class Lockin(SCPI_Instrument):
                     display_output_expand = "1"
                 self.instrument.write("oexp {},{},{}".format(self.display_expand_what.index(display_expand_what)+1, display_output_offset, self.display_output_expand.index(display_output_expand))) #formats to 2 decimal places
         
-
-        
-
-
 
     def measure_params(self, param_list):
         """
