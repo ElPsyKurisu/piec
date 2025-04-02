@@ -214,39 +214,22 @@ class Scope(SCPI_Instrument):
     time_range = None   
     time_scale = None
     time_base_type = None
+    acquire_type = None
 
-    def setup(self, channel: str='1', voltage_range: str='16', voltage_offset: str='1.00', delay: str='100e-6',
-          time_range: str='1e-3', autoscale=False, reset=False):
+    def autoscale(self):
         """
-        Sets up the oscilliscope with the given paramaters. If autoscale is turned on it will ignore
-        all other arguments and simply autoscale the instrument. Otherwise sample paramters are given
-        as the default values. First the Program resets the instrument and after passing in desired parameters
-        it sets the scope up for acquiring.
+        Function that autoscales the instrument.
+        """
+        self.instrument.write(":AUToscale") 
 
+    def configure_acquire_type(self, acquire_type = None):
+        """
+        NOTE: I'm not sure where this function should fit under so for now it is seperate.
         args:
-            self (pyvisa.resources.gpib.GPIBInstrument): SCOPE
-            channel (str): Desired channel allowed values are 1,2,3,4
-            voltage_range (str): The y scale of the oscilloscope, max is 40V, min is 8mV
-            voltage_offset (str): The offset for the voltage in units of volts
-            delay (str): The delay in units of s
-            time_range (str): The x scale of the oscilloscope, min 20ns, max 500s
-            autoscale (bool): If true sends command to autoscale
-            reset (bool): If true calls self.reset()
+            acquire_type (str): Type to acquire data with, note NORM is probably best ['NORM', 'HRES', 'PEAK']
         """
-        if reset:
-            self.reset()
-        if autoscale:
-            self.instrument.write(":AUToscale")
-        else: #no point to change ranges if autoscaled
-            if voltage_range is not None:
-                self.instrument.write("CHANel{}:RANGe {}".format(channel, voltage_range))
-            if voltage_offset is not None:
-                self.instrument.write("CHANel{}:OFFSet {}".format(channel, voltage_offset))
-            if time_range is not None:
-                self.instrument.write("CHANel{}:TIMebase:RANGe {}".format(channel, time_range))
-            if delay is not None:
-                self.instrument.write("CHANel{}:TIMebase:DELay {}".format(channel, delay))
-        self.instrument.write(":ACQuire:TYPE NORMal") #why is this here
+        if acquire_type is not None:
+            self.instrument.write(":ACQuire:TYPE {}".format(acquire_type))
 
     def configure_timebase(self, time_base_type="MAIN", position="0.0",
                        reference="CENT", time_range=None, time_scale=None, vernier=None):
@@ -280,7 +263,7 @@ class Scope(SCPI_Instrument):
 
     def configure_channel(self, channel: str='1', scale_mode=True, voltage_scale: str='4', voltage_range: str='40',
                               voltage_offset: str='0.0', coupling: str='DC', probe_attenuation: str='1.0', 
-                              impedance: str='ONEM', enable_channel=True):
+                              impedance: str='ONEM', display_channel=True):
         """Sets up the voltage measurement on the desired channel with the desired paramaters. Taken from
         EKPY. 
 
@@ -294,7 +277,7 @@ class Scope(SCPI_Instrument):
             coupling (str): 'AC' or 'DC' values allowed
             probe_attenuation (str): Multiplicative factor to attenuate signal to stil be able to read, max is most likely 10:1
             impedance (str): Configures if we are in high impedance mode or impedance match. Allowed factors are 'ONEM' for 1 M Ohm and 'FIFT' for 50 Ohm
-            enable_channel (boolean): Enables the channel
+            display_channel (boolean): Toggles the display of the channel
         """
         if scale_mode:
             self.instrument.write("CHAN{}:SCAL {}".format(channel, voltage_scale))
@@ -304,7 +287,7 @@ class Scope(SCPI_Instrument):
         self.instrument.write("CHAN{}:COUP {}".format(channel, coupling))
         self.instrument.write("CHAN{}:PROB {}".format(channel, probe_attenuation))
         self.instrument.write("CHAN{}:IMP {}".format(channel, impedance))
-        if enable_channel:
+        if display_channel:
             self.instrument.write("CHAN{}:DISP ON".format(channel))
         else:
             self.instrument.write("CHAN{}:DISP OFF".format(channel))
