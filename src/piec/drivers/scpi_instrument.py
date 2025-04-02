@@ -16,7 +16,7 @@ Code added to help support self._check_params, with help from ChatGPT
 """
 import functools
 import inspect
-
+"""
 def auto_check_params(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -30,6 +30,31 @@ def auto_check_params(func):
             # Call the parameter checking method.
             self._check_params(params)
         return func(self, *args, **kwargs)
+    return wrapper
+"""
+def auto_check_params(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Bind the passed arguments to the function's signature.
+        sig = inspect.signature(func)
+        bound_args = sig.bind(self, *args, **kwargs)
+        bound_args.apply_defaults()
+        
+        # Convert all bound arguments to lowercase as needed.
+        lower_params = convert_to_lowercase(bound_args.arguments)
+        
+        # If check_params is enabled, call your parameter-checking function.
+        if getattr(self, 'check_params', False):
+            self._check_params(lower_params)
+        
+        # Reconstruct the arguments in the correct order.
+        new_args = []
+        for param in sig.parameters:
+            new_args.append(lower_params[param])
+        
+        # Call the original function with the lowercased arguments.
+        return func(*new_args)
+    
     return wrapper
 
 class AutoCheckMeta(type):
@@ -590,14 +615,14 @@ class Awg(SCPI_Instrument):
         """
         #might need to rewrite check_params here
         #self._check_params(locals()) #this wont work for user defined functions...
-        built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC'] #check if built in, else use checkparams or this should be via check_params
-        built_in_list += built_in_list.lower()
-        user_funcs = self.instrument.query(":DATA:CAT?")
-        user_funcs_list = user_funcs.replace('"', '').split(',')
-        if func in built_in_list:
-            self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
-        if func == 'USER':
+        #user_funcs = self.instrument.query(":DATA:CAT?")
+        #user_funcs_list = user_funcs.replace('"', '').split(',')
+        print(locals(), 'yippie')
+        if func == 'user':
             self._configure_arb_wf(channel, user_func, voltage, offset, frequency, invert)
+        else: #assumes built in
+            self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
+
 
     def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
         """
