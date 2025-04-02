@@ -174,9 +174,10 @@ class SCPI_Instrument(Instrument, metaclass=AutoCheckMeta):
     def _check_params(self, locals_dict):
         """
         Want to check class attributes and arguments from the function are in acceptable ranges. Uses .locals() to get all arguments and checks
-        against all class attributes and ensures if they match the range is valid 
+        against all class attributes and ensures if they match the range is valid NOTE: locals_dict is always lower
         """
         class_attributes = get_class_attributes_from_instance(self)
+        print(class_attributes, 'bet')
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         for key in keys_to_check:
             attribute_value = getattr(self, key) #allowed types are strings, tuples, lists, and dicts
@@ -572,7 +573,7 @@ class Awg(SCPI_Instrument):
             self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
 
     def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
-                      num_cycles=None, invert: bool=False):
+                      num_cycles=None, invert: bool=False, user_func: str="VOLATILE"):
         """
         This function configures the named func with the given parameters. Works on both user defined and built-in functions
         args:
@@ -585,16 +586,18 @@ class Awg(SCPI_Instrument):
             duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
+            user_func (str): name of the user defined function as saved on the instrument.
         """
         #might need to rewrite check_params here
         #self._check_params(locals()) #this wont work for user defined functions...
         built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC'] #check if built in, else use checkparams or this should be via check_params
+        built_in_list += built_in_list.lower()
         user_funcs = self.instrument.query(":DATA:CAT?")
         user_funcs_list = user_funcs.replace('"', '').split(',')
         if func in built_in_list:
             self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
-        else:
-            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
+        if func == 'USER':
+            self._configure_arb_wf(channel, user_func, voltage, offset, frequency, invert)
 
     def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
         """
@@ -1069,12 +1072,17 @@ def get_matching_keys(dict1, dict2):
 
 def get_class_attributes_from_instance(instance):
     """
-    Helper Function to get the class attributes from an instance (calls self) with help from ChatGPT
+    Helper Function to get the class attributes from an instance.
+    It retrieves class attributes starting from the base classes and
+    then overrides them with attributes from child classes.
     """
     cls = instance.__class__
     attributes = {}
-    for base in cls.__mro__:
-        attributes.update({attr: getattr(base, attr) for attr in base.__dict__ if not callable(getattr(base, attr)) and not attr.startswith("__")})
+    # Iterate in reverse MRO so that child class attributes override base class ones.
+    for base in reversed(cls.__mro__):
+        attributes.update({attr: getattr(base, attr) 
+                           for attr in base.__dict__ 
+                           if not callable(getattr(base, attr)) and not attr.startswith("__")})
     return attributes
 
 
