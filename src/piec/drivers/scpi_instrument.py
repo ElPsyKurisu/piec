@@ -464,13 +464,13 @@ class Scope(SCPI_Instrument):
         'y_origin': np.float32(preamble_list[8]),
         'y_reference': np.int32(preamble_list[9]),
         }
-        if byte_order == 'MSBF':
+        if byte_order == 'msbf':
             is_big_endian = True
-        if byte_order == 'LSBF':
+        if byte_order == 'lsbf':
             is_big_endian = False
-        if unsigned == 'OFF':
+        if unsigned == 'off':
             is_unsigned = False
-        if unsigned == 'ON':
+        if unsigned == 'on':
             is_unsigned = True
         if self.virtual:
             data_df = pd.read_csv(os.path.join(os.path.dirname(__file__), "virtual_osc_trace.csv"))
