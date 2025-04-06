@@ -18,26 +18,43 @@ import functools
 import inspect
 
 def auto_check_params(func):
+    """
+    This was taken with help from ChatGPT. Used to call self._check_params first whenever
+    a function is called if the class boolean flag check_params=True. Note, it also has a secondary
+    function that intercepts all arguments given to a function and converts them to lowercase.
+    This is done to ensure that our logic can be case-insensitive and when writing functions we ALWAYS
+    write things using lowercase.
+    """
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
+        # Bind the passed arguments to the function's signature.
+        sig = inspect.signature(func)
+        bound_args = sig.bind(self, *args, **kwargs)
+        bound_args.apply_defaults()
+        
+        # Convert all bound arguments to lowercase as needed.
+        lower_params = convert_to_lowercase(bound_args.arguments)
+        
+        # If check_params is enabled, call your parameter-checking function.
         if getattr(self, 'check_params', False):
-            # Bind the arguments to the function's signature.
-            sig = inspect.signature(func)
-            bound_args = sig.bind(self, *args, **kwargs)
-            bound_args.apply_defaults()
-            # Convert the bound arguments to lowercase if desired.
-            params = convert_to_lowercase(bound_args.arguments)
-            # Call the parameter checking method.
-            self._check_params(params)
-        return func(self, *args, **kwargs)
+            self._check_params(lower_params)
+        
+        # Reconstruct the arguments in the correct order.
+        new_args = []
+        for param in sig.parameters:
+            new_args.append(lower_params[param])
+        
+        # Call the original function with the lowercased arguments.
+        return func(*new_args)
+    
     return wrapper
 
 class AutoCheckMeta(type):
     def __new__(metacls, name, bases, class_dict):
         new_class_dict = {}
         for attr_name, attr_value in class_dict.items():
-            # Skip decoration for special methods and for _check_params.
-            if callable(attr_value) and not attr_name.startswith("__") and attr_name != '_check_params':
+            # Skip decoration for init func, and any internal functions.
+            if callable(attr_value) and not attr_name.startswith("_"): 
                 attr_value = auto_check_params(attr_value)
             new_class_dict[attr_name] = attr_value
         return super().__new__(metacls, name, bases, new_class_dict)
@@ -174,12 +191,13 @@ class SCPI_Instrument(Instrument, metaclass=AutoCheckMeta):
     def _check_params(self, locals_dict):
         """
         Want to check class attributes and arguments from the function are in acceptable ranges. Uses .locals() to get all arguments and checks
-        against all class attributes and ensures if they match the range is valid 
+        against all class attributes and ensures if they match the range is valid NOTE: locals_dict is always lower
+        Added recursive_lower to ensure that if we have a class attribute like temp = ['one', 'two'] its the same as ['OnE', 'TWO'] etc
         """
-        class_attributes = get_class_attributes_from_instance(self)
+        class_attributes = recursive_lower(get_class_attributes_from_instance(self))
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         for key in keys_to_check:
-            attribute_value = getattr(self, key) #allowed types are strings, tuples, lists, and dicts
+            attribute_value = recursive_lower(getattr(self, key)) #allowed types are strings, tuples, lists, and dicts
             if attribute_value is None:
                 print("Warning no range-checking defined for \033[1m{}\033[0m, skipping _check_params".format(key)) #makes bold text
                 continue
@@ -600,8 +618,9 @@ class Awg(SCPI_Instrument):
         if name is not None:
             self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
 
-    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str=None, offset: str=None, frequency: str=None, duty_cycle=None,
-                      num_cycles=None, invert: bool=False):
+
+    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
+                      num_cycles=None, invert: bool=False, user_func: str="VOLATILE"):
         """
         This function configures the named func with the given parameters. Works on both user defined and built-in functions
         args:
@@ -614,16 +633,17 @@ class Awg(SCPI_Instrument):
             duty_cycle (str): duty_cycle defined as 100* pulse_width / Period ranges from 0-100, (cant actually do 0 or 100 but in between is fine)
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
+            user_func (str): name of the user defined function as saved on the instrument.
         """
         #might need to rewrite check_params here
         #self._check_params(locals()) #this wont work for user defined functions...
-        built_in_list = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC'] #check if built in, else use checkparams or this should be via check_params
-        user_funcs = self.instrument.query(":DATA:CAT?")
-        user_funcs_list = user_funcs.replace('"', '').split(',')
-        if func in built_in_list:
+        #user_funcs = self.instrument.query(":DATA:CAT?")
+        #user_funcs_list = user_funcs.replace('"', '').split(',')
+        if func == 'user':
+            self._configure_arb_wf(channel, user_func, voltage, offset, frequency, invert)
+        else: #assumes built in
             self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
-        else:
-            self._configure_arb_wf(channel, func, voltage, offset, frequency, invert)
+
 
     def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
         """
@@ -665,10 +685,8 @@ class Awg(SCPI_Instrument):
             frequency (str): the frequency in units of Hz for the arbitrary waveform
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        dict_to_check = locals()
-        dict_to_check['func'] = 'USER' #this is useless i want to make sure frequency is good tho for arb waveform
         if self.slew_rate is not None:
-            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip()
+            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip() #seems like trouble
             if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
                     print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
         self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
@@ -806,7 +824,6 @@ class Lockin(SCPI_Instrument):
             phase (str): Configures the phase_shift of the reference in degrees
             harmonic (str): Selects the desired harmonic 
         """
-        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         if voltage is not None:
             self.instrument.write("slvl {}".format(voltage))
         if source == 'internal':
@@ -838,7 +855,6 @@ class Lockin(SCPI_Instrument):
             lp_filter_slope (str): in units of dB/oct ['6','12','18','24']
             sync (str): "on" for synchronous filter on (below 200 Hz harmonic*reference_freq) "off" for off 
         """
-        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         if sensitivity is not None:
             if sensitivity == 'auto':
                 self.instrument.write("agan")
@@ -881,7 +897,6 @@ class Lockin(SCPI_Instrument):
             display_output_expand (str): factor to expand by [1, 10, 100]
             display_expand_what (str): What to expand [x, y, r] NOTE: R is only available on Chn1, X and Y on both
         """
-        locals().update(convert_to_lowercase(locals())) #ensures no casechecking necessary NOTE: Should use in all funcs where this could be an issue
         if display is not None:
             if ratio == None:
                 ratio = 'none'
@@ -896,10 +911,6 @@ class Lockin(SCPI_Instrument):
                     display_output_expand = "1"
                 self.instrument.write("oexp {},{},{}".format(self.display_expand_what.index(display_expand_what)+1, display_output_offset, self.display_output_expand.index(display_output_expand))) #formats to 2 decimal places
         
-
-        
-
-
 
     def measure_params(self, param_list):
         """
@@ -1098,12 +1109,17 @@ def get_matching_keys(dict1, dict2):
 
 def get_class_attributes_from_instance(instance):
     """
-    Helper Function to get the class attributes from an instance (calls self) with help from ChatGPT
+    Helper Function to get the class attributes from an instance.
+    It retrieves class attributes starting from the base classes and
+    then overrides them with attributes from child classes.
     """
     cls = instance.__class__
     attributes = {}
-    for base in cls.__mro__:
-        attributes.update({attr: getattr(base, attr) for attr in base.__dict__ if not callable(getattr(base, attr)) and not attr.startswith("__")})
+    # Iterate in reverse MRO so that child class attributes override base class ones.
+    for base in reversed(cls.__mro__):
+        attributes.update({attr: getattr(base, attr) 
+                           for attr in base.__dict__ 
+                           if not callable(getattr(base, attr)) and not attr.startswith("__")})
     return attributes
 
 
@@ -1145,6 +1161,23 @@ def is_integer(n):
         return n.is_integer()
     else:
         return False
+
+def recursive_lower(obj):
+    """
+    Recursively lowercases strings within common data structures.
+    Non-string objects or numbers are returned as is.
+    """
+    if isinstance(obj, str):
+        return obj.lower()
+    elif isinstance(obj, list):
+        return [recursive_lower(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(recursive_lower(item) for item in obj)
+    elif isinstance(obj, dict):
+        return { (k.lower() if isinstance(k, str) else k): recursive_lower(v)
+                 for k, v in obj.items() }
+    else:
+        return obj
 
 
 '''
