@@ -20,6 +20,8 @@ class Keysight81150a(Awg):
     #note that depends if we are in high voltage or high bandwidth mode, if in high bandwidth mode all are 50e6 max freq
     slew_rate = 1.0e9 # V/s
     arb_wf_points_range = (2, 524288)
+    source_impedance = ['5', '50']
+    load_impedance = (0.3, 1e6)
 
     def __init__(self, address, check_params=True): #sets the check_params true by default, since we want at this layer to be as safe as possible
         super().__init__(address, check_params)
