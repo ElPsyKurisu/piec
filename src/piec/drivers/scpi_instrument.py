@@ -619,8 +619,8 @@ class Awg(SCPI_Instrument):
             self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
 
 
-    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
-                      num_cycles=None, invert: bool=False, user_func: str="VOLATILE"):
+    def configure_wf(self, channel: str='1', func: str=None, voltage: str=None, offset: str=None, frequency: str=None, duty_cycle=None,
+                      num_cycles=None, invert: bool=None, user_func: str="VOLATILE"):
         """
         This function configures the named func with the given parameters. Works on both user defined and built-in functions
         args:
@@ -639,13 +639,15 @@ class Awg(SCPI_Instrument):
         #self._check_params(locals()) #this wont work for user defined functions...
         #user_funcs = self.instrument.query(":DATA:CAT?")
         #user_funcs_list = user_funcs.replace('"', '').split(',')
+        if func is None:
+            raise Warning("Warning no func is decided, please input a valid function such as \033{}\033".format(self.func)) #will this error if self.func is None? should check
         if func == 'user':
             self._configure_arb_wf(channel, user_func, voltage, offset, frequency, invert)
         else: #assumes built in
             self._configure_built_in_wf(channel, func, frequency, voltage, offset, duty_cycle)
 
 
-    def _configure_built_in_wf(self, channel: str='1', func='SIN', frequency='1e3', voltage='1', offset='0', duty_cycle='50', invert: bool=False):
+    def _configure_built_in_wf(self, channel: str='1', func=None, frequency=None, voltage=None, offset=None, duty_cycle=None, invert: bool=False):
         """
         Decides what built-in wf to send - by default sin
 
@@ -660,20 +662,27 @@ class Awg(SCPI_Instrument):
             num_cycles (str): number of cycles by default set to None which means continous NOTE only works under BURST mode, not implememnted
             invert (bool): Inverts the waveform by flipping the polarity
         """
-        self.instrument.write(":SOUR:FUNC{} {}".format(channel, func)) 
-        self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
-        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
-        self.instrument.write(":VOLT{} {}".format(channel, voltage))
-        if func.lower() == 'squ' or func.lower() == 'square':
-            self.instrument.write(":SOUR:FUNC{}:SQU:DCYC {}".format(channel, duty_cycle)) 
-        if func.lower() == 'pulse' or func.lower() == 'puls':
-            self.instrument.write(":SOUR:FUNC{}:PULS:DCYC {}".format(channel, duty_cycle))
-        if invert:
-            self.instrument.write(":OUTP{}:POL INV".format(channel))
+        if func is None:
+            raise Warning("Warning no func is decided, please input a valid function such as \033{}\033".format(self.func))
         else:
-            self.instrument.write(":OUTP{}:POL NORM".format(channel))
+            self.instrument.write(":SOUR:FUNC{} {}".format(channel, func))
+        if frequency is not None:
+            self.instrument.write(":SOUR:FREQ{} {}".format(channel, frequency))
+        if offset is not None:
+            self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
+        if voltage is not None:
+            self.instrument.write(":VOLT{} {}".format(channel, voltage))
+        if func == 'squ':
+            self.instrument.write(":SOUR:FUNC{}:SQU:DCYC {}".format(channel, duty_cycle)) 
+        if func == 'puls':
+            self.instrument.write(":SOUR:FUNC{}:PULS:DCYC {}".format(channel, duty_cycle))
+        if invert is not None:
+            if invert:
+                self.instrument.write(":OUTP{}:POL INV".format(channel))
+            else:
+                self.instrument.write(":OUTP{}:POL NORM".format(channel))
 
-    def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str='1.0', offset: str='0.00', frequency: str='1000', invert: bool=False):
+    def _configure_arb_wf(self, channel: str='1', name='VOLATILE', voltage: str=None, offset: str=None, frequency: str=None, invert: bool=None):
         """
         This program configures arbitrary waveform already saved on the instrument. Adapted from EKPY. 
         args:
@@ -691,13 +700,17 @@ class Awg(SCPI_Instrument):
                     print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
         self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
         self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
-        self.instrument.write(":VOLT{} {}".format(channel, voltage))
-        self.instrument.write(":FREQ{} {}".format(channel, frequency))
-        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
-        if invert:
-            self.instrument.write(":OUTP{}:POL INV".format(channel))
-        else:
-            self.instrument.write(":OUTP{}:POL NORM".format(channel))
+        if voltage is not None:
+            self.instrument.write(":VOLT{} {}".format(channel, voltage))
+        if frequency is not None:
+            self.instrument.write(":FREQ{} {}".format(channel, frequency))
+        if offset is not None:
+            self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
+        if invert is not None:
+            if invert:
+                self.instrument.write(":OUTP{}:POL INV".format(channel))
+            else:
+                self.instrument.write(":OUTP{}:POL NORM".format(channel))
 
 
     def output_enable(self, channel: str='1', on=True):
