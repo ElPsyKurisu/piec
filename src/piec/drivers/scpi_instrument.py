@@ -390,7 +390,8 @@ class Scope(SCPI_Instrument):
 
     def setup_wf(self, source: str='CHAN1', byte_order: str='MSBF', format: str='byte', points: str='1000', 
              points_mode: str='NORMal', unsigned: str='OFF'):
-        """Sets up the waveform with averaging or not and of a specified format/count  
+        """Sets up the waveform with averaging or not and of a specified format/count
+        NOTE: Default args here work with default args of query_wf 
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight DSOX3024a
             source (str): Desired channel allowed values are [CHAN1, CHAN2, CHAN3, CHAN4, FUNC, SBUS1, etc]
@@ -506,8 +507,10 @@ class Awg(SCPI_Instrument):
     frequency = None
     func = None #might be useless since all awgs should have sin, squ, pulse etc
     slew_rate = None #1V/ns
+    source_impedance = None
+    load_impedance = None
 
-    def configure_impedance(self, channel: str='1', source_impedance: str='50.0', load_impedance: str='50.0'):
+    def configure_impedance(self, channel: str='1', source_impedance: str='50', load_impedance: str='50.0'):
         """
         This program configures the output and input impedance of the wavegen. Taken from EKPY.
         args:
@@ -518,7 +521,6 @@ class Awg(SCPI_Instrument):
 
         """
         self.instrument.write(":OUTP{}:IMP {}".format(channel, source_impedance))
-        #wavegen.write(":OUTP{}:LOAD {}".format(channel, load_impedance)) Also valid for below
         self.instrument.write(":OUTP{}:IMP:EXT {}".format(channel, load_impedance))
 
     def configure_trigger(self, channel: str='1', trigger_source: str='IMM', mode: str='EDGE', slope: str='POS'):
@@ -598,7 +600,7 @@ class Awg(SCPI_Instrument):
         if name is not None:
             self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
 
-    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str='1.0', offset: str='0.00', frequency: str='1e3', duty_cycle='50',
+    def configure_wf(self, channel: str='1', func: str='SIN', voltage: str=None, offset: str=None, frequency: str=None, duty_cycle=None,
                       num_cycles=None, invert: bool=False):
         """
         This function configures the named func with the given parameters. Works on both user defined and built-in functions
