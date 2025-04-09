@@ -52,7 +52,7 @@ class DiscreteWaveform:
         Should be called before any waveform-specific configuration.
         """
         self.awg.initialize()
-        self.awg.configure_impedance(channel='1', source_impedance='50.0', load_impedance='50')
+        self.awg.configure_impedance(channel='1', source_impedance='50', load_impedance='50')
         self.awg.configure_trigger(channel='1', trigger_source='MAN')
 
     def configure_oscilloscope(self, channel:str = 1):
