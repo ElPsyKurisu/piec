@@ -695,9 +695,12 @@ class Awg(SCPI_Instrument):
             invert (bool): Inverts the waveform by flipping the polarity
         """
         if self.slew_rate is not None:
-            points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip() #seems like trouble
-            if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
-                    print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
+            try:
+                points = self.instrument.query(":DATA:ATTR:POIN? {}".format(name)).strip() #seems like trouble
+                if (float(voltage))/(float(frequency)/float(points)) > self.slew_rate:
+                        print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
+            except:
+                print("WARNING COULD NOT CHECK IF DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE")
         self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
         self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
         if voltage is not None:
