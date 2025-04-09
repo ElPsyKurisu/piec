@@ -66,10 +66,10 @@ class DiscreteWaveform:
             :channel: Oscilloscope channel to configure (default 1)
         """
         self.osc.initialize()
-        self.osc.configure_timebase(time_base_type='MAIN', reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
+        self.osc.configure_timebase(time_base_type='MAIN', time_reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
         self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{self.v_div}', impedance='FIFT')#set both to 50ohm
-        self.osc.configure_trigger_characteristics(trigger_source='EXT', low_voltage_level='0.75', high_voltage_level='0.95', sweep='NORM')
-        self.osc.configure_trigger_edge(trigger_source='EXT', input_coupling='DC')
+        self.osc.configure_trigger_characteristics(trigger_source='EXT', trigger_low_level='0.75', trigger_high_level='0.95', trigger_sweep='NORM')
+        self.osc.configure_trigger_edge(trigger_source='EXT', trigger_input_coupling='DC')
 
     def configure_awg(self):
         """
