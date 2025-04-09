@@ -16,8 +16,8 @@ class Dsox3024a(Scope):
     voltage_scale = (8e-4, 4)
     time_range = (2e-8, 500)
     time_scale = (2e-9, 50)
-    time_base_type = ['main', 'wind', 'xy', 'roll'] #added WIND so either WIND or WINDOW is allowed
-    time_reference = ['left', 'cent', 'righ']
+    time_base_type = ['main', 'wind', 'xy', 'roll', 'window'] #added WIND so either WIND or WINDOW is allowed
+    time_reference = ['left', 'cent', 'right', 'center'] #add extra commands if u want both 'cent' and 'center' to work
     channel = ['1', '2', '3', '4']
     acquire_type = ['norm', 'hres', 'peak']
     impedance = ['ONEM', 'FIFT']
