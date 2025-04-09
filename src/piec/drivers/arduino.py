@@ -16,6 +16,7 @@ class Arduino_Stepper(Instrument):
         rm = ResourceManager()
         self.instrument = rm.open_resource(address, baud_rate=115200)
         self.instrument.timeout = 20000 #20s
+        self.steps_per_revolution = 200 #default value, only change IFF change in hardware is also managed
 
     def idn(self):
         line = self.instrument.query("0,99").strip() #calls in builtin method to check if serial communication works
