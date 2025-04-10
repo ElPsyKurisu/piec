@@ -14,9 +14,10 @@ class MagnetoTransport:
     to be subclassed for specific measurement types. NOTE: leaves subclasses to introduce additional instrumentation
 
     Attributes:
-        :dmm (visa.Resource): DMM instrument object
-        :calibrator (visa.Resource) calibrator instrument object 
-        :arduino (visa.Resource): Arduino Custom Stepper Object
+        :dmm (visa.Resource): DMM instrument object (required)
+        :calibrator (visa.Resource) calibrator instrument object (required)
+        :arduino (visa.Resource): Arduino Custom Stepper Object (required)
+        :lockin (visa.Resource): AWG instrument object (required)
         :field (float): Desired Magnetic field in units of Oersted (depnds on manual setting of the analog field-feedback guassmeter)
         :angle (float): Angle in degrees to orient the motor at
         :save_dir (str): Directory path for data storage
@@ -25,7 +26,7 @@ class MagnetoTransport:
         :metadata (pd.DataFrame): Measurement parameters and metadata
     """
 
-    def __init__(self, dmm, calibrator, arduino, field, angle, save_dir=r'\\scratch'):
+    def __init__(self, dmm, calibrator, arduino, lockin,  field, save_dir=r'\\scratch', voltage_callibration=10000):
         """Initialize core waveform measurement system.
 
         Args:
@@ -35,18 +36,21 @@ class MagnetoTransport:
             :field: field to bring the magnet too
             :angle: Angle to bring the platform too
             :save_dir: Data storage directory path (default network scratch)
+            :voltage_callibration: Voltage calibration factor for field conversion in units of 1V is equal to input value
         """
 
         self.dmm = dmm
         self.calibrator = calibrator
         self.arduino = arduino
+        self.lockin = lockin
         self.field = field
-        self.angle = angle
         self.save_dir = save_dir
         self.filename = None
-        self._initialize() #checks communication
+        self.voltage_callibration = voltage_callibration #1V == 10000 Oe, but depends on hardware settings
+        self.data = None
+        #self._initialize() #checks communication
 
-    def _initialize(self):
+    def initialize(self):
         """
         Ensure proper connection along all base instruments
         Namely, dmm, calibrator, and arduino. Runs in the __init__ function
@@ -56,35 +60,45 @@ class MagnetoTransport:
             self.dmm.idn()
             self.calibrator.idn()
             self.arduino.idn()
+            self.lockin.idn()
             print("All instruments working nominally")
         except:
             print("Error communicating with instruments")
-    
+        self.set_field() # Set the field using the calibrator
 
-    def configure_oscilloscope(self, channel:str = 1):
+    def set_field(self):
         """
-        Set up oscilloscope for waveform capture.
-        
-        Configures timebase, triggering, and channel settings optimized for
-        capturing the generated waveform. Uses external triggering.
+        Set the magnetic field using the calibrator.
 
-        Args:
-            :channel: Oscilloscope channel to configure (default 1)
         """
-        self.osc.initialize()
-        self.osc.configure_timebase(time_base_type='MAIN', time_reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
-        self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{self.v_div}', impedance='FIFT')#set both to 50ohm
-        self.osc.configure_trigger_characteristics(trigger_source='EXT', trigger_low_level='0.75', trigger_high_level='0.95', trigger_sweep='NORM')
-        self.osc.configure_trigger_edge(trigger_source='EXT', trigger_input_coupling='DC')
+        voltage = self.field/self.voltage_callibration #e.g. want 1000 Oe so 1000/10000 = 0.1V
+        # Set the field using the calibrator
+        self.calibrator.set_output(voltage)
+        # Check field is correct by reading the DMM
+        time.sleep(1)  # Allow time for the field to stabilize
+        # Read the actual voltage from the DMM
+        actual_voltage = self.dmm.read_voltage()
+        actual_field = actual_voltage * self.voltage_callibration #e.g. 0.1V * 10000 = 1000 Oe
+        # Check if the field is within a reasonable range
+        print(f"Set field to {self.field} Oe and checked it is at {actual_field} Oe")
 
-    def configure_awg(self):
+    def configure_lockin(self):
         """
-        Placeholder for waveform-specific AWG configuration.
+        Placeholder for measurement specific lockin configuration.
         
         Raises:
             :AttributeError: If not implemented in child class
         """
-        raise AttributeError("configure_awg() must be defined in the child class specific to a waveform")
+        raise AttributeError("configure_lockin() must be defined in the child class specific to measurement")
+
+    def capture_data(self):
+        """
+        Placeholder for measurement specific data capture.
+
+        Raise:
+            :AttributeError: If not implemented in child class
+        """
+        raise AttributeError("capture_data() must be defined in the child class specific to measurement")   
 
     def apply_and_capture_waveform(self):
         """
@@ -134,35 +148,136 @@ class MagnetoTransport:
         Execute complete measurement workflow.
         
         Standard sequence:
-        1. Configure oscilloscope
-        2. Initialize AWG
-        3. Apply waveform-specific configuration
-        4. Capture waveform data
-        5. Save results
-        6. Perform analysis
+        1. Initialize instruments and set initial parameters
+        2. Configure lock-in amplifier
+        3. capture data
+        4. Save results
+        5. Perform analysis
         """
-        self.initialize()
-        self.initialize_awg()
-        self.configure_awg()
-        self.apply_and_capture_waveform()
-        self.save_waveform()
+        self.initialize() #checks communication and sets default params
+        self.configure_lockin()
+        self.capture_data() # Capture data from the lockin and saves it to self.data
+        self.save_data() # Save the captured data to a CSV file NOTE: this should be done each time...
         self.analyze()
 
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 class AMR(MagnetoTransport):
     """
-    Performs the Hysteresis loop measurement
+    Performs the AMR measurement using the lockin amplifier and the stepper motor.
+
+    Attributes:
+        :type (str): Measurement type identifier ('amr')
+        :angle_step (float): Step size for angle in degrees
+        :total_angle (float): Total angle to rotate in degrees
+        :amplitude (float): Peak voltage amplitude in volts
+        :frequency (float): Excitation frequency in Hz
     """
     type = 'amr'
 
-    def __init__(self, dmm, calibrator, arduino, lockin, field, angle, angle_step, amplitude, frequency, save_dir=r'\scratch'):
+    def __init__(self, dmm=None, calibrator=None, arduino=None, lockin=None, field=None, angle_step=15, total_angle=360,
+                 amplitude=1.0, frequency=10, save_dir=r'\scratch', voltage_callibration=10000):
+        """
+        Initialize AMR measurement parameters.
 
+        Specializes MagnetoTransport for AMR measurements.
 
-        super().__init__(dmm, calibrator, arduino, field, angle, save_dir)
-        self.lockin = lockin
+        Attributes:
+            :dmm (visa.Resource): DMM instrument object (required)
+            :calibrator (visa.Resource): Calibrator instrument object (required)
+            :arduino (visa.Resource): Arduino Custom Stepper Object (required)
+            :lockin (visa.Resource): Lock-in amplifier object (required)
+            :field (float): Desired magnetic field in Oe (required)
+            :angle_step (float): Step size for angle in degrees (default: 15)
+            :total_angle (float): Total angle to rotate in degrees (default: 360)
+            :amplitude (float): Peak voltage amplitude in volts (default: 1.0)
+            :frequency (float): Excitation frequency in Hz (default: 10)
+            :save_dir (str): Directory path for data storage (default: '\\scratch')
+            :voltage_callibration (float): Voltage calibration factor for field conversion (default: 10000)
+        """
+
+        super().__init__(dmm, calibrator, arduino, lockin, field, save_dir, voltage_callibration)
         self.angle_step = angle_step
+        self.total_angle = total_angle
         self.amplitude = amplitude
         self.frequency = frequency
+        self.notes = str(amplitude).replace('.', 'p')+'V_'+str(int(frequency))+'Hz' #i got nothing
+        self.metadata = pd.DataFrame(locals(), index=[0])
+        del self.metadata['self']
+        self.metadata['type'] = self.type
+        self.metadata['lockin'] = self.lockin.idn()
+        self.metadata['dmm'] = self.dmm.idn()
+        self.metadata['calibrator'] = self.calibrator.idn()
+        self.metadata['arduino'] = self.arduino.idn()
+        self.metadata['timestamp'] = time.time()
+        self.metadata['processed'] = False
+
+    def analyze(self):
+        """
+        Process hysteresis data and calculate polarization parameters.
+        
+        Performs time alignment, integration for polarization calculation,
+        and generates hysteresis loop plots. Results appended to CSV.
+        """
+        if self.data is not None:
+            #process_raw_hyst(self.filename, show_plots=self.show_plots, save_plots=self.save_plots, auto_timeshift=self.auto_timeshift)
+            print(f"Analysis succeeded, updated {self.filename}")
+        else:
+            print("No data to analyze. Capture the waveform first.")
+    
+    def configure_lockin(self):
+        """
+        Configure lock-in amplifier for AMR measurement.
+        
+        Sets reference frequency, sensitivity, and filter settings.
+        """
+        self.lockin.initialize() #sets fresh
+        #configure the internal oscillator to the right frequency and amplitude
+        self.lockin.configure_reference(voltage=self.amplitude, frequency=self.frequency)
+        #set gain to auto
+        self.lockin.configure_gain_filters(sensitivity='auto') #set to auto
+        print("Lock-in amplifier configured for AMR measurement.")
+
+    def capture_data(self):
+        """
+        Write function to capture a single data_set and maybe save it to CSV using helper functions
+        """
+
+        #need functionality here that loops through what we care about
+        # Loop through the angles and capture data at each step
+        for angle in range(0, self.total_angle, self.angle_step):
+            self.angle = angle
+            steps = convert_angle_to_steps(angle)
+            self.arduino.step(0, steps)  # Move the stepper motor to the desired angle
+            time.sleep(1) # allow time for lockin to stablize
+            self.capture_data_point()  # Capture data from the lockin
+            self.save_data_point()  # Save the captured data to a CSV file
+        
+        # Move the stepper motor to the next angle
+
+    def capture_data_point(self):
+        """
+        Take a single data point from the lockin at the given angle and field
+        """
+        # Get the X and Y values from the lockin
+        x, y = self.lockin.get_X_Y()
+        # Save the data point to a file or database (not implemented here)
+        self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x], "Y": [y]})
+        # For now, just print the data point
+        print(f"Data point at angle {self.angle} degrees and field {self.field} Oe: X={x}, Y={y}")
+
+    def save_data_point(self):
+        """
+        Save captured data to CSV file.
+        NOTE: NEED TO CHANGE THIS TO BE A DATA POINT AND NOT A WAVEFORM
+        Uses measurement type and notes to generate filename.
+        Requires successful capture_data_point from lockin and stores in self.data attribute.
+        """
+        if self.data is not None:
+            self.filename = create_measurement_filename(self.save_dir, self.type, self.notes)
+            metadata_and_data_to_csv(self.metadata, self.data, self.filename)
+            print(f"Data point saved to {self.filename}")
+        else:
+            print("No data to save. Capture the data point first.")
 
 class AMR(MagnetoTransport):
     """
@@ -181,7 +296,7 @@ class AMR(MagnetoTransport):
         :save_plots (bool): Save plot images flag
     """
 
-    type = "hysteresis"
+    type = "amr"
 
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
                  n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8,
@@ -399,6 +514,21 @@ def convert_angle_to_steps(angle, steps_per_revolution=200) -> int:
     """
     steps = int(angle*steps_per_revolution/360)
     return steps
+
+def convert_field_to_voltage(field):
+    """
+    Convert the field to voltage using the calibrator. This is a psuedo code function and needs to be implemented
+    with the correct conversion factor.
+    Currently 1V == 10000 Oe, but depends on hardware settings
+
+    args:
+        field (float) Desired field in Oe
+    """
+    # This is a placeholder for the actual conversion logic
+    voltage = field * 0.1  # Example conversion factor, replace with actual logic
+    return voltage
+
+def convert_voltage_to_field(field)
 
 """
 Psuedo Code to convert into correct format
