@@ -36,9 +36,6 @@ void loop()
       if (dir == 9){//set position to zero
         pos = 0;
       }
-      if (dir == 99){//function to check if serial connection works
-        Serial.println("Connected");
-      }
       if (dir == 1){
         digitalWrite(directionPin, HIGH);
         pos += steps;

@@ -19,8 +19,8 @@ class Arduino_Stepper(Instrument):
         self.steps_per_revolution = 200 #default value, only change IFF change in hardware is also managed
 
     def idn(self):
-        line = self.instrument.query("0,99").strip() #calls in builtin method to check if serial communication works
-        if "Connected" in line:
+        line = self.instrument.query('0,0') #calls in builtin method to check if serial communication works
+        if "Complete" in line:
             return "Custom Arduino_Stepper Object at {}".format(self.instrument.resource_name)
                 
         else:
