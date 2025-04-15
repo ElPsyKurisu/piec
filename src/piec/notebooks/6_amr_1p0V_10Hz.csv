@@ -1,0 +1,15 @@
+dmm,calibrator,arduino,lockin,field,angle_step,total_angle,amplitude,frequency,save_dir,voltage_callibration,__class__,type,timestamp,processed
+Custom Keithley193a Object at GPIB0::10::INSTR,<piec.drivers.edc522.core.EDC522 object at 0x000001E034901950>,Custom Arduino_Stepper Object at ASRL3::INSTR,"Stanford_Research_Systems,SR830,s/n54854,ver1.07 
+",100,10,50,1.0,10,C:\Users\geofr\Desktop\Research\Github\piec\src\piec\notebooks,10000,<class 'piec.measurement_waveforms.magneto_transport.AMR'>,amr,1744741592.7511985,False
+
+angle,field,X,Y
+0,100,0.0,0.0
+10,100,-6.10356e-05,0.0
+20,100,0.0,0.0
+30,100,-6.10356e-05,0.0
+40,100,0.0,0.0
+0,100,0.0,0.0
+10,100,0.0,-6.10356e-05
+20,100,-6.10356e-05,0.0
+30,100,0.0,0.0
+40,100,-6.10356e-05,0.0

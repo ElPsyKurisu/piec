@@ -75,12 +75,15 @@ class MagnetoTransport:
         # Set the field using the calibrator
         self.calibrator.set_output(voltage)
         # Check field is correct by reading the DMM
-        time.sleep(1)  # Allow time for the field to stabilize
+        time.sleep(3)  # Allow time for the field to stabilize
         # Read the actual voltage from the DMM
         actual_voltage = self.dmm.read_voltage()
         actual_field = actual_voltage * self.voltage_callibration #e.g. 0.1V * 10000 = 1000 Oe
         # Check if the field is within a reasonable range
-        print(f"Set field to {self.field} Oe and checked it is at {actual_field} Oe")
+        if abs(actual_field - self.field) > 0.1 * self.field:  # Allow 10% tolerance
+            print(f"Warning: Field set to {self.field} Oe, but actual field is {actual_field} Oe")
+        else:
+            print(f"Set field to {self.field} Oe and checked it is at {actual_field} Oe")
 
     def configure_lockin(self):
         """
@@ -100,36 +103,12 @@ class MagnetoTransport:
         """
         raise AttributeError("capture_data() must be defined in the child class specific to measurement")   
 
-    def apply_and_capture_waveform(self):
+    def shut_off(self):
         """
-        Execute waveform generation and data acquisition sequence.
-        
-        Coordinates instrument triggering, captures time-voltage data from oscilloscope,
-        and stores results in self.data attribute (pandas DataFrame object). Includes instrument synchronization.
+        Turns off the field by setting the calibrator to zero volts.
         """
-        print(f"Capturing waveform of type {self.type} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
-        self.osc.initiate()
-        self.awg.output_enable('1')
-        self.awg.send_software_trigger()
-        self.osc.operation_complete_query()
-        self.osc.setup_wf(source='CHAN1')
-        _, trace_t, trace_v  = self.osc.query_wf()#change
-        self.data = pd.DataFrame({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
-        print("Waveform captured.")
-
-    def save_waveform(self):
-        """
-        Save captured waveform data to CSV file.
-        
-        Uses meaurement type and notes to generate filename.
-        Requires successful waveform capture prior to calling (self.data must not be None).
-        """
-        if self.data is not None:
-            self.filename = create_measurement_filename(self.save_dir, self.type, self.notes)
-            metadata_and_data_to_csv(self.metadata, self.data, self.filename)
-            print(f"Waveform data saved to {self.filename}")
-        else:
-            print("No data to save. Capture the waveform first.")
+        self.calibrator.set_output(0)  # Set the calibrator output to 0V
+        print("Field turned off.")
 
     def analyze(self):
         """
@@ -157,6 +136,7 @@ class MagnetoTransport:
         self.initialize() #checks communication and sets default params
         self.configure_lockin()
         self.capture_data() # Capture data from the lockin and saves it to self.data and csv
+        self.shut_off() #Sets the field to zero
         self.analyze()
 
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
