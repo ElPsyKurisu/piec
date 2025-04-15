@@ -33,7 +33,7 @@ class Keithley193a(Instrument):
         Reads the voltage from the DMM and returns a string
         """
         string = self.instrument.query('MEAS:VOLT:DC?') #note any query gives this
-        return extract_number(string)
+        return float(extract_number(string))
 #helper func
 import re
 

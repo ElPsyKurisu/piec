@@ -77,9 +77,8 @@ class MagnetoTransport:
         # Check field is correct by reading the DMM
         time.sleep(1)  # Allow time for the field to stabilize
         # Read the actual voltage from the DMM
-        #actual_voltage = self.dmm.read_voltage()
-        #actual_field = actual_voltage * self.voltage_callibration #e.g. 0.1V * 10000 = 1000 Oe
-        actual_field = self.field # Placeholder for actual field reading
+        actual_voltage = self.dmm.read_voltage()
+        actual_field = actual_voltage * self.voltage_callibration #e.g. 0.1V * 10000 = 1000 Oe
         # Check if the field is within a reasonable range
         print(f"Set field to {self.field} Oe and checked it is at {actual_field} Oe")
 
@@ -235,7 +234,7 @@ class AMR(MagnetoTransport):
         #configure the internal oscillator to the right frequency and amplitude
         self.lockin.configure_reference(voltage=self.amplitude, frequency=self.frequency)
         #set gain to auto
-        self.lockin.configure_gain_filters(sensitivity='50nv/fa') #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
+        #self.lockin.configure_gain_filters(sensitivity='1v/ua') #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
         print("Lock-in amplifier configured for AMR measurement.")
 
     def capture_data(self):
@@ -265,7 +264,10 @@ class AMR(MagnetoTransport):
         x, y = self.lockin.get_X_Y()
         print("x: ", x, "y: ", y)
         # Save the data point to a file or database (not implemented here)
-        self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x], "Y": [y]})
+        if self.data is None:
+            self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x], "Y": [y]})
+        else:
+            self.data.loc[len(self.data)] = {"angle": self.angle, "field": self.field, "X": x, "Y": y} #dynamically add new row
         # For now, just print the data point
         print(f"Data point at angle {self.angle} degrees and field {self.field} Oe: X={x}, Y={y}")
 
