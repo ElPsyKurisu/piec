@@ -235,7 +235,7 @@ class AMR(MagnetoTransport):
         #configure the internal oscillator to the right frequency and amplitude
         self.lockin.configure_reference(voltage=self.amplitude, frequency=self.frequency)
         #set gain to auto
-        self.lockin.configure_gain_filters(sensitivity='auto') #set to auto
+        self.lockin.configure_gain_filters(sensitivity='50nv/fa') #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
         print("Lock-in amplifier configured for AMR measurement.")
 
     def capture_data(self):
@@ -250,6 +250,8 @@ class AMR(MagnetoTransport):
             self.angle = angle
             self.arduino.step(steps, 0)  # Move the stepper motor to the desired angle
             time.sleep(1) # allow time for lockin to stablize
+            print("capturing data at angle: ", self.angle)
+            # Capture data point from the lockin
             self.capture_data_point()  # Capture data from the lockin
             self.save_data_point()  # Save the captured data to a CSV file
         
@@ -261,6 +263,7 @@ class AMR(MagnetoTransport):
         """
         # Get the X and Y values from the lockin
         x, y = self.lockin.get_X_Y()
+        print("x: ", x, "y: ", y)
         # Save the data point to a file or database (not implemented here)
         self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x], "Y": [y]})
         # For now, just print the data point

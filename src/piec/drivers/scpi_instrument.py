@@ -5,6 +5,7 @@ from typing import Union
 import numpy as np
 import pandas as pd
 from pyvisa import ResourceManager
+import pyvisa
 import time
 import re
 import json
@@ -152,6 +153,19 @@ class SCPI_Instrument(Instrument, metaclass=AutoCheckMeta):
         """
         response = self.instrument.query("*OPC?")
         return response.strip()
+
+    def read_output(self) -> list:
+        """
+        This simply sees if there is anything to read and returns an empty list of nothing to read
+        """
+        try:
+            data = self.instrument.read()
+            if data == '':
+                return []
+            else:
+                return data
+        except pyvisa.errors.VisaIOError:
+            return []
 
     def check_errors(self):
         """

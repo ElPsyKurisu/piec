@@ -2,6 +2,7 @@
 This is for the EDC Model 522 NOTE: Does not take SCPI commands
 '''
 import numpy as np
+import math
 from piec.drivers.instrument import Instrument
 #yes
 
@@ -23,69 +24,156 @@ class EDC522(Instrument):
         self.instrument.write("?")
         return self.instrument.read()
      
+# ... (keep the rest of your EDC522 class definition above this) ...
 
     def set_output(self, value, mode="voltage", opt=False):
         """
-        Formats a current or voltage value into an 8-character string for instrument control.
+        Formats and sends a command to set the instrument's output voltage or current.
         Automatically determines the appropriate range.
+        Uses 'J00000' for digits if the value is exactly the maximum of a nominal range.
 
         Args:
-            value (float or int): The value to send to the instrument.
-            mode (str, optional): "voltage" or "current" or "crowbar". Defaults to "voltage".
-            opt (bool, optional): Is only TRUE if high voltage option is connected. Enables the 1000V range
+            value (float or int): The desired output value (Volts or Amps).
+            mode (str, optional): "voltage", "current", or "crowbar". Defaults to "voltage".
+            opt (bool, optional): If True, enables the 1000V range capability. Defaults to False.
 
         Returns:
-            str: An 8-character command string, or None if input is invalid or value is out of range.
+            str: The 8-character command string sent to the instrument.
+
+        Raises:
+            ValueError: If mode is invalid, or value is out of the instrument's overall range.
+            TypeError: If value is not a numeric type (int or float).
         """
+        # --- Define NOMINAL Ranges and Limits ---
+        voltage_ranges_all = [
+            (0.1, '0'), (10.0, '1'), (100.0, '2'), (1000.0, '3')
+        ]
+        current_ranges_all = [
+            (0.01, '4'), (0.1, '5')
+        ]
+
+        # Filter ranges based on 'opt'
         if opt:
-            self.voltage_range = (-1000, 1000)
-        if mode not in ("voltage", "current", "crowbar"):
-            return None
-        if mode == "crowbar":
-            self.instrument.write("00000000") #puts it in crowbar mode
-        if value == 0:
-            self.instrument.write("+0000000") #defaults to positive mode
-            return
-        if value == "-0":
-            self.instrument.write("-0000000") #negative negative mode
-            return
-
-        polarity = "+" if value > 0 else "-"
-        abs_value = abs(value)
-
-        if mode == "voltage":
-            if abs_value >max(self.voltage_range):
-                raise ValueError("Voltage value out of range")
-            ranges = [0.1, 10, 100, 1000]
-            range_chars = "0123"
-            max_values = [0.9999999, 10, 100, 1000]  # Slightly higher max values
-        elif mode == "current":
-            if abs_value >max(self.current_range):
-                raise ValueError("Current value out of range")
-            ranges = [0.01, 0.1]
-            range_chars = "45"
-            max_values = [0.00999999, 0.1]  # Slightly higher max values
+            voltage_ranges = voltage_ranges_all
+            voltage_range_limits = (-1000.0, 1000.0)
         else:
-            return None
-        #NOTE, want it to defaault to lowest possible range if possible. therefore iterate bottom up
-        for i, r in enumerate(ranges):
-            if abs_value <= max_values[i]:  # Check against max value for the range
-                scaled = abs_value / r 
-                best_range_index = i
-                scaled_value = scaled
-                break
-        else:  # No suitable range was found
-            return None
+            voltage_ranges = [r for r in voltage_ranges_all if r[1] in ('0', '1', '2')]
+            voltage_range_limits = (-100.0, 100.0)
 
-        digits_str = "{:06.0f}".format(scaled_value * 1000000)
+        current_ranges = current_ranges_all
+        current_range_limits = (-0.1, 0.1)
 
-        # J handling:
-        J_vals = [100e-3, 10, 100, 1000]
-        if abs_value in J_vals:
-            digits_str = "J00000"
-        command = f"{polarity}{digits_str}{range_chars[best_range_index]}"
-        print(command)
+        # Sort ranges by max value (ascending)
+        voltage_ranges.sort(key=lambda x: x[0])
+        current_ranges.sort(key=lambda x: x[0])
+
+        # --- Input Validation / Crowbar / Mode Validation / Zero Handling ---
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"Input value must be numeric (int or float), got {type(value)}")
+
+        if mode == "crowbar":
+            command = "00000000"
+            self.instrument.write(command)
+            return command
+
+        if mode not in ("voltage", "current"):
+            raise ValueError(f"Invalid mode: '{mode}'. Must be 'voltage', 'current', or 'crowbar'.")
+
+        if abs(value) < 1e-12: # Use tolerance for floating point zero
+            polarity = "+"
+            zero_range_char = voltage_ranges[0][1] if mode == "voltage" else current_ranges[0][1]
+            # Use J000000 for exactly 0.0 on the lowest range? Or 000000? Let's stick to 000000 for zero.
+            command = f"{polarity}000000{zero_range_char}"
+            self.instrument.write(command)
+            return command
+
+        # --- Polarity / Abs Value ---
+        polarity = "+" if value > 0 else "-"
+        abs_value = abs(float(value))
+
+        # --- Select Appropriate Ranges List ---
+        if mode == "voltage":
+            ranges_to_check = voltage_ranges
+            min_limit, max_limit = voltage_range_limits
+            unit = "Voltage"
+        else: # mode == "current"
+            ranges_to_check = current_ranges
+            min_limit, max_limit = current_range_limits
+            unit = "Current"
+
+        # --- Check Overall Limits (Nominal) ---
+        if not (min_limit <= value <= max_limit + 1e-9):
+             raise ValueError(f"{unit} value {value} is out of the instrument's range ({min_limit} to {max_limit} with opt={opt})")
+
+        # --- Find Range and Handle 'J' Code ---
+        selected_range_max = None
+        selected_range_char = None
+        digits_str = None # Initialize digits_str
+        processed = False
+        epsilon = 1e-9 # Tolerance for float comparison
+
+        for i, (r_max, r_char) in enumerate(ranges_to_check):
+            # Check if value is exactly the maximum for this range
+            is_exact_max = abs(abs_value - r_max) < epsilon
+
+            if is_exact_max:
+                # Use 'J' code and THIS range's character
+                selected_range_char = r_char
+                digits_str = "J00000"
+                # print(f"Debug: Value {abs_value} is exact max of range {i}. Using 'J' code with range char '{selected_range_char}'") # Optional Debug
+                processed = True
+                break # Found exact match, process done
+
+            # If not exact max, check if value fits strictly within this range
+            elif abs_value < r_max - epsilon:
+                # Value fits here, calculate digits normally below
+                selected_range_max = r_max
+                selected_range_char = r_char
+                # print(f"Debug: Value {abs_value} fits in range {i} (max={r_max}). Using normal digits.") # Optional Debug
+                processed = True
+                break # Found the range, process done
+
+        # If loop finishes, value must be > last range max (but within overall limit)
+        if not processed:
+             # Assign the highest available range for normal calculation
+             range_index = len(ranges_to_check) - 1
+             selected_range_max = ranges_to_check[range_index][0]
+             selected_range_char = ranges_to_check[range_index][1]
+             # print(f"Debug: Value {abs_value} assigned highest range {range_index} after loop.") # Optional Debug
+             processed = True # Mark as processed for safety check
+
+        # Safety check
+        if not processed or selected_range_char is None:
+             raise RuntimeError(f"Internal Error: Could not determine range or digits for {abs_value}.")
+
+        # --- Calculate Digits IF NOT using 'J' code ---
+        if digits_str is None: # Check if 'J' code was assigned above
+            if selected_range_max is None: # Safety check
+                 raise RuntimeError(f"Internal Error: selected_range_max not set for normal digit calculation.")
+
+            if selected_range_max == 0:
+                scaled_for_digits = 0.0
+            else:
+                # Scale according to the selected nominal range max
+                scaled_for_digits = (abs_value / selected_range_max) * 1000000.0
+
+            digits_int = int(round(scaled_for_digits))
+
+            # Clamp values >= 1,000,000 to 999,999
+            if digits_int >= 1000000:
+                digits_int = 999999
+            elif digits_int < 0: # Safeguard
+                digits_int = 0
+
+            digits_str = "{:06d}".format(digits_int) # Format normally calculated digits
+
+        # --- Construct Command ---
+        command = f"{polarity}{digits_str}{selected_range_char}"
+
+        # --- Send Command ---
+        # print(f"Input: {value}, Mode: {mode} -> Command: {command}") # Final Debug print
         self.instrument.write(command)
+        return command
 
 #helper func
 import re
