@@ -22,15 +22,14 @@ class EDC522(Instrument):
     def query_error(self):
         """Query the instrument for any error messages."""
         self.instrument.write("?")
-        return self.instrument.read()
-     
-# ... (keep the rest of your EDC522 class definition above this) ...
+        return self.instrument.read() 
 
     def set_output(self, value, mode="voltage", opt=False):
         """
         Formats and sends a command to set the instrument's output voltage or current.
         Automatically determines the appropriate range.
         Uses 'J00000' for digits if the value is exactly the maximum of a nominal range.
+        NOTE: Used Gemini 2.5 Pro (expiremental) to generate
 
         Args:
             value (float or int): The desired output value (Volts or Amps).
