@@ -997,166 +997,209 @@ class Lockin(SCPI_Instrument):
 
 
 
+# Ensure the SCPI_Instrument class and its helpers from temp34.txt are defined above this.
+
 class DMM(SCPI_Instrument):
     """
-    Sub-class of Instrument to hold the general methods used by a DMM.
-    This implementation is based on Keithley 2400 commands. [cite: 1]
+    Sub-class of Instrument to hold general methods for a Digital Multimeter (DMM),
+    specifically tailored for Keithley 2400 SourceMeter commands based on the user manual.
+    Inherits from SCPI_Instrument.
     """
-    # Potential class attributes for parameter checking (optional, add ranges/lists as needed)
-    nplc_range = (0.01, 10)
-    voltage_range_config = (-210.0, 210.0) # For range setting in config
-    current_range_config = None # Add appropriate range if needed
-    resistance_range_config = None # Add appropriate range if needed
-    voltage_compliance_range = None # Add appropriate range if needed
-    current_compliance_range = None # Add appropriate range if needed
-    current_amplitude_range = None # Add appropriate range if needed
-    voltage_amplitude_range = None # Add appropriate range if needed
+    # Define potential class attributes for parameter checking (ranges/lists)
+    # These can be uncommented and populated if self.check_params is True in __init__
+    # source_mode_options = ['VOLT', 'CURR']
+    # measure_mode_options = ['VOLT', 'CURR', 'RES']
+    # voltage_compliance_range = (0.2e-3, 210.0) # Example range for K2400
+    # current_compliance_range = (1e-9, 1.05)    # Example range for K2400
+    # voltage_amplitude_range = (-210.0, 210.0) # Example range for K2400
+    # current_amplitude_range = (-1.05, 1.05)   # Example range for K2400
+    # nplc_range = (0.01, 10)
 
-
-    def set_resistance_mode_manual(self):
-        """Sets the mode to manual resistance OHMs.
+    def __init__(self, address, check_params=False):
         """
-        self.instrument.write(":SENS:RES:MODe MAN")
-
-    def set_source_current_amplitude(self, amplitude: float = 0.0001):
-        """Sets the current source amplitude.
+        Initializes the DMM instrument.
 
         Args:
-            amplitude (float): Current amplitude in Amps (default: 0.0001 A).
+            address (str): The VISA address of the instrument (e.g., 'GPIB0::24::INSTR') or 'VIRTUAL'.
+            check_params (bool): Flag to enable/disable automatic parameter checking. Defaults to False.
         """
-        # Optional parameter check (uncomment and define range above if needed)
-        # self._check_params(locals())
-        self.instrument.write(':SOUR:CURR:LEV:IMM:AMPL {}'.format(amplitude))
+        super().__init__(address, check_params)
+        self._source_mode = None # Internal state to track current source mode
 
-    def set_current_compliance(self, compliance: float = .01):
-        """Sets the current compliance limit when sourcing voltage.
+    def set_source_mode(self, mode: str):
+        """
+        Sets the instrument's source mode to either Voltage or Current.
 
         Args:
-            compliance (float): Current compliance in Amps (default: 0.01 A).
+            mode (str): The desired source mode. Allowed values: 'VOLT' or 'CURR'.
+                        Case-insensitive.
         """
-        # Optional parameter check (uncomment and define range above if needed)
-        # self._check_params(locals())
-        self.instrument.write(':SENS:CURR:DC:PROT:LEV {}'.format(compliance))
+        # Parameter validation (manual or using _check_params if enabled)
+        mode_upper = mode.upper()
+        if mode_upper not in ['VOLT', 'CURR']:
+            raise ValueError("Invalid source mode. Use 'VOLT' or 'CURR'.")
 
-    def set_voltage_compliance(self, compliance: float = 2.1):
-        """Sets the voltage compliance limit when sourcing current.
+        # Send the SCPI command
+        self.instrument.write(f":SOUR:FUNC {mode_upper}")
+        self._source_mode = mode_upper # Update internal state
+        # Set the corresponding source mode to fixed (common use case)
+        self.instrument.write(f":SOUR:{mode_upper}:MODE FIX")
+
+
+    def set_compliance(self, source_mode: str, level: float):
+        """
+        Sets the compliance limit (Voltage or Current) based on the intended source mode.
+        Sets Voltage compliance if sourcing Current.
+        Sets Current compliance if sourcing Voltage.
 
         Args:
-            compliance (float): Voltage compliance in Volts (default: 2.1 V).
+            source_mode (str): The intended source mode ('VOLT' or 'CURR'). Determines which compliance is set. Case-insensitive.
+            level (float): The desired compliance level in Volts (for I-Source) or Amps (for V-Source).
         """
-        # Optional parameter check (uncomment and define range above if needed)
-        # self._check_params(locals())
-        self.instrument.write(':SENS:VOLT:DC:PROT:LEV {}'.format(compliance))
-
-    def config_measure_voltage(self, nplc: float = 1, voltage: float = 21.0, auto_range: bool = True):
-        """ Configures the measurement of voltage.
-
-        Args:
-            nplc (float or int): Number of power line cycles (NPLC) from 0.01 to 10 (default: 1).
-            voltage (float): Upper limit of voltage in Volts, used if auto_range is False (default: 21.0 V).
-            auto_range (bool): Enables auto_range if True (default), else uses the set voltage range.
-        """
-        # Optional parameter check (uncomment and define ranges above if needed)
-        # self._check_params(locals())
-        self.instrument.write(":SENS:FUNC 'VOLT';"
-                              ":SENS:VOLT:NPLC %f;:FORM:ELEM VOLT;" % nplc)
-        if auto_range:
-            self.instrument.write(":SENS:VOLT:RANG:AUTO 1;")
+        mode_upper = source_mode.upper()
+        if mode_upper == 'VOLT':
+            # Sourcing Voltage, set Current compliance
+            # Optional parameter check (uncomment and define range above if needed)
+            # self._check_params({"current_compliance_range": level})
+            self.instrument.write(f":SENS:CURR:PROT {level}")
+        elif mode_upper == 'CURR':
+            # Sourcing Current, set Voltage compliance
+            # Optional parameter check (uncomment and define range above if needed)
+            # self._check_params({"voltage_compliance_range": level})
+            self.instrument.write(f":SENS:VOLT:PROT {level}")
         else:
-            self.instrument.write(":SENS:VOLT:RANG %g" % voltage)
+            raise ValueError("Invalid source_mode. Use 'VOLT' or 'CURR'.")
 
-    def config_measure_current(self, nplc: float = 1, current: float = .01, auto_range: bool = True):
-        """ Configures the measurement of current.
+    def set_amplitude(self, source_mode: str, level: float):
+        """
+        Sets the amplitude (level) for the specified source mode (Voltage or Current).
 
         Args:
-            nplc (float or int): Number of power line cycles (NPLC) from 0.01 to 10 (default: 1).
-            current (float): Upper limit of current in Amps, used if auto_range is False (default: 0.01 A).
-            auto_range (bool): Enables auto_range if True (default), else uses the set current range.
+            source_mode (str): The source mode for which to set the amplitude ('VOLT' or 'CURR'). Case-insensitive.
+            level (float): The desired amplitude level in Volts or Amps.
         """
-        # Optional parameter check (uncomment and define ranges above if needed)
-        # self._check_params(locals())
-        self.instrument.write(":SENS:FUNC 'CURR';"
-                              ":SENS:CURR:NPLC %f;:FORM:ELEM CURR;" % nplc)
-        if auto_range:
-            self.instrument.write(":SENS:CURR:RANG:AUTO 1;")
+        mode_upper = source_mode.upper()
+        if mode_upper == 'VOLT':
+             # Optional parameter check (uncomment and define range above if needed)
+            # self._check_params({"voltage_amplitude_range": level})
+            self.instrument.write(f":SOUR:VOLT:LEV {level}")
+        elif mode_upper == 'CURR':
+             # Optional parameter check (uncomment and define range above if needed)
+            # self._check_params({"current_amplitude_range": level})
+            self.instrument.write(f":SOUR:CURR:LEV {level}")
         else:
-            self.instrument.write(":SENS:CURR:RANG %g" % current)
+            raise ValueError("Invalid source_mode. Use 'VOLT' or 'CURR'.")
 
-    def config_measure_resistance(self, nplc: float = 1, resistance_range: float = 21e6, auto_range: bool = True):
-        """ Configures the measurement of resistance.
+    def output_on(self):
+        """
+        Turns the instrument's output ON.
+        """
+        self.instrument.write(":OUTP ON")
+
+    def output_off(self):
+        """
+        Turns the instrument's output OFF.
+        """
+        self.instrument.write(":OUTP OFF")
+
+    def set_measure_mode(self, mode: str, range_val: float = None, nplc: float = None, auto_range: bool = True):
+        """
+        Configures the instrument's measurement mode (Voltage, Current, or Resistance)
+        and optionally sets the range and integration time (NPLC).
 
         Args:
-            nplc (float or int): Number of power line cycles (NPLC) from 0.01 to 10 (default: 1).
-            resistance_range (float): Upper limit of resistance in Ohms, used if auto_range is False (default: 21 MOhm).
-                                      Note: K2400 uses specific range values, this sets the closest range >= the value.
-            auto_range (bool): Enables auto_range if True (default), else uses the set resistance range.
+            mode (str): The desired measurement mode: 'VOLT', 'CURR', or 'RES'. Case-insensitive.
+            range_val (float, optional): The upper limit for the measurement range.
+                                         Used only if auto_range is False. Defaults to None.
+                                         Units are V, A, or Ohm depending on the mode.
+            nplc (float, optional): Number of Power Line Cycles for integration (0.01 to 10).
+                                    Higher values give better noise rejection but are slower. Defaults to None (uses instrument default, typically 1).
+            auto_range (bool): Enable (True) or disable (False) auto-ranging. Defaults to True.
         """
-        # Optional parameter check (uncomment and define ranges above if needed)
-        # self._check_params(locals())
-        self.instrument.write(":SENS:FUNC 'RES';"
-                              ":SENS:RES:NPLC %f;:FORM:ELEM RES;" % nplc)
+        mode_upper = mode.upper()
+        if mode_upper not in ['VOLT', 'CURR', 'RES']:
+             raise ValueError("Invalid measure mode. Use 'VOLT', 'CURR', or 'RES'.")
+
+        # Set the measurement function
+        self.instrument.write(f":SENS:FUNC '{mode_upper}'")
+
+        # Configure NPLC if specified
+        if nplc is not None:
+            # Optional parameter check (uncomment and define range above if needed)
+            # self._check_params({"nplc_range": nplc})
+            self.instrument.write(f":SENS:{mode_upper}:NPLC {nplc}")
+
+        # Configure range
         if auto_range:
-            self.instrument.write(":SENS:RES:RANG:AUTO 1;")
+            self.instrument.write(f":SENS:{mode_upper}:RANG:AUTO ON")
         else:
-            # K2400 resistance range is set by value, not index.
-            # Using %g format for floating point representation.
-            self.instrument.write(":SENS:RES:RANG %g" % resistance_range)
+            self.instrument.write(f":SENS:{mode_upper}:RANG:AUTO OFF")
+            if range_val is not None:
+                 # Optional parameter check would depend on mode, add specific attributes if needed
+                 # e.g., self._check_params({"voltage_measure_range": range_val}) for VOLT mode
+                self.instrument.write(f":SENS:{mode_upper}:RANG {range_val}")
+            else:
+                # If auto_range is False but no range_val is given, it might use the current range.
+                # Consider adding a warning or requiring range_val when auto_range is False.
+                print(f"Warning: Auto Range is OFF but no range value specified for {mode_upper} measurement.")
 
-    def enable_source(self):
-        """Turns on the output source (voltage or current).
+        # Set the data format to return only the primary measurement (V, I, or R)
+        # This simplifies the output of get_data()
+        self.instrument.write(f":FORM:ELEM {mode_upper}")
+
+
+    def get_data(self) -> str:
         """
-        self.instrument.write('OUTPUT ON')
-
-    def disable_source(self):
-        """Turns off the output source (voltage or current).
-        """
-        self.instrument.write('OUTPUT OFF')
-
-    def read(self) -> str:
-        """Initiates a measurement based on current config and reads the value.
+        Triggers a measurement based on the current configuration and returns the reading.
 
         Returns:
             str: The measurement result as a string.
         """
-        # The :READ? command implicitly triggers an acquisition based on setup.
-        return self.instrument.query(":READ?").strip() # Use strip() like in operation_complete_query
+        # :READ? initiates the source-delay-measure cycle and fetches the data
+        reading = self.instrument.query(":READ?")
+        return reading.strip() # Remove potential trailing newline/whitespace
 
-    def config_voltage_pulse(self, nplc: float = .01, amplitude: float = 5):
-        """Configures the instrument for a single voltage pulse using a 2-point sweep.
-           Note: Call enable_source() and read() afterwards to execute the pulse.
+# Example Usage (requires SCPI_Instrument class and helpers from temp34.txt)
+# try:
+#     # Replace 'GPIB0::24::INSTR' with your instrument's actual VISA address or 'VIRTUAL'
+#     dmm = DMM('GPIB0::24::INSTR', check_params=False)
+#     print(dmm.idn())
 
-        Args:
-            nplc (float): Power line cycles for integration (controls pulse width, default 0.01).
-            amplitude (float): Voltage amplitude of the pulse in Volts (default: 5 V).
-        """
-        # Optional parameter check (uncomment and define ranges above if needed)
-        # self._check_params(locals())
-        # Using f-string for multi-line command clarity
-        command = f"""*RST
-        :SENS:FUNC:CONC OFF
-        :SOUR:FUNC VOLT
-        :SOUR:VOLT:MODE SWE
-        :SOURce:SWEep:POINts 2
-        :SOURce:VOLTage:STARt {amplitude}
-        :SOURce:VOLTage:STOP 0
-        :SENS:VOLT:NPLCycles {nplc}
-        :TRIG:COUN 2
-        :TRIG:DELay 0
-        :SOUR:DEL 0
-        """
-        # Send commands one by one or as a block if VISA driver supports it well
-        # Sending line by line might be safer for some setups
-        for line in command.strip().split('\n'):
-             self.instrument.write(line.strip())
+#     # Example: Source 5V, limit current to 10mA, measure current
+#     dmm.set_source_mode('VOLT')
+#     dmm.set_amplitude('VOLT', 5.0)
+#     dmm.set_compliance('VOLT', 0.010) # 10mA current compliance
+#     dmm.set_measure_mode('CURR', auto_range=True, nplc=1)
 
-    # Example of replacing the original configure method or adding a specific one
-    def configure_dc_voltage_measure(self, nplc: float = 1, auto_range: bool = True):
-         """Simplified config for basic DC Voltage measurement."""
-         self.config_measure_voltage(nplc=nplc, auto_range=auto_range)
+#     dmm.output_on()
+#     time.sleep(0.5) # Allow time for measurement
+#     current_reading = dmm.get_data()
+#     print(f"Measured Current: {current_reading} A")
+
+#     dmm.output_off()
+
+#     # Example: Measure resistance (auto ohms mode is default for :SENS:FUNC 'RES')
+#     dmm.set_measure_mode('RES', auto_range=True)
+#     # For auto ohms, the instrument sources current automatically.
+#     # Compliance needs to be set appropriately if sourcing manually (not needed here).
+#     # Manual ohms example:
+#     # dmm.instrument.write(":SENS:RES:MODE MAN") # Set manual ohms
+#     # dmm.set_source_mode('CURR')
+#     # dmm.set_amplitude('CURR', 0.001) # Source 1mA
+#     # dmm.set_compliance('CURR', 20.0) # 20V voltage compliance
+#     # dmm.set_measure_mode('RES', auto_range=False, range_val=20000) # Measure R, 20k range
+
+#     dmm.output_on()
+#     time.sleep(0.5)
+#     resistance_reading = dmm.get_data()
+#     print(f"Measured Resistance: {resistance_reading} Ohm")
+
+#     dmm.output_off()
+
+# except Exception as e:
+#     print(f"An error occurred: {e}")
 
 
-# Make sure the rest of your SCPI_Instrument class and helpers are defined above this.
-# You would replace the existing DMM class definition [cite: 173] in temp34.txt with this updated version.
 
 
 """
