@@ -29,6 +29,10 @@ class Sr830(Lockin):
     display_expand_what = ['x', 'y', 'r']
     display_output_offset= (-105.00, 105.00)
     display_output_expand= ['1', '10', '100']
+    input_configuration = ['a', 'a-b', '1m', '100m']
+    input_shield_ground = ['float', 'ground']
+    input_coupling = ['ac', 'dc']
+    input_line_notch = ['none', 'single', 'double', 'both']
 
     def __init__(self, address, check_params=True): #sets the check_params true by default, since we want at this layer to be as safe as possible
         super().__init__(address, check_params)

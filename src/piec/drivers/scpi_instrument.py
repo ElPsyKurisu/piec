@@ -819,6 +819,10 @@ class Lockin(SCPI_Instrument):
     display_expand_what = None #['x', 'y', 'r']
     display_output_offset=None #(-105.00, 105.00)
     display_output_expand=None #['1', '10', '100']
+    input_configuration = None #['a', 'a-b', '1m', '100m']
+    input_shield_ground = None #['float', 'ground']
+    input_coupling = None #['ac', 'dc']
+    input_line_notch = None #['none', 'single', 'double', 'both']
 
     """
     NOTE: Should i just make sensitivty a range and so is time constant, and then you just pick the nearest one. I think I should offer both options ideally, basically if not in list
@@ -873,6 +877,45 @@ class Lockin(SCPI_Instrument):
         if harmonic is not None:
             self.instrument.write("harm {}".format(harmonic))
         
+    def configure_input(self, input_configuration=None, input_shield_ground=None, input_coupling=None, input_line_notch=None):
+        """
+        Function that configures the input part of lockin
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): SRS830
+            input_configuation (str): Configures the input source allowed args are [a, a-b, 1m, 100m]
+            input_shield_ground (str): Configures the input ground allowed args are [chassis, isolated]
+            input_coupling (str): Configures the input coupling allowed args are [ac, dc]
+            input_line_notch (str): Configures the line notch filter allowed args are [on, off]
+        """
+        if input_configuration is not None:
+            if input_configuration == 'a':
+                self.instrument.write("isrc 0")
+            if input_configuration == 'a-b':
+                self.instrument.write("isrc 1")
+            if input_configuration == '1m':
+                self.instrument.write("isrc 2")
+            if input_configuration == '100m':
+                self.instrument.write("isrc 3")
+        if input_shield_ground is not None:
+            if input_shield_ground == 'float':
+                self.instrument.write("ignd 0")
+            if input_shield_ground == 'ground':
+                self.instrument.write("ignd 1")
+        if input_coupling is not None:
+            if input_coupling == 'ac':
+                self.instrument.write("icpl 0")
+            if input_coupling == 'dc':
+                self.instrument.write("icpl 1")
+        if input_line_notch is not None:
+            if input_line_notch == 'none':
+                self.instrument.write("ilin 0")
+            if input_line_notch == 'single':
+                self.instrument.write("ilin 1")
+            if input_line_notch == 'double':
+                self.instrument.write("ilin 2")
+            if input_line_notch == 'both':
+                self.instrument.write("ilin 3")
+
     def configure_gain_filters(self, sensitivity=None, reserve_mode=None, time_constant=None, lp_filter_slope=None, sync=None):
         """
         This is set to configure the left side of the srs 830 aka time_constant, filters, gain, etc

@@ -1,6 +1,10 @@
-dmm,calibrator,arduino,lockin,field,angle_step,total_angle,amplitude,frequency,save_dir,voltage_callibration,__class__,type,timestamp,processed
-Custom Keithley193a Object at GPIB0::10::INSTR,<piec.drivers.edc522.core.EDC522 object at 0x000002CFB69F2E40>,Custom Arduino_Stepper Object at ASRL3::INSTR,"Stanford_Research_Systems,SR830,s/n54854,ver1.07 
-",100,10,50,1.0,10,C:\Users\geofr\Desktop\Research\Github\piec\src\piec\notebooks,10000,<class 'piec.measurement_waveforms.magneto_transport.AMR'>,amr,1744739351.2985642,False
+dmm,calibrator,arduino,lockin,field,angle_step,total_angle,amplitude,frequency,measure_time,save_dir,voltage_callibration,__class__,type,timestamp,processed
+Custom Keithley193a Object at GPIB0::10::INSTR,<piec.drivers.edc522.core.EDC522 object at 0x000002249B606CF0>,Custom Arduino_Stepper Object at ASRL3::INSTR,"Stanford_Research_Systems,SR830,s/n54854,ver1.07 
+",1000,10,90,1.0,10,60,C:\Users\geofr\Desktop\Research\Github\piec\src\piec\notebooks,10000,<class 'piec.measurement_waveforms.magneto_transport.AMR'>,amr,1744841062.8940058,False
 
 angle,field,X,Y
-40,100,-1.09223e-07,1.85065e-08
+0,1000,1.09217,0.877262
+10,1000,1.09217,0.877995
+20,1000,1.09217,0.87891
+30,1000,1.09217,0.897099
+40,1000,1.09217,0.890995

@@ -154,7 +154,7 @@ class AMR(MagnetoTransport):
     type = 'amr'
 
     def __init__(self, dmm=None, calibrator=None, arduino=None, lockin=None, field=None, angle_step=15, total_angle=360,
-                 amplitude=1.0, frequency=10, save_dir=r'\scratch', voltage_callibration=10000):
+                 amplitude=1.0, frequency=10, measure_time=60, save_dir=r'\scratch', voltage_callibration=10000):
         """
         Initialize AMR measurement parameters.
 
@@ -170,6 +170,7 @@ class AMR(MagnetoTransport):
             :total_angle (float): Total angle to rotate in degrees (default: 360)
             :amplitude (float): Peak voltage amplitude in volts (default: 1.0)
             :frequency (float): Excitation frequency in Hz (default: 10)
+            :measure time (float): Time to measure in seconds (default: 60)
             :save_dir (str): Directory path for data storage (default: '\\scratch')
             :voltage_callibration (float): Voltage calibration factor for field conversion (default: 10000)
         """
@@ -179,6 +180,7 @@ class AMR(MagnetoTransport):
         self.total_angle = total_angle
         self.amplitude = amplitude
         self.frequency = frequency
+        self.measure_time = measure_time
         self.notes = str(amplitude).replace('.', 'p')+'V_'+str(int(frequency))+'Hz' #i got nothing
         self.metadata = pd.DataFrame(locals(), index=[0])
         del self.metadata['self']
@@ -190,6 +192,7 @@ class AMR(MagnetoTransport):
         self.metadata['timestamp'] = time.time()
         self.metadata['processed'] = False
         self.filename = create_measurement_filename(self.save_dir, self.type, self.notes) #create filename now so its blank
+        self.angle = 0 #initial angle
 
     def analyze(self):
         """
@@ -213,8 +216,9 @@ class AMR(MagnetoTransport):
         self.lockin.initialize() #sets fresh
         #configure the internal oscillator to the right frequency and amplitude
         self.lockin.configure_reference(voltage=self.amplitude, frequency=self.frequency)
-        #set gain to auto
-        #self.lockin.configure_gain_filters(sensitivity='1v/ua') #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
+        # Configure in differential mode (a-b) for AMR measurement
+        self.lockin.configure_input(input_configuration='a-b')
+        self.lockin.configure_gain_filters(sensitivity='auto') #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
         print("Lock-in amplifier configured for AMR measurement.")
 
     def capture_data(self):
@@ -224,25 +228,43 @@ class AMR(MagnetoTransport):
 
         #need functionality here that loops through what we care about
         # Loop through the angles and capture data at each step
+        # Loop through the angles and capture data at each step
         steps = convert_angle_to_steps(self.angle_step) 
         for angle in range(0, self.total_angle, self.angle_step):
             self.angle = angle
-            self.arduino.step(steps, 0)  # Move the stepper motor to the desired angle
-            time.sleep(1) # allow time for lockin to stablize
             print("capturing data at angle: ", self.angle)
             # Capture data point from the lockin
             self.capture_data_point()  # Capture data from the lockin
             self.save_data_point()  # Save the captured data to a CSV file
-        
+            self.arduino.step(steps, 0)  # Move the stepper motor to the desired angle
+            time.sleep(1) # allow time for lockin to stablize
+
+        #get final data point at the end of the loop
+        if self.angle != self.total_angle:
+            self.angle = self.total_angle
+            self.arduino.step(steps, 0)  # Move the stepper motor to the desired angle
+            time.sleep(1) # allow time for lockin to stablize
+            self.capture_data_point() # Capture data point at the initial angle
+            self.save_data_point()
 
     def capture_data_point(self):
         """
         Take a single data point from the lockin at the given angle and field
-        overwrites the data attribute with the new data point.
+        overwrites the data attribute with the new data point. With averaging
         """
-        # Get the X and Y values from the lockin
-        x, y = self.lockin.get_X_Y()
-        print("x: ", x, "y: ", y)
+        current_time = time.time()
+        x_avg = 0
+        y_avg = 0
+        # Set the lock-in to capture data for a specified time
+        while (time.time() - current_time) < self.measure_time:
+            time.sleep(0.1)
+            x, y = self.lockin.get_X_Y()
+            x_avg += x
+            y_avg += y
+        # Calculate the average values
+        x_avg /= (self.measure_time / 0.1)  # Number of samples taken
+        y_avg /= (self.measure_time / 0.1)  # Number of samples taken
+        print("x: ", x_avg, "y: ", y_avg)
         # Save the data point to a file or database (not implemented here)
         if self.data is None:
             self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x], "Y": [y]})
