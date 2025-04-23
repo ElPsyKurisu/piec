@@ -134,7 +134,7 @@ class MagnetoTransport:
         5. Perform analysis
         """
         self.initialize() #checks communication and sets default params
-        self.configure_lockin()
+        #self.configure_lockin() #comment out to manually set the lockin, then we just capture data from it
         self.capture_data() # Capture data from the lockin and saves it to self.data and csv
         self.shut_off() #Sets the field to zero
         self.analyze()
@@ -154,7 +154,7 @@ class AMR(MagnetoTransport):
     type = 'amr'
 
     def __init__(self, dmm=None, calibrator=None, arduino=None, lockin=None, field=None, angle_step=15, total_angle=360,
-                 amplitude=1.0, frequency=10, measure_time=60, save_dir=r'\scratch', voltage_callibration=10000):
+                 amplitude=1.0, frequency=10, measure_time=60, sensitivity='50uv/pa', save_dir=r'\scratch', voltage_callibration=10000):
         """
         Initialize AMR measurement parameters.
 
@@ -181,6 +181,7 @@ class AMR(MagnetoTransport):
         self.amplitude = amplitude
         self.frequency = frequency
         self.measure_time = measure_time
+        self.sensitivity = sensitivity
         self.notes = str(amplitude).replace('.', 'p')+'V_'+str(int(frequency))+'Hz' #i got nothing
         self.metadata = pd.DataFrame(locals(), index=[0])
         del self.metadata['self']
@@ -218,7 +219,8 @@ class AMR(MagnetoTransport):
         self.lockin.configure_reference(voltage=self.amplitude, frequency=self.frequency)
         # Configure in differential mode (a-b) for AMR measurement
         self.lockin.configure_input(input_configuration='a-b')
-        self.lockin.configure_gain_filters(sensitivity='auto') #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
+        self.lockin.configure_gain_filters(sensitivity=self.sensitivity) #DO NOT USE AUTO NOTE MAYBE MAKE IT CONFIGURABLE
+        time.sleep(10)  # Allow time for the lock-in to stabilize
         print("Lock-in amplifier configured for AMR measurement.")
 
     def capture_data(self):
@@ -229,6 +231,11 @@ class AMR(MagnetoTransport):
         #need functionality here that loops through what we care about
         # Loop through the angles and capture data at each step
         # Loop through the angles and capture data at each step
+        #get direction of rotation
+        if self.angle_step > 0:
+            direction = 1 # clockwise
+        else:
+            direction = 0 # counter-clockwise
         steps = convert_angle_to_steps(self.angle_step) 
         for angle in range(0, self.total_angle, self.angle_step):
             self.angle = angle
@@ -236,13 +243,13 @@ class AMR(MagnetoTransport):
             # Capture data point from the lockin
             self.capture_data_point()  # Capture data from the lockin
             self.save_data_point()  # Save the captured data to a CSV file
-            self.arduino.step(steps, 0)  # Move the stepper motor to the desired angle
+            self.arduino.step(abs(steps), direction)  # Move the stepper motor to the desired angle
             time.sleep(1) # allow time for lockin to stablize
 
         #get final data point at the end of the loop
         if self.angle != self.total_angle:
             self.angle = self.total_angle
-            self.arduino.step(steps, 0)  # Move the stepper motor to the desired angle
+            self.arduino.step(abs(steps), direction)  # Move the stepper motor to the desired angle
             time.sleep(1) # allow time for lockin to stablize
             self.capture_data_point() # Capture data point at the initial angle
             self.save_data_point()
