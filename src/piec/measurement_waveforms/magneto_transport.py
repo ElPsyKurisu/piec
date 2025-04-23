@@ -260,25 +260,24 @@ class AMR(MagnetoTransport):
         overwrites the data attribute with the new data point. With averaging
         """
         current_time = time.time()
-        x_avg = 0
-        y_avg = 0
+        x_avg_list = []
+        y_avg_list = []
         # Set the lock-in to capture data for a specified time
         while (time.time() - current_time) < self.measure_time:
             time.sleep(0.1)
             x, y = self.lockin.get_X_Y()
-            x_avg += x
-            y_avg += y
+            x_avg_list.append(x)
+            y_avg_list.append(y)
         # Calculate the average values
-        x_avg /= (self.measure_time / 0.1)  # Number of samples taken
-        y_avg /= (self.measure_time / 0.1)  # Number of samples taken
-        print("x: ", x_avg, "y: ", y_avg)
+        x_avg = np.mean(x_avg_list)  # Number of samples taken
+        y_avg = np.mean(y_avg_list)  # Number of samples taken
         # Save the data point to a file or database (not implemented here)
         if self.data is None:
-            self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x], "Y": [y]})
+            self.data = pd.DataFrame({"angle": [self.angle], "field": [self.field], "X": [x_avg], "Y": [y_avg]})
         else:
-            self.data.loc[len(self.data)] = {"angle": self.angle, "field": self.field, "X": x, "Y": y} #dynamically add new row
+            self.data.loc[len(self.data)] = {"angle": self.angle, "field": self.field, "X": x_avg, "Y": y_avg} #dynamically add new row
         # For now, just print the data point
-        print(f"Data point at angle {self.angle} degrees and field {self.field} Oe: X={x}, Y={y}")
+        print(f"Data point at angle {self.angle} degrees and field {self.field} Oe: X={x_avg}, Y={y_avg}")
 
     def save_data_point(self):
         """
