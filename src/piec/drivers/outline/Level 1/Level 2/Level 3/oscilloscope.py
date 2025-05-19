@@ -3,7 +3,7 @@ This is an outline for what the osc.py file should be like.
 
 A osc (oscilloscope) is defined as an instrument that has the typical features on expects an oscilloscope to have
 """
-from .measurer import Measurer
+from ..measurer import Measurer
 class Oscilloscope(Measurer):
     # Initializer / Instance attributes
     """

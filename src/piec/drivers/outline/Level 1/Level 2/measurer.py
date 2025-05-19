@@ -3,7 +3,7 @@ This is an outline for what the measurer.py file should be like.
 
 A measurer is defined as an instrument that measures something (e.g. a voltage/current)
 """
-from .instrument import Instrument
+from ..instrument import Instrument
 class Measurer(Instrument):
     # Initializer / Instance attributes
     """

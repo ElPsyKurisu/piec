@@ -3,7 +3,7 @@ This is an outline for what the generator.py file should be like.
 
 A generator is defined as an instrument that generates something (e.g. a voltage/current)
 """
-from .instrument import Instrument
+from ..instrument import Instrument
 class Generator(Instrument):
     # Initializer / Instance attributes
     """

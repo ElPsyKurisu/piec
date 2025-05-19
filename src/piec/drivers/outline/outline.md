@@ -19,3 +19,5 @@ NOTE: Should also figure out how we want to add additional items to classes. As 
 but under the configure_trigger of the keysight scope theres additional stuff like filters and hold_off times -> therefore we require a method for running expirements that simply ignores
 the additional commands (not present in the outine) base commands for running expirements. Therfore my code (or Alexs tbh) would still run with a scope that doesnt have that capability
 but for a scope that does (and has the driver) written for it it will configure the hold_off time etc.
+
+NOTE: Under Level 4 maybe put each instrument under the manufacturer so they are additional folders but same level in working tree (aka class inheritance)
