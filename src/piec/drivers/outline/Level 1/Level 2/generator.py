@@ -7,7 +7,7 @@ from .instrument import Instrument
 class Generator(Instrument):
     # Initializer / Instance attributes
     """
-    All an instrument is required to have is an address!
+    All generators must be able to output something
     """
     def __init__(self, address):
         """
