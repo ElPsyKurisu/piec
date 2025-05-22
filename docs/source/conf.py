@@ -37,3 +37,30 @@ html_theme = 'sphinx_rtd_theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+
+extensions = [
+    'sphinx.ext.duration',
+    'sphinx.ext.doctest',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',  # Ensure this is present
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.napoleon',    # Add Napoleon for Google/Numpy docstrings
+]
+
+# Napoleon settings
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = True # Show __init__ docstrings
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
+
+autosummary_generate = True # Enable autosummary to generate rst files
+
+# ... (rest of the configuration)
+html_theme = 'sphinx_rtd_theme' #
