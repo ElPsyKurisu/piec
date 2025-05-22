@@ -7,11 +7,11 @@ sys.path.insert(0, os.path.abspath('../../src/'))
 # -- Project information
 
 project = 'piec'
-copyright = '2024, Geo Fratian Aleksander Qualls'
+copyright = '2025, Geo Fratian Alexander Qualls'
 author = 'Geo Fratian'
 
 release = '0.1'
-version = '0.1.1'
+version = '0.1.2'
 
 # -- General configuration
 
