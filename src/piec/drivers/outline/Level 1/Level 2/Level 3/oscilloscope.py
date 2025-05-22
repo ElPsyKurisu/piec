@@ -10,7 +10,7 @@ class Oscilloscope(Measurer):
     All measurers must be able to read some data and give it to the computer
     """
 
-    #These functions make the signal visible and are used on a per channel basis (aka channel independant)
+    #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
     def toggle_channel(self, channel, on=True):
         """
         Function that toggles the selected channel to on or off (what to display and what to acquire)
@@ -94,6 +94,10 @@ class Oscilloscope(Measurer):
         Configures the scope (ideally in binary) to specific parameters such as length (how much data to capture), etc
         """
     #Time to get the data out NOTE: We already have from the measurer class the quick_read which technically goes under here
+    def quick_read(self):
+        """
+        Quick read function that returns the default data in a quick way (ideally in binary)
+        """
     def get_data(self):
         """
         Returns the data depending on how it was configured with the configure_data command
