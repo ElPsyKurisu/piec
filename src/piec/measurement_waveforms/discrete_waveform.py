@@ -43,6 +43,43 @@ class DiscreteWaveform:
         self.voltage_channel = voltage_channel
         self.save_dir = save_dir
         self.filename = None
+        self.data = None
+        self.history = []
+        self._update_metadata()
+
+    def _update_metadata(self):
+        """
+        Update metadata DataFrame with current measurement parameters.
+        
+        Captures instrument IDs, measurement type, and timestamp.
+        Should be called after any parameter changes or before saving data.
+        """
+        params = {key: value for key, value in self.__dict__.items() 
+                if not key.startswith('_') and 
+                not callable(value) and
+                key not in ['awg', 'osc', 'data', 'metadata', 'history']}
+        
+        self.metadata = pd.DataFrame(params, index=[0])
+
+        # Other info
+        self.metadata['awg'] = self.awg.idn()
+        self.metadata['osc'] = self.osc.idn()
+        if hasattr(self, 'length'):
+            self.metadata['length'] = self.length
+        self.metadata['timestamp'] = time.time()
+        self.metadata['processed'] = False
+
+    def _update_notes(self):
+        """
+        Does nothing, overwrite in child class if you want to change the name of the saved file with each parameter change.
+        """
+        pass
+
+    def _update_history(self):
+        """
+        Does nothing, overwrite in child class if you want to change the name of the saved file with each parameter change.
+        """
+        self.history.append(self.metadata.copy())
 
     def initialize_awg(self):
         """
@@ -104,6 +141,9 @@ class DiscreteWaveform:
         Uses meaurement type and notes to generate filename.
         Requires successful waveform capture prior to calling (self.data must not be None).
         """
+        self._update_metadata()
+        self._update_notes()
+
         if self.data is not None:
             self.filename = create_measurement_filename(self.save_dir, self.type, self.notes)
             metadata_and_data_to_csv(self.metadata, self.data, self.filename)
@@ -134,6 +174,7 @@ class DiscreteWaveform:
         4. Capture waveform data
         5. Save results
         6. Perform analysis
+        7. Update history with metadata
         """
         self.configure_oscilloscope()
         self.initialize_awg()
@@ -141,6 +182,7 @@ class DiscreteWaveform:
         self.apply_and_capture_waveform()
         self.save_waveform()
         self.analyze()
+        self._update_history()
 
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 
@@ -181,26 +223,21 @@ class HysteresisLoop(DiscreteWaveform):
             :save_plots: Save analysis plots to disk?
             :auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
-        
-        super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.length = 1/frequency
-
         self.frequency = frequency
         self.amplitude = amplitude
         self.offset = offset
         self.n_cycles = n_cycles
+        self.area = area
+        self.time_offset = time_offset
         self.voltage_channel = voltage_channel
         self.show_plots = show_plots
         self.save_plots = save_plots
         self.auto_timeshift = auto_timeshift
-        self.notes = str(amplitude).replace('.', 'p')+'V_'+str(int(frequency))+'Hz'
-        self.metadata = pd.DataFrame(locals(), index=[0])
-        del self.metadata['self']
-        self.metadata['type'] = self.type
-        self.metadata['awg'] = self.awg.idn()
-        self.metadata['osc'] = self.osc.idn()
-        self.metadata['timestamp'] = time.time()
-        self.metadata['processed'] = False
+        super().__init__(awg, osc, v_div, voltage_channel, save_dir)
+
+    def _update_notes(self):
+        self.notes = str(self.amplitude).replace('.', 'p')+'V_'+str(int(self.frequency))+'Hz'
 
     def analyze(self):
         """
@@ -278,8 +315,6 @@ class ThreePulsePund(DiscreteWaveform):
             :save_plots: Save analysis plots to disk?
             :auto_timeshift: Try to automatically determine t0 of captured waveform - t0 of trigger waveform?
         """
-
-        super().__init__(awg, osc, v_div, voltage_channel, save_dir)
         self.reset_amp = reset_amp
         self.reset_width = reset_width
         self.reset_delay = reset_delay
@@ -287,19 +322,17 @@ class ThreePulsePund(DiscreteWaveform):
         self.p_u_width = p_u_width
         self.p_u_delay = p_u_delay
         self.offset = offset
+        self.area = area
+        self.voltage_channel = voltage_channel
+        self.time_offset = time_offset
         self.show_plots = show_plots
         self.save_plots = save_plots
         self.auto_timeshift = auto_timeshift
         self.length = (reset_width+(reset_delay)+(2*p_u_width)+(2*p_u_delay))
-        self.notes = str(reset_amp).replace('.', 'p')+'Vres_'+str(p_u_amp).replace('.', 'p')+'Vpu'
-        self.metadata = pd.DataFrame(locals(), index=[0])
-        del self.metadata['self']
-        self.metadata['type'] = self.type
-        self.metadata['awg'] = self.awg.idn()
-        self.metadata['osc'] = self.osc.idn()
-        self.metadata['length'] = self.length
-        self.metadata['timestamp'] = time.time()
-        self.metadata['processed'] = False
+        super().__init__(awg, osc, v_div, voltage_channel, save_dir)
+
+    def _update_notes(self):
+        self.notes = str(self.reset_amp).replace('.', 'p')+'Vres_'+str(self.p_u_amp).replace('.', 'p')+'Vpu'
 
     def analyze(self):
         """

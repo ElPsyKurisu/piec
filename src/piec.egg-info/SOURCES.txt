@@ -19,13 +19,10 @@ src/piec/drivers/__init__.py
 src/piec/drivers/arduino.py
 src/piec/drivers/instrument.py
 src/piec/drivers/mccdig.py
-src/piec/drivers/pymeasure_wrapper.py
 src/piec/drivers/scpi_instrument.py
 src/piec/drivers/utilities.py
 src/piec/drivers/virtual_osc_trace.csv
 src/piec/drivers/virtual_scpi_queries.json
-src/piec/drivers/digilent1/__init__.py
-src/piec/drivers/digilent1/core.py
 src/piec/drivers/edc522/__init__.py
 src/piec/drivers/edc522/core.py
 src/piec/drivers/keithley193a/__init__.py
@@ -34,6 +31,8 @@ src/piec/drivers/keysight81150a/__init__.py
 src/piec/drivers/keysight81150a/core.py
 src/piec/drivers/keysightdsox3024a/__init__.py
 src/piec/drivers/keysightdsox3024a/core.py
+src/piec/drivers/lecroixsda6020/__init__.py
+src/piec/drivers/lecroixsda6020/core.py
 src/piec/drivers/sr830/__init__.py
 src/piec/drivers/sr830/core.py
 src/piec/measurement_waveforms/__init__.py
