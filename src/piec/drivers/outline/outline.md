@@ -21,3 +21,8 @@ the additional commands (not present in the outine) base commands for running ex
 but for a scope that does (and has the driver) written for it it will configure the hold_off time etc.
 
 NOTE: Under Level 4 maybe put each instrument under the manufacturer so they are additional folders but same level in working tree (aka class inheritance)
+
+
+Command name syntax:
+if it says set_something() Then it should do a single action
+if it says configure_something() Then it should do multiple operations
