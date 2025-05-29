@@ -13,13 +13,13 @@ class Lockin(Measurer, Generator):
     #configure the reference signal
     def set_reference_source(self, source):
         """
-        Sets the reference source for the lockin
+        Sets the reference source for the lockin. Typically this could be internal, external, or a specific channel
         """
     #this is only if the lockin has a reference frequency, some lockins only have a reference source
 
     def set_reference_frequency(self, frequency):
         """
-        Sets the reference frequency for the lockin
+        Sets the reference frequency for the lockin if applicable (if internal reference)
         """
     def set_harmonic(self, harmonic):
         """
@@ -42,4 +42,52 @@ class Lockin(Measurer, Generator):
         """
         Sets the sensitivity for the lockin (volts, amps, etc.)
         """
+    def set_notch_filter(self, channel, notch_filter):
+        """
+        Sets the notch filter for the lockin (if available)
+        """
+    #demodulation and low-pass filter setup
+    def set_time_constant(self, channel, time_constant):
+        """
+        Sets the time constant for the lockin defines the cutoff frequency of the low-pass filter
+        """
+    def set_filter_slope(self, channel, slope):
+        """
+        Sets the filter slope for the lockin (e.g., 6 dB/octave, 12 dB/octave)
+        """
+    #data acquisition and output
+    def quick_read(self):
+        """
+        Quick read function that returns the default data (X and Y typically)
+        """
+    def read_data(self, channel):
+        """
+        Reads the data from the specified channel, For a lockin this is typically X, Y, R and Theta
+        """
+    def read_X(self, channel):
+        """
+        Reads the X data from the specified channel
+        """
+    def read_Y(self, channel):
+        """
+        Reads the Y data from the specified channel
+        """
+    def read_R(self, channel):
+        """
+        Reads the R data from the specified channel
+        """
+    def read_theta(self, channel):
+        """
+        Reads the Theta (phase) data from the specified channel
+        """
+    #auto commands
+    def auto_gain(self, channel):
+        """
+        Automatically sets the gain (sensitivity) for the specified channel based on the input signal
+        """
+    def auto_phase(self, channel):
+        """
+        Automatically sets the phase for the specified channel based on the input signal
+        """
+    
     
