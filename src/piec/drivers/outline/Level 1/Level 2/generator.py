@@ -14,9 +14,9 @@ class Generator(Instrument):
         Opens the instrument and enables communication with it. Still communication method agnostic at this level
         """
     
-    def output(self, on=True):
+    def output(self, channel, on=True):
         """
-        All Generators must be able to output something, so therefore we need a method to turn the output on
+        All Generators must be able to output something, so therefore we need a method to turn the output on.
         """
 
     

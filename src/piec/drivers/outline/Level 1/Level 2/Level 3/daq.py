@@ -111,5 +111,11 @@ class Daq(Measurer, Generator):
         """
         Reads the Digital input data from the specified channel
         """
+    #ouput functions
+    def output(self, channel, on=True):
+        """
+        Turns the output on or off for the specified channel (e.g., Analog output, Digital output
+        may require logic to determine the type of channel and output accordingly)
+        """
     
     

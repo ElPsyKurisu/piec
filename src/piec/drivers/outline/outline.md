@@ -30,3 +30,6 @@ if it says output_somethng() then it starts or stops something that outputs like
 
 
 Need to make a class called SCPI_instrument that has all the commands SCPI requires to be implemented (basic idn and reset etc)
+
+
+def output(self, channel, on=True) Always like this

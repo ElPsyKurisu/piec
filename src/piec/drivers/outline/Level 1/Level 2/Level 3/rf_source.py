@@ -18,9 +18,9 @@ class RF_source(Generator):
         """
         Sets the output power of the RF source
         """
-    def output(self, on=True):
+    def output(self, channel, on=True):
         """
-        Turns the RF output on or off
+        Turns the RF output on or off for the specified channel
         """
     #basic modulation functions
     def set_modulation(self, modulation_type):

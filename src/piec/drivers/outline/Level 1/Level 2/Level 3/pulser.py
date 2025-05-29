@@ -48,13 +48,9 @@ class Pulser(Generator):
         Sets the offset of the pulse
         """
     #Core Pulse output parameters
-    def output(self, on=True):
+    def output(self, channel, on=True):
         """
-        Turns the pulse output on or off
-        """
-    def set_output_channel(self, channel):
-        """
-        Sets the output channel for the pulse
+        Turns the pulse output on or off for the specified channel
         """
     #triggering and mode
     def set_trigger_source(self, source):
