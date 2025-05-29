@@ -1,6 +1,6 @@
 The working tree for the outline of PIEC (beta version)
 
-1. Instrument
+1. Instrument // Add here specific instrument types, e.g. digilent, scpi, etc
 2. Generator // Measurer (name WIP) // Other (stepper_motor, need a better name for this like indirect, bystander, secondary)
 3. AWG, RF_source, Pulser, Source_meter // Oscilloscope, Lockin, DAQ // Stepper_motor
 4. Individual models NOTE: may be good for SCPI commands to make a base SCPI class that has all the reset, clear commands and if SCPI inherits from it as well
