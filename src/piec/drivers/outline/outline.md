@@ -26,3 +26,4 @@ NOTE: Under Level 4 maybe put each instrument under the manufacturer so they are
 Command name syntax:
 if it says set_something() Then it should do a single action
 if it says configure_something() Then it should do multiple operations
+if it says output_somethng() then it starts or stops something that outputs like output() is default, but you can have stuff like output_sweep() for more specific cases
