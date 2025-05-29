@@ -27,3 +27,6 @@ Command name syntax:
 if it says set_something() Then it should do a single action
 if it says configure_something() Then it should do multiple operations
 if it says output_somethng() then it starts or stops something that outputs like output() is default, but you can have stuff like output_sweep() for more specific cases
+
+
+Need to make a class called SCPI_instrument that has all the commands SCPI requires to be implemented (basic idn and reset etc)
