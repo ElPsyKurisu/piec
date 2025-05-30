@@ -49,3 +49,21 @@ class 81150a(Awg):
     load_impedance = (0.3, 1e6)
 
 In the case of the 81150a it gets a little more complicated but the general format for the class attributes is that if there is a limited amount the valid args can take use a list of the correct type. If it is a range use a tuple, and if there are specific cases uses a dictionary. An example of this is that the frequnecy ranges (which should be a tuple) depends on the selected waveform, so we nest it as shown.
+
+So the goal is to go through the manual and find the correct commands to send to the instrument to fill out the desired functionality. then based on the manual fill out the class attributes if you can. If you do not find a class attribute set it to None. One last design consideration is that for EVERY configure command, initialize all non-essential arguments to none. E.g. 
+def configure_waveform(self, channel, waveform, frequency=None, delay=None, amplitude=None, offset=None, load_impedance=None, source_impedance=None, polarity=None):
+        """
+        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_delay, set_amplitude, set_offset, set_load_impedance, set_source_impedance and set_polarity functions to configure the waveform
+        args:
+            channel (int): The channel to configure the waveform on
+            waveform (str): The waveform to be generated
+            frequency (float): The frequency of the waveform in Hz
+            delay (float): The delay of the waveform in seconds
+            amplitude (float): The amplitude of the waveform in volts
+            offset (float): The offset of the waveform in volts
+            load_impedance (float): The load impedance of the waveform in ohms
+            source_impedance (float): The source impedance of the waveform in ohms
+            polarity (str): The polarity of the waveform
+        """
+
+Will need to check if param is not None before calling the function
