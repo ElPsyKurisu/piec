@@ -5,7 +5,7 @@ This is an outline for what the instrument.py file should be like
 """
 This is the top level instrument that dictates if something is scpi, dac, arduino, etc.
 """
-#good
+from ..utilities import PiecManager
 class Instrument:
     # Initializer / Instance attributes
     """
@@ -16,9 +16,12 @@ class Instrument:
         """
         Opens the instrument and enables communication with it.
         """
+        pm = PiecManager()
+        self.instrument = pm.open_resource(address)
 
     def idn(self):
         """
         At minimum ANY instrument in PIEC should be able to be id'd For custom instruments may require
         python to handle it if a built in low level command is not available.
         """
+        return "Default IDN function not implemented, please override in subclass"
