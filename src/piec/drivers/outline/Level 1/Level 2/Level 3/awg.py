@@ -77,7 +77,20 @@ class Awg(Generator):
             channel (int): The channel to set the polarity on
             polarity (str): The polarity of the waveform, e.g., 'positive', 'negative'
         """
-
+    def configure_waveform(self, channel, waveform, frequency, delay, amplitude, offset, load_impedance, source_impedance, polarity):
+        """
+        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_delay, set_amplitude, set_offset, set_load_impedance, set_source_impedance and set_polarity functions to configure the waveform
+        args:
+            channel (int): The channel to configure the waveform on
+            waveform (str): The waveform to be generated
+            frequency (float): The frequency of the waveform in Hz
+            delay (float): The delay of the waveform in seconds
+            amplitude (float): The amplitude of the waveform in volts
+            offset (float): The offset of the waveform in volts
+            load_impedance (float): The load impedance of the waveform in ohms
+            source_impedance (float): The source impedance of the waveform in ohms
+            polarity (str): The polarity of the waveform
+        """
     #functions that are specific to waveform types
 
     #First for square waves
@@ -121,6 +134,15 @@ class Awg(Generator):
         Useful for pulses
         args:
             channel (int): The channel to set the fall time on
+            fall_time (float): The fall time of the waveform in seconds
+        """
+    def configure_pulse(self, channel, pulse_width, rise_time, fall_time):
+        """
+        Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_rise_time, and set_pulse_fall_time functions to configure the pulse waveform
+        args:
+            channel (int): The channel to configure the pulse waveform on
+            pulse_width (float): The pulse width of the waveform in seconds
+            rise_time (float): The rise time of the waveform in seconds
             fall_time (float): The fall time of the waveform in seconds
         """
 
@@ -176,6 +198,16 @@ class Awg(Generator):
         args:
             channel (int): The channel to set the trigger mode on
             mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
+        """
+    def configure_trigger(self, channel, source, level, slope, mode):
+        """
+        Configures the trigger for the selected channel. Calls the set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode functions to configure the trigger
+        args:
+            channel (int): The channel to configure the trigger on
+            source (str): The trigger source
+            level (float): The trigger level in volts
+            slope (str): The trigger slope
+            mode (str): The trigger mode
         """
     #maybe impedance for trigger as well? But maybe some wont have this
     
