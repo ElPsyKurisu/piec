@@ -1,7 +1,7 @@
 """
-This is an outline for what the osc.py file should be like.
+This is an outline for what the awg.py file should be like.
 
-A osc (oscilloscope) is defined as an instrument that has the typical features on expects an oscilloscope to have
+An awg (arbitrary waveform generator) is defined as an instrument that has the typical features on expects an awg to have
 """
 from ..generator import Generator
 class Awg(Generator):
