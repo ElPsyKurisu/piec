@@ -134,14 +134,20 @@ class Oscilloscope(Measurer):
     #Time to get the data out NOTE: We already have from the measurer class the quick_read which technically goes under here
     def quick_read(self):
         """
-        Quick read function that returns the default data in a quick way (ideally in binary)
-        """
-    def get_data(self):
-        """
-        Returns the data depending on how it was configured with the configure_data command
+        Quick read function that returns the default data in a quick way (ideally in binary). Typically this should be used to get a snapshot of the current waveform (e.g. the current display).
+        
         args:
             None
         Returns:
-            data (list): The captured data points, typically in a list or array format
+            data (Dataframe): Returns the data in a quick way, typically in binary format.
+        """
+    def get_data(self):
+        """
+        Returns the data depending on how it was configured with the configure_data command.
+        Returns the data in a structured format, typically in a Pandas DataFrame that dispalys the time and voltage values in a structured way across all captured channels.
+        args:
+            None
+        Returns:
+            data (Dataframe): Returns the data in a stuctured format, in a Pandas DataFrame or similar structure.
         """
     
