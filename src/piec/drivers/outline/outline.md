@@ -67,3 +67,22 @@ def configure_waveform(self, channel, waveform, frequency=None, delay=None, ampl
         """
 
 Will need to check if param is not None before calling the function
+
+
+"holder"
+"""
+Driver for the Keysight DSOx3024a oscilloscope.
+This class implements the specific functionalities for the DSOx3024a model,
+inheriting from generic Oscilloscope and Scpi classes.
+"""
+
+
+from ...oscilloscope import Oscilloscope
+from .....scpi import Scpi
+
+class Dsox3024a(Oscilloscope, Scpi):
+    """
+    Specific Class for this exact model of scope: Keysight DSOX3024a.
+    """
+
+    # Class attributes for parameter restrictions, named after function arguments.
