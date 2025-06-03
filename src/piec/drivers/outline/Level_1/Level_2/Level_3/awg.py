@@ -86,24 +86,6 @@ class Awg(Generator):
             impedance_val = str(load_impedance)
         self.instrument.write(f"OUTP{channel}:LOAD {impedance_val}")
 
-    def set_source_impedance(self, channel, source_impedance):
-        """
-        Sets the source impedance of the waveform to be generated on the selected channel
-        args:
-            channel (int): The channel to set the source impedance on
-            source_impedance (float): The source impedance of the waveform in ohms
-        """
-        # Setting source impedance is uncommon; it's usually a fixed characteristic.
-        # This command is speculative and highly device-dependent.
-        # OUTPut[<n>]:IMPedance:INTernal <value> is a possible SCPI form if supported.
-        if isinstance(source_impedance, str) and source_impedance.upper() == "HIGHZ":
-            impedance_val = "INF" # Or specific keyword if instrument supports variable internal Z
-        elif source_impedance == float('inf'):
-            impedance_val = "INF"
-        else:
-            impedance_val = str(source_impedance)
-        self.instrument.write(f"OUTP{channel}:IMP:INT {impedance_val}") # Highly device-specific
-
     def set_polarity(self, channel, polarity):
         """
         Sets the polarity of the waveform to be generated on the selected channel
@@ -114,9 +96,9 @@ class Awg(Generator):
         pol_scpi = "NORM" if polarity.lower() == "positive" else "INV"
         self.instrument.write(f"OUTP{channel}:POL {pol_scpi}")
 
-    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, source_impedance=None, polarity=None):
+    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None):
         """
-        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_amplitude, set_offset, set_load_impedance, set_source_impedance and set_polarity functions to configure the waveform
+        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_amplitude, set_offset, set_load_impedance, and set_polarity functions to configure the waveform
         args:
             channel (int): The channel to configure the waveform on
             waveform (str): The waveform to be generated
@@ -124,7 +106,6 @@ class Awg(Generator):
             amplitude (float): The amplitude of the waveform in volts
             offset (float): The offset of the waveform in volts
             load_impedance (float): The load impedance of the waveform in ohms
-            source_impedance (float): The source impedance of the waveform in ohms
             polarity (str): The polarity of the waveform
         """
         self.set_waveform(channel, waveform)
@@ -136,13 +117,7 @@ class Awg(Generator):
             self.set_offset(channel, offset)
         if load_impedance is not None:
             self.set_load_impedance(channel, load_impedance)
-        if source_impedance is not None:
-            # Some instruments may not support source impedance setting, check if supported
-            # If not supported, this function can be skipped or raise an error.
-            self.set_source_impedance(channel, source_impedance) # If supported
         if polarity is not None:
-            # Polarity is often a feature of the output stage, not the waveform itself.
-            # If polarity is not supported, this function can be skipped or raise an error.
             self.set_polarity(channel, polarity)
 
     #functions that are specific to waveform types
@@ -234,21 +209,13 @@ class Awg(Generator):
         """
         Creates an arbitrary waveform to be generated on the selected channel and saves to instrument memory if applicable. If no name is given, it will be generated with a default name. Typically
         corresponding to the volatile memory of the instrument. In the case where the given name already exists, it will prompt the user to overwrite or not.
+        For implementing the data transfer, if possible, use a binary transfer method for efficiency from the given manual.
+        If the instrument does not support binary transfer, a string transfer will be used.
         args:
             channel (int): The channel to create the arbitrary waveform on
             name (str): The name of the arbitrary waveform
             data (list or ndarray): The data points of the arbitrary waveform
         """
-        # SCPI for arb data can be complex (binary block, specific formats).
-        # Assuming data points are normalized float values sent as a comma-separated string.
-        # The "prompt user" logic is application-level, not directly SCPI.
-        # SOURce[<n>]:DATA:VOLatile <data_points_string> for volatile memory
-        # SOURce[<n>]:TRACe:DATA# <name>,<points> or MMEM:STOR:TRAC <name>,<points> for named storage
-        # Simplified approach: DATA:ARB <name>,<points_string> (some instruments)
-        # Or, define and then select:
-        # DATA:DEF EMEM, <name> (Define in non-volatile if supported, or VOLATILE for temp)
-        # TRAC:DATA <name>, <comma_separated_data_points>
-        # For direct volatile data:
         data_string = ",".join(map(str, data))
         if name.lower() == "volatile": # Convention for volatile memory
              self.instrument.write(f"SOUR{channel}:DATA:VOL {data_string}")
@@ -264,17 +231,8 @@ class Awg(Generator):
             channel (int): The channel to set the arbitrary waveform on
             name (str): The name of the arbitrary waveform to be set
         """
-        # SOURce[<n>]:FUNCtion:SHAPe USER
-        # SOURce[<n>]:FUNCtion:USER <name>
-        # Some instruments allow: SOURce[<n>]:FUNCtion ARB,"<name>" or USER,"<name>"
         self.instrument.write(f"SOUR{channel}:FUNC:SHAP USER")
         self.instrument.write(f"SOUR{channel}:FUNC:USER {name}") # Or ARB depending on instrument
-    
-    #modulation functions
-    #skip for now, not needed yet
-
-    #burst and sweep functions
-    #skip for now, not needed yet
 
     #trigger and sync functions
     def set_trigger_source(self, channel, source):
@@ -284,9 +242,6 @@ class Awg(Generator):
             channel (int): The channel to set the trigger source on
             source (str): The trigger source, e.g., 'internal', 'external', 'manual'
         """
-        # SCPI: TRIGger[<n>]:SOURce {IMMediate|INTernal|EXTernal|BUS|MANual}
-        # Channel specific trigger source may not always exist, could be system-wide
-        # Using TRIG:SOUR for simplicity, assuming channel context or system-wide.
         source_scpi = source.upper()
         if source_scpi == "INTERNAL": source_scpi = "INT" # Common abbreviation
         if source_scpi == "EXTERNAL": source_scpi = "EXT" # Common abbreviation
@@ -320,20 +275,12 @@ class Awg(Generator):
             channel (int): The channel to set the trigger mode on
             mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
         """
-        # Trigger modes like 'auto', 'normal', 'single' are more common for oscilloscopes.
-        # For AWGs, this could relate to how it reacts to triggers (e.g., burst mode, gate mode, or continuous run)
-        # A simple mapping could be:
-        # 'auto' -> continuous run, trigger re-arms: INIT:CONT ON
-        # 'normal'/'single' -> trigger initiates action, then stops/re-arms: INIT:CONT OFF
-        # This is a simplification. Specific modes like TRIGgered, GATed, etc., are instrument-dependent.
         if mode.lower() == "auto":
             self.instrument.write(f"INIT{channel}:CONT ON") # Continuous on trigger
         elif mode.lower() == "normal" or mode.lower() == "single":
             self.instrument.write(f"INIT{channel}:CONT OFF") # Single event per trigger
             if mode.lower() == "single": # For single, ensure it's armed and awaits one trigger
                 self.instrument.write(f"INIT{channel}:IMM") # Arm for next trigger if it's a one-shot system command
-                                                       # Or ABORt; INIT:IMM for some systems to ensure one shot.
-                                                       # This part is highly instrument specific.
 
     def configure_trigger(self, channel, source=None, level=None, slope=None, mode=None):
         """
