@@ -113,6 +113,7 @@ def function(self, arg1, arg2, arg3):
 
 In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. When possible match the patterns in the given example code from the manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class). General writing guidelines for the functions is to again limit the use of text # comments and focus on the docstring given in the parent class and ensure what is asked there is implemented. If in the case an argument described in the parent class is not supported by the child instrument raise an error. Otherwise do not implement error handling for range checking etc (this will be done later at a global level).
 Note, do NOT use \"{}\" for inputting an argument, assume the strings are implied in python
+NOTE: do NOT assume any of the argument values mentioned in the parent docstring apply to this instrument, take only the paramters from the manual
 
 Part 2:
 After we have successfully filled out the parent classes for our specific instrument we now focus on the class attributes we want to add to our instrument. We want to parse the manual and understand the limitations of our instrument and write them into the class attributes. We want to write class attributes for every argument passed in to the functions we wrote with the exception of arguments that take booleon values. Follow this syntax:
@@ -123,6 +124,7 @@ frequency = {'waveform': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1
 waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
 where the key of the dictionary is the argument this argument depends on.
 THIS IS VERY IMPORTANT: All class attributes should have the same name as the arg it refers too!
+When parsing the manual to understand what ranges to choose make sure we take the explicit values they give us associated with the command and not some calculation we make.
 
 As a final check ensure that any write/query/read commands passed to the instrument come from the given manual (if a manual is given)
 and prioritize example code over written descriptions if possible.
