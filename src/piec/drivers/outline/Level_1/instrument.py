@@ -5,7 +5,7 @@ This is an outline for what the instrument.py file should be like
 """
 This is the top level instrument that dictates if something is scpi, dac, arduino, etc.
 """
-from ..utilities import PiecManager
+from ...utilities import PiecManager
 class Instrument:
     # Initializer / Instance attributes
     """

@@ -33,14 +33,6 @@ class PiecManager():
     def list_open_resources(self):
         visa = self.rm.list_opened_resources()
         return tuple(list(visa))
-    def open_resource(self, address):
-        """
-        Opens a resource by address, if it is a MCCULW device it will use the ul module to open it
-        """
-        if 'MCC' in address or 'Digilent' in address:
-            return ul.open_device(address)
-        else:
-            return self.rm.open_resource(address)
         
 
 """

@@ -86,3 +86,29 @@ class Dsox3024a(Oscilloscope, Scpi):
     """
 
     # Class attributes for parameter restrictions, named after function arguments.
+
+As a final check ensure that any write/query/read commands past to the instrument come from the given manual (if a manual is given)
+
+might be good to also make a seperate testing file that tests that the commands work as expected. Thus if we make a command that creates an arb waveform we can cehck if it exists by quering the insttrument for the arb valuies defined
+
+
+AI Prompt V2:
+class_name = ________
+parent_classes = ______
+attached_files = ______
+
+You are tasked with creating an instrument specific python driver for the package piec according to the following syntax. Inside the piec package (which is attached) Please note under the drivers subpackage there exists an outline split into 4 Levels. Read and understand the outline.md file to get the gist of how the package should operate. We are operating in the Level_4 regime in this symbolic representation. Please check existing drivers for the import syntax from the outline (e.g.) piec.drivers.Keysight k_81150a.py to import the relevant parent classes. Our driver has two main parts and the workflow should go as follows:
+Part 1: For every parent class functionality we should explicitly overwrite the functions according to the given manual in the attached_files with the exception of Level_1 classes (e.g. scpi.py). We do not want to use ANY text comments using # and instead should rely on a robust docstring in the given psuedo_code:
+
+def function(self, arg1, arg2, arg3):
+    """
+    This function does something (brief general description)
+    args:
+        arg1 (argtype): Description
+        arg2 (argtype): Description
+        arg3 (argtype): Description
+    returns
+        None
+        something (return type) Description
+
+In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something
