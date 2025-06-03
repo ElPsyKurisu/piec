@@ -89,7 +89,7 @@ class Dsox3024a(Oscilloscope, Scpi):
 
 As a final check ensure that any write/query/read commands past to the instrument come from the given manual (if a manual is given)
 
-might be good to also make a seperate testing file that tests that the commands work as expected. Thus if we make a command that creates an arb waveform we can cehck if it exists by quering the insttrument for the arb valuies defined
+might be good to also make a seperate testing file that tests that the commands work as expected. Thus if we make a command that creates an arb waveform we can cehck if it exists by quering the instrument for the arb valuies defined
 
 
 AI Prompt V2:
@@ -97,7 +97,7 @@ class_name = ________
 parent_classes = ______
 attached_files = ______
 
-You are tasked with creating an instrument specific python driver for the package piec according to the following syntax. Inside the piec package (which is attached) Please note under the drivers subpackage there exists an outline split into 4 Levels. Read and understand the outline.md file to get the gist of how the package should operate. We are operating in the Level_4 regime in this symbolic representation. Please check existing drivers for the import syntax from the outline (e.g.) piec.drivers.Keysight k_81150a.py to import the relevant parent classes. Our driver has two main parts and the workflow should go as follows:
+You are tasked with creating an instrument specific python driver for the package piec according to the following syntax. Inside the piec package (which is attached) please note that under the drivers subpackage there exists an outline split into 4 Levels. Read and understand the outline.md file to get the gist of how the package should operate. We are operating in the Level_4 regime in this symbolic representation. Please check existing drivers for the import syntax from the outline (e.g.) piec.drivers.Keysight k_81150a.py to import the relevant parent classes. (e.g. if we wish to import the awg from the outline we would write from ..outline.Level_1.Level_2.Level_3.awg import Awg) Our driver has two main parts and the workflow should go as follows:
 
 Part 1: For every parent class functionality we should explicitly overwrite the functions according to the given manual in the attached_files with the exception of Level_1 classes (e.g. scpi.py). We do not want to use ANY text comments using # and instead should rely on a robust docstring in the given psuedo_code:
 
@@ -109,7 +109,6 @@ def function(self, arg1, arg2, arg3):
         arg2 (argtype): Description
         arg3 (argtype): Description
     returns
-        None
         something (return type) Description
 
 In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. When possible match the patterns in the given example code from the manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class). General writing guidelines for the functions is to again limit the use of text # comments and focus on the docstring given in the parent class and ensure what is asked there is implemented. If in the case an argument described in the parent class is not supported by the child instrument raise an error. Otherwise do not implement error handling for range checking etc (this will be done later at a global level).
