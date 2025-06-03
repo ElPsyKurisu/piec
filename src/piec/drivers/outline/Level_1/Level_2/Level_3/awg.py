@@ -56,7 +56,7 @@ class Awg(Generator):
         Sets the amplitude of the waveform to be generated on the selected channel
         args:
             channel (int): The channel to set the amplitude on
-            amplitude (float): The amplitude of the waveform in volts Vpp
+            amplitude (float): The amplitude of the waveform in volts (usually Vpp but use instrument default)
         """
         # Typically Vpp for AWGs, but could be RMS. Docstring says "in volts".
         self.instrument.write(f"SOUR{channel}:VOLT {amplitude}")
