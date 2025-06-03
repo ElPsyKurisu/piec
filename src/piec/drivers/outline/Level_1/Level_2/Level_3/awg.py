@@ -51,26 +51,12 @@ class Awg(Generator):
         """
         self.instrument.write(f"SOUR{channel}:FREQ {frequency}")
 
-    def set_delay(self, channel, delay):
-        """
-        Sets the delay of the waveform to be generated on the selected channel
-        args:
-            channel (int): The channel to set the delay on
-            delay (float): The delay of the waveform in seconds
-        """
-        # General waveform delay command (may be device-specific)
-        # Common for pulses: SOUR{channel}:PULS:DEL {delay}
-        # Or as a phase offset (requires frequency context): SOUR{channel}:PHAS {delay_degrees}
-        # Using a common command for pulse delay, assuming it can apply more generally or for specific waveforms.
-        # Some instruments might have a SOUR{channel}:DELay {delay} command.
-        self.instrument.write(f"SOUR{channel}:PULS:DEL {delay}") # More specific to pulse, check instrument for general delay
-
     def set_amplitude(self, channel, amplitude):
         """
         Sets the amplitude of the waveform to be generated on the selected channel
         args:
             channel (int): The channel to set the amplitude on
-            amplitude (float): The amplitude of the waveform in volts
+            amplitude (float): The amplitude of the waveform in volts Vpp
         """
         # Typically Vpp for AWGs, but could be RMS. Docstring says "in volts".
         self.instrument.write(f"SOUR{channel}:VOLT {amplitude}")
@@ -128,14 +114,13 @@ class Awg(Generator):
         pol_scpi = "NORM" if polarity.lower() == "positive" else "INV"
         self.instrument.write(f"OUTP{channel}:POL {pol_scpi}")
 
-    def configure_waveform(self, channel, waveform, frequency=None, delay=None, amplitude=None, offset=None, load_impedance=None, source_impedance=None, polarity=None):
+    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, source_impedance=None, polarity=None):
         """
-        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_delay, set_amplitude, set_offset, set_load_impedance, set_source_impedance and set_polarity functions to configure the waveform
+        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_amplitude, set_offset, set_load_impedance, set_source_impedance and set_polarity functions to configure the waveform
         args:
             channel (int): The channel to configure the waveform on
             waveform (str): The waveform to be generated
             frequency (float): The frequency of the waveform in Hz
-            delay (float): The delay of the waveform in seconds
             amplitude (float): The amplitude of the waveform in volts
             offset (float): The offset of the waveform in volts
             load_impedance (float): The load impedance of the waveform in ohms
@@ -145,10 +130,6 @@ class Awg(Generator):
         self.set_waveform(channel, waveform)
         if frequency is not None:
             self.set_frequency(channel, frequency)
-        # Note: set_delay might depend on frequency if implemented via phase.
-        # If using SOUR:PULS:DEL or SOUR:DELay, it's direct.
-        if delay is not None:
-            self.set_delay(channel, delay)
         if amplitude is not None:
             self.set_amplitude(channel, amplitude)
         if offset is not None:
@@ -219,19 +200,34 @@ class Awg(Generator):
         """
         self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:TRA {fall_time}") # Or just TRAN:TRAIL
 
-    def configure_pulse(self, channel, pulse_width, rise_time, fall_time):
+    def set_pulse_delay(self, channel, delay):
         """
-        Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_rise_time, and set_pulse_fall_time functions to configure the pulse waveform
+        Sets the delay of the pulse to be generated on the selected channel
+        args:
+            channel (int): The channel to set the delay on
+            delay (float): The delay of the waveform in seconds
+        """
+        self.instrument.write(f"SOUR{channel}:PULS:DEL {delay}") # More specific to pulse, check instrument for general delay
+
+    def configure_pulse(self, channel, pulse_width=None, delay=None, rise_time=None, fall_time=None):
+        """
+        Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_delay, set_pulse_rise_time, and set_pulse_fall_time functions to configure the pulse waveform
         args:
             channel (int): The channel to configure the pulse waveform on
             pulse_width (float): The pulse width of the waveform in seconds
+            delay (float): The delay of the pulse waveform in seconds
             rise_time (float): The rise time of the waveform in seconds
             fall_time (float): The fall time of the waveform in seconds
         """
         self.set_waveform(channel, "PULS") # Ensure waveform is pulse
-        self.set_pulse_width(channel, pulse_width)
-        self.set_pulse_rise_time(channel, rise_time)
-        self.set_pulse_fall_time(channel, fall_time)
+        if delay is not None:
+            self.set_pulse_delay(channel, delay)
+        if pulse_width is not None:
+            self.set_pulse_width(channel, pulse_width)
+        if rise_time is not None:
+            self.set_pulse_rise_time(channel, rise_time)
+        if fall_time is not None:
+            self.set_pulse_fall_time(channel, fall_time)
 
     #Now we move to the arb functions
     def create_arb_waveform(self, channel, name, data):
@@ -259,7 +255,7 @@ class Awg(Generator):
         else:
             # This sequence is common: define, then load data, then optionally save
             # This example directly loads data to a named segment, specific commands vary
-            self.instrument.write(f"SOUR{channel}:TRAC:DATA# \"{name}\",{data_string}") # Example, syntax varies
+            self.instrument.write(f"SOUR{channel}:TRAC:DATA# {name},{data_string}") # Example, syntax varies
 
     def set_arb_waveform(self, channel, name):
         """
@@ -272,7 +268,7 @@ class Awg(Generator):
         # SOURce[<n>]:FUNCtion:USER <name>
         # Some instruments allow: SOURce[<n>]:FUNCtion ARB,"<name>" or USER,"<name>"
         self.instrument.write(f"SOUR{channel}:FUNC:SHAP USER")
-        self.instrument.write(f"SOUR{channel}:FUNC:USER \"{name}\"") # Or ARB depending on instrument
+        self.instrument.write(f"SOUR{channel}:FUNC:USER {name}") # Or ARB depending on instrument
     
     #modulation functions
     #skip for now, not needed yet
@@ -339,7 +335,7 @@ class Awg(Generator):
                                                        # Or ABORt; INIT:IMM for some systems to ensure one shot.
                                                        # This part is highly instrument specific.
 
-    def configure_trigger(self, channel, source, level, slope, mode):
+    def configure_trigger(self, channel, source=None, level=None, slope=None, mode=None):
         """
         Configures the trigger for the selected channel. Calls the set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode functions to configure the trigger
         args:
@@ -349,10 +345,12 @@ class Awg(Generator):
             slope (str): The trigger slope
             mode (str): The trigger mode
         """
-        self.set_trigger_source(channel, source)
-        if source.lower() == "external": # Level and slope usually for external trigger
+        if source is None:
+            self.set_trigger_source(channel, source)
+        if level is not None:
             self.set_trigger_level(channel, level)
+        if slope is not None:
             self.set_trigger_slope(channel, slope)
-        self.set_trigger_mode(channel, mode) # Mode setting might be more complex
+        if mode is not None:
+            self.set_trigger_mode(channel, mode) 
 
-    #maybe impedance for trigger as well? But maybe some wont have this

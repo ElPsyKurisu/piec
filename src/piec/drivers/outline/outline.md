@@ -111,4 +111,4 @@ def function(self, arg1, arg2, arg3):
         None
         something (return type) Description
 
-In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something
+In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class)
