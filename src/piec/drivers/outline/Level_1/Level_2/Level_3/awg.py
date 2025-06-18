@@ -20,8 +20,6 @@ class Awg(Generator):
             channel (int): The channel to output on
             on (bool): Whether to turn the output on or off
         """
-        state = "ON" if on else "OFF"
-        self.instrument.write(f"OUTP{channel}:STAT {state}")
     
     #Standard waveform configuration functions
     def set_waveform(self, channel, waveform):
@@ -31,16 +29,6 @@ class Awg(Generator):
             channel (int): The channel to set the waveform on
             waveform (str): The waveform to be generated, e.g., 'sine', 'square', 'triangle', 'ramp', 'pulse', 'arb'
         """
-        # SCPI equivalents: SIN, SQU, TRI, RAMP, PULS, ARB (or USER)
-        waveform_scpi = waveform.upper()
-        if waveform_scpi == "SINE":
-            waveform_scpi = "SIN"
-        elif waveform_scpi == "SQUARE":
-            waveform_scpi = "SQU"
-        elif waveform_scpi == "TRIANGLE":
-            waveform_scpi = "TRI"
-        # RAMP, PULS, ARB are often direct.
-        self.instrument.write(f"SOUR{channel}:FUNC:SHAP {waveform_scpi}")
 
     def set_frequency(self, channel, frequency):
         """
@@ -49,7 +37,6 @@ class Awg(Generator):
             channel (int): The channel to set the frequency on
             frequency (float): The frequency of the waveform in Hz
         """
-        self.instrument.write(f"SOUR{channel}:FREQ {frequency}")
 
     def set_amplitude(self, channel, amplitude):
         """
@@ -58,8 +45,6 @@ class Awg(Generator):
             channel (int): The channel to set the amplitude on
             amplitude (float): The amplitude of the waveform in volts (usually Vpp but use instrument default)
         """
-        # Typically Vpp for AWGs, but could be RMS. Docstring says "in volts".
-        self.instrument.write(f"SOUR{channel}:VOLT {amplitude}")
 
     def set_offset(self, channel, offset):
         """
@@ -68,7 +53,6 @@ class Awg(Generator):
             channel (int): The channel to set the offset on
             offset (float): The offset of the waveform in volts
         """
-        self.instrument.write(f"SOUR{channel}:VOLT:OFFS {offset}")
 
     def set_load_impedance(self, channel, load_impedance):
         """
@@ -77,14 +61,6 @@ class Awg(Generator):
             channel (int): The channel to set the load impedance on
             load_impedance (float): The load impedance of the waveform in ohms
         """
-        # For high impedance, often "INF" or a very large number.
-        if isinstance(load_impedance, str) and load_impedance.upper() == "HIGHZ":
-            impedance_val = "INF"
-        elif load_impedance == float('inf'):
-            impedance_val = "INF"
-        else:
-            impedance_val = str(load_impedance)
-        self.instrument.write(f"OUTP{channel}:LOAD {impedance_val}")
 
     def set_polarity(self, channel, polarity):
         """
@@ -93,8 +69,6 @@ class Awg(Generator):
             channel (int): The channel to set the polarity on
             polarity (str): The polarity of the waveform, e.g., 'positive', 'negative'
         """
-        pol_scpi = "NORM" if polarity.lower() == "positive" else "INV"
-        self.instrument.write(f"OUTP{channel}:POL {pol_scpi}")
 
     def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None):
         """
@@ -131,7 +105,6 @@ class Awg(Generator):
             channel (int): The channel to set the duty cycle on
             duty_cycle (float): The duty cycle of the waveform as a percentage (0-100)
         """
-        self.instrument.write(f"SOUR{channel}:FUNC:SQU:DCYC {duty_cycle}")
 
     #Now for triangular and ramp waves
     def set_symmetry(self, channel, symmetry):
@@ -142,7 +115,6 @@ class Awg(Generator):
             channel (int): The channel to set the symmetry on
             symmetry (float): The symmetry of the waveform as a percentage (0-100)
         """
-        self.instrument.write(f"SOUR{channel}:FUNC:RAMP:SYMM {symmetry}") # Also applies to TRI
 
     #Now for pulses
     def set_pulse_width(self, channel, pulse_width):
@@ -153,7 +125,6 @@ class Awg(Generator):
             channel (int): The channel to set the pulse width on
             pulse_width (float): The pulse width of the waveform in seconds
         """
-        self.instrument.write(f"SOUR{channel}:FUNC:PULS:WIDT {pulse_width}")
 
     def set_pulse_rise_time(self, channel, rise_time):
         """
@@ -163,7 +134,6 @@ class Awg(Generator):
             channel (int): The channel to set the rise time on
             rise_time (float): The rise time of the waveform in seconds
         """
-        self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:LEAD {rise_time}") # Or just TRAN for some
 
     def set_pulse_fall_time(self, channel, fall_time):
         """
@@ -173,7 +143,6 @@ class Awg(Generator):
             channel (int): The channel to set the fall time on
             fall_time (float): The fall time of the waveform in seconds
         """
-        self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:TRA {fall_time}") # Or just TRAN:TRAIL
 
     def set_pulse_delay(self, channel, delay):
         """
@@ -182,7 +151,6 @@ class Awg(Generator):
             channel (int): The channel to set the delay on
             delay (float): The delay of the waveform in seconds
         """
-        self.instrument.write(f"SOUR{channel}:PULS:DEL {delay}") # More specific to pulse, check instrument for general delay
 
     def configure_pulse(self, channel, pulse_width=None, delay=None, rise_time=None, fall_time=None):
         """
@@ -209,20 +177,12 @@ class Awg(Generator):
         """
         Creates an arbitrary waveform to be generated on the selected channel and saves to instrument memory if applicable. If no name is given, it will be generated with a default name. Typically
         corresponding to the volatile memory of the instrument. In the case where the given name already exists, it will prompt the user to overwrite or not.
-        For implementing the data transfer, if possible, use a binary transfer method for efficiency from the given manual.
-        If the instrument does not support binary transfer, a string transfer will be used.
+        For implementing the data transfer, use the most documented version from the manual.
         args:
             channel (int): The channel to create the arbitrary waveform on
             name (str): The name of the arbitrary waveform
             data (list or ndarray): The data points of the arbitrary waveform
         """
-        data_string = ",".join(map(str, data))
-        if name.lower() == "volatile": # Convention for volatile memory
-             self.instrument.write(f"SOUR{channel}:DATA:VOL {data_string}")
-        else:
-            # This sequence is common: define, then load data, then optionally save
-            # This example directly loads data to a named segment, specific commands vary
-            self.instrument.write(f"SOUR{channel}:TRAC:DATA# {name},{data_string}") # Example, syntax varies
 
     def set_arb_waveform(self, channel, name):
         """
@@ -231,8 +191,6 @@ class Awg(Generator):
             channel (int): The channel to set the arbitrary waveform on
             name (str): The name of the arbitrary waveform to be set
         """
-        self.instrument.write(f"SOUR{channel}:FUNC:SHAP USER")
-        self.instrument.write(f"SOUR{channel}:FUNC:USER {name}") # Or ARB depending on instrument
 
     #trigger and sync functions
     def set_trigger_source(self, channel, trigger_source):
@@ -242,10 +200,6 @@ class Awg(Generator):
             channel (int): The channel to set the trigger source on
             trigger_source (str): The trigger source, e.g., 'internal', 'external', 'manual'
         """
-        source_scpi = trigger_source.upper()
-        if source_scpi == "INTERNAL": source_scpi = "INT" # Common abbreviation
-        if source_scpi == "EXTERNAL": source_scpi = "EXT" # Common abbreviation
-        self.instrument.write(f"TRIG{channel}:SOUR {source_scpi}") # Or just TRIG:SOUR
 
     def set_trigger_level(self, channel, trigger_level):
         """
@@ -254,8 +208,6 @@ class Awg(Generator):
             channel (int): The channel to set the trigger level on
             trigger_level (float): The trigger level in volts
         """
-        # Typically for external trigger source
-        self.instrument.write(f"TRIG{channel}:LEV {trigger_level}") # Or just TRIG:LEV
 
     def set_trigger_slope(self, channel, slope):
         """
@@ -264,9 +216,6 @@ class Awg(Generator):
             channel (int): The channel to set the trigger slope on
             slope (str): The trigger slope, e.g., 'rising', 'falling'
         """
-        # SCPI: POSitive | NEGative | EITHer
-        slope_scpi = "POS" if slope.lower() == "rising" else "NEG"
-        self.instrument.write(f"TRIG{channel}:SLOP {slope_scpi}") # Or just TRIG:SLOP
 
     def set_trigger_mode(self, channel, mode):
         """
@@ -275,13 +224,7 @@ class Awg(Generator):
             channel (int): The channel to set the trigger mode on
             mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
         """
-        if mode.lower() == "auto":
-            self.instrument.write(f"INIT{channel}:CONT ON") # Continuous on trigger
-        elif mode.lower() == "normal" or mode.lower() == "single":
-            self.instrument.write(f"INIT{channel}:CONT OFF") # Single event per trigger
-            if mode.lower() == "single": # For single, ensure it's armed and awaits one trigger
-                self.instrument.write(f"INIT{channel}:IMM") # Arm for next trigger if it's a one-shot system command
-
+        
     def configure_trigger(self, channel, trigger_source=None, trigger_level=None, slope=None, mode=None):
         """
         Configures the trigger for the selected channel. Calls the set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode functions to configure the trigger
