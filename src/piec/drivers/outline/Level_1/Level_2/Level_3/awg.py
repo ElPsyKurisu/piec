@@ -235,27 +235,27 @@ class Awg(Generator):
         self.instrument.write(f"SOUR{channel}:FUNC:USER {name}") # Or ARB depending on instrument
 
     #trigger and sync functions
-    def set_trigger_source(self, channel, source):
+    def set_trigger_source(self, channel, trigger_source):
         """
         Sets the trigger source for the selected channel
         args:
             channel (int): The channel to set the trigger source on
-            source (str): The trigger source, e.g., 'internal', 'external', 'manual'
+            trigger_source (str): The trigger source, e.g., 'internal', 'external', 'manual'
         """
-        source_scpi = source.upper()
+        source_scpi = trigger_source.upper()
         if source_scpi == "INTERNAL": source_scpi = "INT" # Common abbreviation
         if source_scpi == "EXTERNAL": source_scpi = "EXT" # Common abbreviation
         self.instrument.write(f"TRIG{channel}:SOUR {source_scpi}") # Or just TRIG:SOUR
 
-    def set_trigger_level(self, channel, level):
+    def set_trigger_level(self, channel, trigger_level):
         """
         Sets the trigger level for the selected channel
         args:
             channel (int): The channel to set the trigger level on
-            level (float): The trigger level in volts
+            trigger_level (float): The trigger level in volts
         """
         # Typically for external trigger source
-        self.instrument.write(f"TRIG{channel}:LEV {level}") # Or just TRIG:LEV
+        self.instrument.write(f"TRIG{channel}:LEV {trigger_level}") # Or just TRIG:LEV
 
     def set_trigger_slope(self, channel, slope):
         """
@@ -282,20 +282,20 @@ class Awg(Generator):
             if mode.lower() == "single": # For single, ensure it's armed and awaits one trigger
                 self.instrument.write(f"INIT{channel}:IMM") # Arm for next trigger if it's a one-shot system command
 
-    def configure_trigger(self, channel, source=None, level=None, slope=None, mode=None):
+    def configure_trigger(self, channel, trigger_source=None, trigger_level=None, slope=None, mode=None):
         """
         Configures the trigger for the selected channel. Calls the set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode functions to configure the trigger
         args:
             channel (int): The channel to configure the trigger on
-            source (str): The trigger source
-            level (float): The trigger level in volts
+            trigger_source (str): The trigger source
+            trigger_level (float): The trigger level in volts
             slope (str): The trigger slope
             mode (str): The trigger mode
         """
-        if source is None:
-            self.set_trigger_source(channel, source)
-        if level is not None:
-            self.set_trigger_level(channel, level)
+        if trigger_source is None:
+            self.set_trigger_source(channel, trigger_source)
+        if trigger_level is not None:
+            self.set_trigger_level(channel, trigger_level)
         if slope is not None:
             self.set_trigger_slope(channel, slope)
         if mode is not None:
