@@ -114,6 +114,7 @@ def function(self, arg1, arg2, arg3):
 In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. When possible match the patterns in the given example code from the manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class). General writing guidelines for the functions is to again limit the use of text # comments and focus on the docstring given in the parent class and ensure what is asked there is implemented. If in the case an argument described in the parent class is not supported by the child instrument raise an error. Otherwise do not implement error handling for range checking etc (this will be done later at a global level).
 Note, do NOT use \"{}\" for inputting an argument, assume the strings are implied in python
 NOTE: do NOT assume any of the argument values mentioned in the parent docstring apply to this instrument, take only the paramters from the manual
+NOTE: When reading the parent class commands, only listen to the docstring and IGNORE ALL CODE BELOW THE DOCSTRING. That implementation is not guarenteed to work for the driver you are making. Instead we use the docstring of the parent class to get the gist of what we want to do
 
 Part 2:
 After we have successfully filled out the parent classes for our specific instrument we now focus on the class attributes we want to add to our instrument. We want to parse the manual and understand the limitations of our instrument and write them into the class attributes. We want to write class attributes for every argument passed in to the functions we wrote with the exception of arguments that take booleon values. Follow this syntax:
@@ -128,5 +129,27 @@ When parsing the manual to understand what ranges to choose make sure we take th
 
 As a final check ensure that any write/query/read commands passed to the instrument come from the given manual (if a manual is given)
 and prioritize example code over written descriptions if possible.
+
+
+SECONDARY AI PROMPT (Given to a second AI to check the work of the first)
+Given the following driver for an instrument and the given instrument files (manual) check the driver and make note of any discrepencies between the class attributes and the instrument parameters outlined in the manual. Our drivers class attributes are written in such a way that the attribute name MUST match exactly with the name of the argument in one of the driver functions.
+
+1. Ensure all class attributes have the same name as an argument in one of the class methods
+2. Ensure the class attribute values match what is in the given instrument manual
+3. The given syntax is as follows:
+Follow this syntax:
+1. If the argument takes a limited number of values (e.g. channel) we write this in a list of the argtype (e.g. channel = [1,2])
+2. If the argument takes a range of values (e.g voltage) we write this as a tuple of the appropiate type (e.g. amplitude = (0,5))
+3. If the argument depends on another argument (e.g. frequency in the case of an AWG) we write this as a dictionary of the nested appropiate types (e.g. point 1 and 2 above) As an example if an awg has different frequency ranges for different waveforms (the argument frequency depends on the argument waveform) we write it as follows:
+frequency = {'waveform': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+
+If there are any discrepencies, and you can find the answer in the manual, make a list of the suggested changes and return what you would want to change, showing the old code, the new code, and the place in the manual you found the discrepancy. Otherwise, if no changes are necessary state that.
+
+
+TERTIARY AI PROMPT:
+You're job is to check the given driver's methods and ensure that ALL commands given to the instrument are valid based on the manual. E.g. go through each command and understand the command sent to the instrument and make sure it matches a valid command (with the correct syntax) from the manual. When looking at the manual prioritize example code to understand what is the correct command to send for the desired functionality. For every discrepency you find make a note of it and return what you would want to change, showing the old code, the new code, and the place in the manual where you found the discrepency. Otherwise, if no changes are necessary state that.
+
+
 
 
