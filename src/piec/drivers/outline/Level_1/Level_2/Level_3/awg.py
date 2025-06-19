@@ -5,7 +5,7 @@ from ..generator import Generator
 
 class Awg(Generator):
     # Class attributes for parameter restrictions
-    channel = ['1']
+    channel = [1]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     frequency = {'func': {'SIN': (1, 1), 'SQU': (1, 1), 'RAMP': (1, 1), 'PULS': (1, 1), 'NOIS': None, 'DC': None, 'USER': (1, 120e6)}}
     amplitude = (1, 1)
