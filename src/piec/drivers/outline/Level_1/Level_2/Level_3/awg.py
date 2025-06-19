@@ -5,23 +5,23 @@ from ..generator import Generator
 
 class Awg(Generator):
     # Class attributes for parameter restrictions
-    channel = None
-    waveform = None
-    frequency = None
-    amplitude = None
-    offset = None
-    load_impedance = None
-    source_impedance = None
-    polarity = None
-    duty_cycle = None
-    symmetry = None
-    pulse_width = None
-    pulse_delay = None
+    channel = ['1']
+    waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+    frequency = {'func': {'SIN': (1, 10), 'SQU': (1, 10), 'RAMP': (1, 10), 'PULS': (1, 10), 'NOIS': None, 'DC': None, 'USER': (1e-6, 120e6)}}
+    amplitude = (1, 10)
+    offset = (1, 10)
+    load_impedance = None #substandard
+    source_impedance = None #substandard
+    polarity = ['NORM', 'INV']
+    duty_cycle = (0.0, 100.0)
+    symmetry = (0.0, 100.0)
+    pulse_width = (0, 10)
+    pulse_delay = (0, 10)
     rise_time = None
     fall_time = None
-    trigger_source = None
-    trigger_slope = None
-    trigger_mode = None
+    trigger_source = ['IMM', "INT", "EXT", "MAN"] #[IMM (immediate), INT2 (internal), EXT (external), MAN (software trigger)]
+    trigger_slope = ['POS', 'NEG', 'EITH'] #[POS (positive), NEG (negative), EITH (either)]
+    trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
 
 
     """
