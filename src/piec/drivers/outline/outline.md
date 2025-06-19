@@ -188,14 +188,19 @@ where the key of the dictionary is the argument this argument depends on.
 THIS IS VERY IMPORTANT: All class attributes should have the same name as the arg it refers too!
 When parsing the manual to understand what ranges to choose make sure we take the explicit values they give us associated with the command and not some calculation we make.
 
-NOTE: The parent classes class attributes list the MINIMUM required values and/or pseudo values
-
 As a final check ensure that any write/query/read commands passed to the instrument come from the given manual (if a manual is given)
 and prioritize example code over written descriptions if possible.
 
 
 PART III:
-Need to add translations etc
+You will notice in the parent class that are some class attributes, we need to make sure that the the class you made takes at minimum the valid arguments listed in the parent class. As an example, assume a parent class called parent has this attribute:
+
+attributte = ["arg1", "arg2"]
+
+Let's assume the child class from the manual lists that attributte can take more than just the attributtes listed. We should keep the args in the attribute but can add the extra ones afterwards, so we are left with
+attributte = ["arg1", "arg2", "new_arg1", "new_arg2"]
+
+Next step is the more difficult one. Let us say the parent class wants the argument "arg1" to be valid, but in our instrument manual the command to be passed through to the instrument is actually "different_arg1" that does the intended result of "arg1" in the parent class, we need to ensure that our instrument class method takes "arg1", but it gets translated to the correct argument to be passed to the instrument (e.g. self.instrument.write("different_arg1")) when given "arg1".
 
 
 SECONDARY AI PROMPT (Given to a second AI to check the work of the first)

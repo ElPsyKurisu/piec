@@ -7,16 +7,16 @@ class Awg(Generator):
     # Class attributes for parameter restrictions
     channel = ['1']
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
-    frequency = {'func': {'SIN': (1, 10), 'SQU': (1, 10), 'RAMP': (1, 10), 'PULS': (1, 10), 'NOIS': None, 'DC': None, 'USER': (1e-6, 120e6)}}
-    amplitude = (1, 10)
+    frequency = {'func': {'SIN': (1, 1), 'SQU': (1, 1), 'RAMP': (1, 1), 'PULS': (1, 1), 'NOIS': None, 'DC': None, 'USER': (1, 120e6)}}
+    amplitude = (1, 1)
     offset = (1, 10)
     load_impedance = None #substandard
     source_impedance = None #substandard
     polarity = ['NORM', 'INV']
     duty_cycle = (0.0, 100.0)
     symmetry = (0.0, 100.0)
-    pulse_width = (0, 10)
-    pulse_delay = (0, 10)
+    pulse_width = (1, 1)
+    pulse_delay = (1, 1)
     rise_time = None
     fall_time = None
     trigger_source = ['IMM', "INT", "EXT", "MAN"] #[IMM (immediate), INT2 (internal), EXT (external), MAN (software trigger)]
@@ -43,10 +43,10 @@ class Awg(Generator):
     #Standard waveform configuration functions
     def set_waveform(self, channel, waveform):
         """
-        Sets the waveform to be generated on the selected channel either built in or user defined
+        Sets the waveform to be generated on the selected channel either built in or user defined.
         args:
             channel (int): The channel to set the waveform on
-            waveform (str): The waveform to be generated, e.g., 'sine', 'square', 'triangle', 'ramp', 'pulse', 'arb'
+            waveform (str): The waveform to be generated
         """
 
     def set_frequency(self, channel, frequency):
@@ -86,7 +86,7 @@ class Awg(Generator):
         Sets the polarity of the waveform to be generated on the selected channel
         args:
             channel (int): The channel to set the polarity on
-            polarity (str): The polarity of the waveform, e.g., 'positive', 'negative'
+            polarity (str): The polarity of the waveform
         """
 
     def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None):
