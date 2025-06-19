@@ -4,7 +4,26 @@ An awg (arbitrary waveform generator) is defined as an instrument that has the t
 from ..generator import Generator
 
 class Awg(Generator):
-    # Initializer / Instance attributes
+    # Class attributes for parameter restrictions
+    channel = None
+    waveform = None
+    frequency = None
+    amplitude = None
+    offset = None
+    load_impedance = None
+    source_impedance = None
+    polarity = None
+    duty_cycle = None
+    symmetry = None
+    pulse_width = None
+    pulse_delay = None
+    rise_time = None
+    fall_time = None
+    trigger_source = None
+    trigger_slope = None
+    trigger_mode = None
+
+
     """
     All awgs must be able to generate an arbitrary waveform and output it to the selected channel
     """
@@ -144,27 +163,27 @@ class Awg(Generator):
             fall_time (float): The fall time of the waveform in seconds
         """
 
-    def set_pulse_delay(self, channel, delay):
+    def set_pulse_delay(self, channel, pulse_delay):
         """
         Sets the delay of the pulse to be generated on the selected channel
         args:
             channel (int): The channel to set the delay on
-            delay (float): The delay of the waveform in seconds
+            pulse_delay (float): The delay of the waveform in seconds
         """
 
-    def configure_pulse(self, channel, pulse_width=None, delay=None, rise_time=None, fall_time=None):
+    def configure_pulse(self, channel, pulse_width=None, pulse_delay=None, rise_time=None, fall_time=None):
         """
         Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_delay, set_pulse_rise_time, and set_pulse_fall_time functions to configure the pulse waveform
         args:
             channel (int): The channel to configure the pulse waveform on
             pulse_width (float): The pulse width of the waveform in seconds
-            delay (float): The delay of the pulse waveform in seconds
+            pulse_delay (float): The delay of the pulse waveform in seconds
             rise_time (float): The rise time of the waveform in seconds
             fall_time (float): The fall time of the waveform in seconds
         """
         self.set_waveform(channel, "PULS") # Ensure waveform is pulse
-        if delay is not None:
-            self.set_pulse_delay(channel, delay)
+        if pulse_delay is not None:
+            self.set_pulse_delay(channel, pulse_delay)
         if pulse_width is not None:
             self.set_pulse_width(channel, pulse_width)
         if rise_time is not None:
@@ -209,38 +228,38 @@ class Awg(Generator):
             trigger_level (float): The trigger level in volts
         """
 
-    def set_trigger_slope(self, channel, slope):
+    def set_trigger_slope(self, channel, trigger_slope):
         """
         Sets the trigger slope for the selected channel
         args:
             channel (int): The channel to set the trigger slope on
-            slope (str): The trigger slope, e.g., 'rising', 'falling'
+            trigger_slope (str): The trigger slope, e.g., 'rising', 'falling'
         """
 
-    def set_trigger_mode(self, channel, mode):
+    def set_trigger_mode(self, channel, trigger_mode):
         """
         Sets the trigger mode for the selected channel
         args:
             channel (int): The channel to set the trigger mode on
-            mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
+            trigger_mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
         """
         
-    def configure_trigger(self, channel, trigger_source=None, trigger_level=None, slope=None, mode=None):
+    def configure_trigger(self, channel, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """
         Configures the trigger for the selected channel. Calls the set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode functions to configure the trigger
         args:
             channel (int): The channel to configure the trigger on
             trigger_source (str): The trigger source
             trigger_level (float): The trigger level in volts
-            slope (str): The trigger slope
-            mode (str): The trigger mode
+            trigger_slope (str): The trigger slope
+            trigger_mode (str): The trigger mode
         """
         if trigger_source is None:
             self.set_trigger_source(channel, trigger_source)
         if trigger_level is not None:
             self.set_trigger_level(channel, trigger_level)
-        if slope is not None:
-            self.set_trigger_slope(channel, slope)
-        if mode is not None:
-            self.set_trigger_mode(channel, mode) 
+        if trigger_slope is not None:
+            self.set_trigger_slope(channel, trigger_slope)
+        if trigger_mode is not None:
+            self.set_trigger_mode(channel, trigger_mode) 
 
