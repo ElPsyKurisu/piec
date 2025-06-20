@@ -111,9 +111,10 @@ class Keysight81150a(Awg, Scpi):
         """
         self.instrument.write(":OUTP{}:POL {}".format(channel, polarity))
 
-    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None):
+    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None, user_func=None):
         """
         Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_amplitude, set_offset, set_load_impedance, and set_polarity functions to configure the waveform
+        NOTE: Add arb waveform to toggle here
         args:
             channel (int): The channel to configure the waveform on
             waveform (str): The waveform to be generated
@@ -123,7 +124,13 @@ class Keysight81150a(Awg, Scpi):
             load_impedance (float): The load impedance of the waveform in ohms
             polarity (str): The polarity of the waveform
         """
-        self.set_waveform(channel, waveform)
+        if waveform == "user":
+            if user_func is not None:
+                self.set_arb_waveform(channel, user_func)
+            else:
+                print("Please input a user_func arg to configure the user defined wave")
+        else:
+            self.set_waveform(channel, waveform)
         if frequency is not None:
             self.set_frequency(channel, frequency)
         if amplitude is not None:
@@ -274,7 +281,9 @@ class Keysight81150a(Awg, Scpi):
         args:
             channel (int): The channel to set the trigger source on
             trigger_source (str): The trigger source, e.g., 'internal', 'external', 'manual'
-        """
+        """ 
+        conversion = {'IMM': "IMM", "INT": "INT2", "EXT": "EXT", "MAN": "MAN"} #convert commands to instrument specific ones
+        self.instrument.write(":ARM:SOUR{} {}".format(channel, conversion[trigger_source]))
 
     def set_trigger_level(self, channel, trigger_level):
         """
@@ -283,6 +292,7 @@ class Keysight81150a(Awg, Scpi):
             channel (int): The channel to set the trigger level on
             trigger_level (float): The trigger level in volts
         """
+        self.instrument.write(":ARM:LEV {}".format(trigger_level))
 
     def set_trigger_slope(self, channel, trigger_slope):
         """
@@ -291,6 +301,8 @@ class Keysight81150a(Awg, Scpi):
             channel (int): The channel to set the trigger slope on
             trigger_slope (str): The trigger slope, e.g., 'rising', 'falling'
         """
+        self.instrument.write(":ARM:SLOP {}".format(trigger_slope))
+
 
     def set_trigger_mode(self, channel, trigger_mode):
         """
@@ -299,6 +311,7 @@ class Keysight81150a(Awg, Scpi):
             channel (int): The channel to set the trigger mode on
             trigger_mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
         """
+        self.instrument.write(":ARM:SENS{} {}".format(channel, trigger_mode))
         
     def configure_trigger(self, channel, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """
