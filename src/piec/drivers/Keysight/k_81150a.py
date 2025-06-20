@@ -8,326 +8,401 @@ inheriting from generic Awg and Scpi classes.
 # 81150a.py in .../Level_4/Keysight/
 # awg.py in .../Level_3/
 # scpi.py in .../Level_1/
+import numpy as np
 from ..outline.Level_1.Level_2.Level_3.awg import Awg
 from ..outline.Level_1.scpi import Scpi
 
 class Keysight81150a(Awg, Scpi):
     """
-    Specific Class for this exact model of awg: Keysight 81150A.
+    Specific Class for this exact model of awg: Keysight 81150A. Created by human.
     """
 
     # Class attributes for parameter restrictions, named after function arguments.
     # Values based on Keysight 81150A User Guide
     
     channel = [1, 2]
-    amplitude = (0.01, 5.0) # Vpp into 50 Ohm load from 50 Ohm source
-    frequency = { # Hz
-        'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6),
-        'TRI': (1e-6, 5e6),   'PULS': (1e-6, 120e6), 'USER': (1e-6, 120e6),
-        'ARB': (1e-6, 120e6), 'NOIS': None, 'DC': None
-    }
-    waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER', 'TRI'] #
-    offset = (-2.495, 2.495) # V, absolute max for 50 Ohm load, actual depends on Vpp
-    delay = (-100e-9, 100e-9) # s, for SOURce[1|2]:SKEW
-    polarity = ["NORM", "INV"] # For OUTPut:POLarity
-    source_impedance = [5, 50] # Ohm, for OUTPut[1|2]:IMPedance
-    load_impedance = (1.0, 1.0e6) # Ohm, or "INF" for OUTPut[1|2]:LOAD
-    
-    duty_cycle = (0.01, 99.99) # %, for SQUare or PULSe
-    symmetry = (0.0, 100.0) # %, for RAMP
-    
-    pulse_width = (3.3e-9, None) # Min seconds, max depends on period
-    # Max for pulse_width is Period - 3.3ns. This cannot be a static tuple.
-    # Storing min value. Validation in method may be more complex.
-    
-    rise_time = (1.8e-9, None) # Min seconds, for PULSe:TRANsition:LEADing
-    fall_time = (1.8e-9, None) # Min seconds, for PULSe:TRANsition:TRAiling
-    # Max for transition times depends on pulse width and period.
-
-    arb_data_length = (2, 524288) # Points, for arbitrary waveform data len
-    arb_dac_value = (0, 16383) # Range for individual DAC points in arb_data_length data list
-    arb_name_max_length = 30 # Max char length for arbitrary waveform segment names (typical)
-
-    trigger_source = ["IMM", "EXT", "BUS", "MAN", "EVEN"] # For ARM[:SEQuence[<n>]]:SOURce
-    trigger_level = (-5.0, 5.0) # V, for TRIGger[:SEQuence]:LEVel
-    trigger_slope = ["POS", "NEG"] # For TRIGger[:SEQuence]:SLOPe
-    trigger_mode = {"AUTO": "ON", "NORMAL": "OFF", "SINGLE": "OFF"} # Maps to INITiate[:SEQuence[<n>]]:CONTinuous
+    waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+    frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+    amplitude = (0, 5) #V_pp added functionality that switches based on amplifier mode
+    offset = amplitude #assume same as amplitude, when amplitude switches so too does offset
+    load_impedance = (0.3, 1e6)
+    source_impedance = [5, 50]
+    polarity = ['NORM', 'INV']
+    duty_cycle = (0.0, 100.0)
+    symmetry = (0.0, 100.0)
+    pulse_width = (4.1e-9,  950000)
+    pulse_delay = pulse_width #typically the same
+    rise_time = None
+    fall_time = rise_time #typically the same
+    trigger_source = ['IMM', "INT", "EXT", "MAN"] #[IMM (immediate), INT (internal), EXT (external), MAN (software trigger)]
+    trigger_slope = ['POS', 'NEG', 'EITH'] #[POS (positive), NEG (negative), EITH (either)]
+    trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
+    #Parent class methods
 
     def __init__(self, address):
         super().__init__(address)
-        # Consider adding instrument-specific initialization if needed, e.g., self.reset()
 
-    def output(self, channel: int, on: bool = True):
-        """Turns the output of the specified channel ON or OFF. [SCPI: OUTPut[1|2][:STATe]]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        state_cmd = "ON" if on else "OFF"
-        self.instrument.write(f"OUTP{channel}:STAT {state_cmd}")
+    #core output channel control functions
 
-    def set_waveform(self, channel: int, waveform: str):
-        """Sets the waveform shape for the specified channel. [SCPI: SOURce[1|2]:FUNCtion[:SHAPe]]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        
-        wf_upper = waveform.upper()
-        # Basic validation using the class attribute `self.waveform`
-        if wf_upper not in self.waveform:
-             print(f"Warning: Waveform type '{waveform}' not in pre-defined list {self.waveform}. Sending command directly.")
-
-        scpi_waveform = wf_upper
-        if wf_upper == "TRI":
-            self.instrument.write(f"SOUR{channel}:FUNC:SHAP RAMP")
-            self.set_symmetry(channel, 50.0) # Triangle is RAMP with 50% symmetry
-            return
-        self.instrument.write(f"SOUR{channel}:FUNC:SHAP {scpi_waveform}")
-
-    def set_frequency(self, channel: int, frequency: float):
-        """Sets the frequency for the specified channel. [SCPI: SOURce[1|2]:FREQuency[:CW]]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        # Advanced validation would check self.frequency[current_waveform_type]
-        self.instrument.write(f"SOUR{channel}:FREQ {frequency}")
-
-    def set_delay(self, channel: int, delay: float):
-        """Sets the channel skew (output delay). [SCPI: SOURce[1|2]:SKEW]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_d, max_d = self.delay # Uses renamed class attribute
-        if not (min_d <= delay <= max_d):
-            raise ValueError(f"Delay {delay}s out of range {self.delay}s.")
-        self.instrument.write(f"SOUR{channel}:SKEW {delay}")
-
-    def set_amplitude(self, channel: int, amplitude: float):
-        """Sets the amplitude (Vpp). [SCPI: SOURce[1|2]:VOLTage[:AMPLitude]]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_a, max_a = self.amplitude # Uses renamed class attribute
-        if not (min_a <= amplitude <= max_a):
-             print(f"Warning: Amplitude {amplitude}Vpp may be out of typical range {self.amplitude}Vpp for 50 Ohm load.")
-        self.instrument.write(f"SOUR{channel}:VOLT {amplitude}")
-
-    def set_offset(self, channel: int, offset: float):
-        """Sets the DC offset. [SCPI: SOURce[1|2]:VOLTage:OFFSet]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        # Actual valid range depends on amplitude: |Voffset| <= Vmax_peak – Vpp/2
-        # min_o, max_o = self.offset # Uses renamed class attribute
-        # if not (min_o <= offset <= max_o):
-        #     print(f"Warning: Offset {offset}V may be out of absolute range {self.offset}V.")
-        self.instrument.write(f"SOUR{channel}:VOLT:OFFS {offset}")
-
-    def set_load_impedance(self, channel: int, load_impedance): # float or "INF"
-        """Sets the expected load impedance. [SCPI: OUTPut[1|2]:LOAD]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        impedance_cmd_val = ""
-        if isinstance(load_impedance, str) and load_impedance.upper() == "INF":
-            impedance_cmd_val = "INF"
-        elif isinstance(load_impedance, (int, float)):
-            min_l, max_l = self.load_impedance # Uses renamed attribute
-            if not (min_l <= load_impedance <= max_l):
-                raise ValueError(f"Load impedance {load_impedance} Ohm out of range {self.load_impedance} Ohm.")
-            impedance_cmd_val = str(load_impedance)
+    def output(self, channel, on=True):
+        """
+        All awgs must be able to output something, so therefore we need a method to turn the output on for the selected channel.
+        args:
+            channel (int): The channel to output on
+            on (bool): Whether to turn the output on or off
+        """
+        if on:
+            self.instrument.write(":OUTP{} ON".format(channel))
         else:
-            raise TypeError(f"Invalid load_impedance type. Expected float or 'INF'. Got {load_impedance}")
-        self.instrument.write(f"OUTP{channel}:LOAD {impedance_cmd_val}")
+            self.instrument.write(":OUTP{} OFF".format(channel))
+    
+    #Standard waveform configuration functions
+    def set_waveform(self, channel, waveform):
+        """
+        Sets the built_in waveform to be generated on the selected channel.
+        args:
+            channel (int): The channel to set the waveform on
+            waveform (str): The waveform to be generated
+        """
+        self.instrument.write(":FUNC{} {}".format(channel, waveform))
 
-    def set_source_impedance(self, channel: int, source_impedance: int):
-        """Sets the source output impedance. [SCPI: OUTPut[1|2]:IMPedance]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        if source_impedance not in self.source_impedance: # Uses renamed attribute
-            raise ValueError(f"Invalid source impedance {source_impedance} Ohm. Allowed: {self.source_impedance} Ohm.")
-        self.instrument.write(f"OUTP{channel}:IMP {source_impedance}")
+    def set_frequency(self, channel, frequency):
+        """
+        Sets the frequency of the waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the frequency on
+            frequency (float): The frequency of the waveform in Hz
+        """
+        self.instrument.write(":FREQ{} {}".format(channel, frequency))
 
-    def set_polarity(self, channel: int, polarity: str):
-        """Sets the output polarity. [SCPI: OUTPut[1|2]:POLarity]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        pol_upper = polarity.upper()
-        if pol_upper not in self.polarity: # Uses renamed attribute
-            raise ValueError(f"Invalid polarity '{polarity}'. Allowed: {self.polarity}")
-        self.instrument.write(f"OUTP{channel}:POL {pol_upper}")
+    def set_amplitude(self, channel, amplitude):
+        """
+        Sets the amplitude of the waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the amplitude on
+            amplitude (float): The amplitude of the waveform in volts (usually Vpp but use instrument default)
+        """
+        self.instrument.write(":VOLT{} {}".format(channel, amplitude))
 
-    def configure_waveform(self, channel: int, waveform: str, frequency: float = None,
-                           delay: float = None, amplitude: float = None, offset: float = None,
-                           load_impedance = None, source_impedance: int = None,
-                           polarity: str = None):
-        """Configures multiple waveform parameters for the specified channel."""
+    def set_offset(self, channel, offset):
+        """
+        Sets the offset of the waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the offset on
+            offset (float): The offset of the waveform in volts
+        """
+        self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
+
+    def set_load_impedance(self, channel, load_impedance):
+        """
+        Sets the load impedance of the waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the load impedance on
+            load_impedance (float): The load impedance of the waveform in ohms
+        """
+        self.instrument.write(":OUTP{}:IMP:EXT {}".format(channel, load_impedance))
+
+    def set_polarity(self, channel, polarity):
+        """
+        Sets the polarity of the waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the polarity on
+            polarity (str): The polarity of the waveform
+        """
+        self.instrument.write(":OUTP{}:POL {}".format(channel, polarity))
+
+    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None):
+        """
+        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_amplitude, set_offset, set_load_impedance, and set_polarity functions to configure the waveform
+        args:
+            channel (int): The channel to configure the waveform on
+            waveform (str): The waveform to be generated
+            frequency (float): The frequency of the waveform in Hz
+            amplitude (float): The amplitude of the waveform in volts
+            offset (float): The offset of the waveform in volts
+            load_impedance (float): The load impedance of the waveform in ohms
+            polarity (str): The polarity of the waveform
+        """
         self.set_waveform(channel, waveform)
-        if frequency is not None: self.set_frequency(channel, frequency)
-        if delay is not None: self.set_delay(channel, delay)
-        if amplitude is not None: self.set_amplitude(channel, amplitude)
-        if offset is not None: self.set_offset(channel, offset)
-        if load_impedance is not None: self.set_load_impedance(channel, load_impedance)
-        if source_impedance is not None: self.set_source_impedance(channel, source_impedance)
-        if polarity is not None: self.set_polarity(channel, polarity)
+        if frequency is not None:
+            self.set_frequency(channel, frequency)
+        if amplitude is not None:
+            self.set_amplitude(channel, amplitude)
+        if offset is not None:
+            self.set_offset(channel, offset)
+        if load_impedance is not None:
+            self.set_load_impedance(channel, load_impedance)
+        if polarity is not None:
+            self.set_polarity(channel, polarity)
 
-    def set_duty_cycle(self, channel: int, duty_cycle: float):
-        """Sets duty cycle for SQUare or PULSe waveforms. [SCPI: FUNC:SQU:DCYC or FUNC:PULS:DCYC]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_dc, max_dc = self.duty_cycle # Uses renamed attribute
-        if not (min_dc <= duty_cycle <= max_dc):
-            raise ValueError(f"Duty cycle {duty_cycle}% out of range {self.duty_cycle}%.")
-        # This function is generic; 81150A has specific commands for SQU and PULS.
-        # A robust implementation would query current waveform or require it as a parameter.
-        # Defaulting to PULSe command path for simplicity here.
-        current_shape = self.instrument.query(f"SOUR{channel}:FUNC:SHAP?").strip().upper()
-        if "SQU" in current_shape:
-            self.instrument.write(f"SOUR{channel}:FUNC:SQU:DCYC {duty_cycle}")
-        elif "PULS" in current_shape:
-            self.instrument.write(f"SOUR{channel}:FUNC:PULS:DCYC {duty_cycle}")
-        else:
-            print(f"Warning: Duty cycle can only be set for SQUare or PULSe. Current: {current_shape}")
+    #functions that are specific to waveform types
 
-
-    def set_symmetry(self, channel: int, symmetry: float):
-        """Sets symmetry for RAMP waveforms. [SCPI: FUNC:RAMP:SYMM]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_s, max_s = self.symmetry # Uses renamed attribute
-        if not (min_s <= symmetry <= max_s):
-            raise ValueError(f"Symmetry {symmetry}% out of range {self.symmetry}%.")
-        self.instrument.write(f"SOUR{channel}:FUNC:RAMP:SYMM {symmetry}")
-
-    def set_pulse_width(self, channel: int, pulse_width: float):
-        """Sets pulse width for PULSe waveforms. [SCPI: FUNC:PULS:WIDT]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_pw, _ = self.pulse_width # Uses renamed attribute (min part)
-        if pulse_width < min_pw:
-             print(f"Warning: Pulse width {pulse_width}s may be below instrument minimum {min_pw}s.")
-        self.instrument.write(f"SOUR{channel}:FUNC:PULS:WIDT {pulse_width}")
-
-    def set_pulse_rise_time(self, channel: int, rise_time: float):
-        """Sets leading edge transition time for PULSe. [SCPI: FUNC:PULS:TRAN[:LEAD]]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_rt, _ = self.rise_time # Uses renamed attribute (min part)
-        if rise_time < min_rt:
-            print(f"Warning: Rise time {rise_time}s may be below instrument minimum {min_rt}s.")
-        self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:LEAD {rise_time}")
-
-    def set_pulse_fall_time(self, channel: int, fall_time: float):
-        """Sets trailing edge transition time for PULSe. [SCPI: FUNC:PULS:TRAN:TRA]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        min_ft, _ = self.fall_time # Uses renamed attribute (min part)
-        if fall_time < min_ft:
-            print(f"Warning: Fall time {fall_time}s may be below instrument minimum {min_ft}s.")
-        self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:TRA {fall_time}")
-
-    def configure_pulse(self, channel: int, pulse_width: float = None,
-                        rise_time: float = None, fall_time: float = None,
-                        duty_cycle: float = None):
-        """Configures parameters specific to PULSe waveforms."""
-        # Consider ensuring self.set_waveform(channel, "PULS") is called if not already PULS.
-        if pulse_width is not None: self.set_pulse_width(channel, pulse_width)
-        if rise_time is not None: self.set_pulse_rise_time(channel, rise_time)
-        if fall_time is not None: self.set_pulse_fall_time(channel, fall_time)
-        if duty_cycle is not None: self.set_duty_cycle(channel, duty_cycle)
-
-
-    def create_arb_waveform(self, channel: int, name: str, data: list): # data should be list of DAC values
+    #First for square waves
+    def set_square_duty_cycle(self, channel, duty_cycle):
         """
-        Defines an arbitrary waveform.
-        If name is "VOLATILE", data is loaded directly into volatile memory.
-        Otherwise, data is loaded into volatile memory and then copied to a
-        named non-volatile segment.
-        Data points must be pre-scaled integer DAC values (0-16383).
-        [SCPI :DATA:DAC VOLATILE, ... and :DATA:COPY <name>,VOLATILE]
-       
+        Sets the duty cycle of the square wave to be generated on the selected channel
+        args:
+            channel (int): The channel to set the duty cycle on
+            duty_cycle (float): The duty cycle of the waveform as a percentage (0-100)
         """
-        if not (self.arb_data_length[0] <= len(data) <= self.arb_data_length[1]):
-            raise ValueError(f"Number of arb points {len(data)} out of range [{self.arb_data_length[0]}, {self.arb_data_length[1]}].")
+        self.instrument.write(":SOUR:FUNC{}:SQU:DCYC {}".format(channel, duty_cycle)) 
 
-        if not all(isinstance(p, int) and self.arb_dac_value[0] <= p <= self.arb_dac_value[1] for p in data):
-             raise ValueError(f"Arbitrary waveform data points must be integers between {self.arb_dac_value[0]} and {self.arb_dac_value[1]}.")
+    #Now for triangular and ramp waves
+    def set_ramp_symmetry(self, channel, symmetry):
+        """
+        Sets the symmetry of the ramp waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the symmetry on
+            symmetry (float): The symmetry of the waveform as a percentage (0-100)
+        """
+        self.instrument.write(":FUNC{}:RAMP:SYMM {}".format(channel, symmetry))
 
-        data_str = ",".join(map(str, data))
+    #Now for pulses
+    def set_pulse_width(self, channel, pulse_width):
+        """
+        Sets the pulse width of the waveform to be generated on the selected channel
+        Useful for pulses
+        args:
+            channel (int): The channel to set the pulse width on
+            pulse_width (float): The pulse width of the waveform in seconds
+        """
+        self.instrument.write(":FUNC{}:PULS:WIDT {}".format(channel, pulse_width))
 
-        # Always load to volatile memory first using DAC values
-        # SCPI: :DATA[<channel>]:DAC VOLATILE, <value>,<value>,...
-        self.instrument.write(f"DATA{channel}:DAC VOLATILE,{data_str}")
+    def set_pulse_rise_time(self, channel, rise_time):
+        """
+        Sets the rise time of the waveform to be generated on the selected channel
+        Useful for pulses
+        args:
+            channel (int): The channel to set the rise time on
+            rise_time (float): The rise time of the waveform in seconds
+        """
+        self.instrument.write(":PULS:TRAN{} {}".format(channel, rise_time))
 
-        if name.upper() != "VOLATILE":
-            if len(name) > self.arb_name_max_length:
-                 print(f"Warning: Segment name '{name}' may exceed max length ({self.arb_name_max_length}). Truncation or error possible.")
-            # Copy from volatile to a named non-volatile segment
-            # SCPI: :DATA[<channel>]:COPY <destination_arb_name>[,VOLATILE]
-            self.instrument.write(f"DATA{channel}:COPY \"{name}\",VOLATILE")
+    def set_pulse_fall_time(self, channel, fall_time):
+        """
+        Sets the fall time of the waveform to be generated on the selected channel
+        Useful for pulses
+        args:
+            channel (int): The channel to set the fall time on
+            fall_time (float): The fall time of the waveform in seconds
+        """
+        self.instrument.write(":PULS:TRAN{}:TRA {}".format(channel, fall_time))
+    
+    def set_pulse_duty_cycle(self, channel, duty_cycle):
+        """
+        Sets the duty cycle of the pulse to be generated on the selected channel
+        args:
+            channel (int): The channel to set the duty cycle on
+            duty_cycle (float): The duty cycle of the pulse as a percentage (0-100)
+        """
+        self.instrument.write(":FUNC{}:PULS:DCYC {}".format(channel, duty_cycle))
+
+    def set_pulse_delay(self, channel, pulse_delay):
+        """
+        Set the pulse delay on the configured channel in units of seconds. Delay is the time between the start of the 
+        pulse period and the start of the leading edge of the pulse.
+        args:
+            channel (int): The channel to set the delay on
+            pulse_delay (float): The delay of the waveform in seconds
+        """
+        self.instrument.write(":PULS:DEL{} {}".format(channel, pulse_delay))
+
+    def configure_pulse(self, channel, pulse_width=None, pulse_delay=None, rise_time=None, fall_time=None, duty_cycle=None):
+        """
+        Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_delay, set_pulse_rise_time, set_pulse_duty_cycle and set_pulse_fall_time functions to configure the pulse waveform
+        args:
+            channel (int): The channel to configure the pulse waveform on
+            pulse_width (float): The pulse width of the waveform in seconds
+            pulse_delay (float): The delay of the pulse waveform in seconds
+            rise_time (float): The rise time of the waveform in seconds
+            fall_time (float): The fall time of the waveform in seconds
+            duty_cycle (float): The duty cycle of the pulse as a percentage (0-100)
+        """
+        self.set_waveform(channel, "PULS") # Ensure waveform is pulse
+        if pulse_delay is not None:
+            self.set_pulse_delay(channel, pulse_delay)
+        if pulse_width is not None:
+            self.set_pulse_width(channel, pulse_width)
+        if rise_time is not None:
+            self.set_pulse_rise_time(channel, rise_time)
+        if fall_time is not None:
+            self.set_pulse_fall_time(channel, fall_time)
+        if duty_cycle is not None:
+            self.set_pulse_duty_cycle(channel, duty_cycle)
+
+    #Now we move to the arb functions
+    def create_arb_waveform(self, channel, name, data):
+        """
+        Creates an arbitrary waveform to be generated on the selected channel and saves to instrument memory if applicable. If no name is given, it will be generated with a default name. Typically
+        corresponding to the volatile memory of the instrument. In the case where the given name already exists, it will prompt the user to overwrite or not.
+        For implementing the data transfer, use the most documented version from the manual.
+        args:
+            channel (int): The channel to create the arbitrary waveform on
+            name (str): The name of the arbitrary waveform
+            data (list or ndarray): The data points of the arbitrary waveform
+        """
+        # Scale the waveform data to the valid range See scale_waveform_data
+        scaled_data = scale_waveform_data(data)  
+        self.instrument.write(":FORM:BORD SWAP")
+
+        self.instrument.write_binary_values(":DATA{}:DAC VOLATILE, ".format(channel), scaled_data, datatype='h') #need h as 2bit bytes see struct module
+        if name is not None:
+            #first check if has room to copy
+            slots_available = self.instrument.query('DATA:NVOLatile:FREE?').strip() #returns a number corresponding to num_slots_free
+            if int(slots_available) == 0:
+                stored_wfs = self.instrument.query('DATA:NVOLatile:CATalog?').strip() #checks the stored_wfs in voltatile memory
+                stored_wfs_list = stored_wfs.replace('"', '').split(',')
+                name_to_delete = ask_user_to_select(stored_wfs_list)
+                self.instrument.write(":DATA:DEL {}".format(name_to_delete))
+
+            self.instrument.write(":DATA:COPY {}, VOLATILE".format(name))
+
+    def set_arb_waveform(self, channel, name):
+        """
+        Sets the arbitrary waveform to be generated on the selected channel
+        args:
+            channel (int): The channel to set the arbitrary waveform on
+            name (str): The name of the arbitrary waveform to be set
+        """
+        self.instrument.write(":FUNC{}:USER {}".format(channel, name)) #makes current USER selected name, but does not switch instrument to it
+        self.instrument.write(":FUNC{} USER".format(channel)) #switches instrument to user waveform
+
+    #trigger and sync functions
+    def set_trigger_source(self, channel, trigger_source):
+        """
+        Sets the trigger source for the selected channel
+        args:
+            channel (int): The channel to set the trigger source on
+            trigger_source (str): The trigger source, e.g., 'internal', 'external', 'manual'
+        """
+
+    def set_trigger_level(self, channel, trigger_level):
+        """
+        Sets the trigger level for the selected channel
+        args:
+            channel (int): The channel to set the trigger level on
+            trigger_level (float): The trigger level in volts
+        """
+
+    def set_trigger_slope(self, channel, trigger_slope):
+        """
+        Sets the trigger slope for the selected channel
+        args:
+            channel (int): The channel to set the trigger slope on
+            trigger_slope (str): The trigger slope, e.g., 'rising', 'falling'
+        """
+
+    def set_trigger_mode(self, channel, trigger_mode):
+        """
+        Sets the trigger mode for the selected channel
+        args:
+            channel (int): The channel to set the trigger mode on
+            trigger_mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
+        """
         
-        # After creating/loading, explicitly set the waveform shape to USER
-        # and select the new waveform (especially if it was a named one)
-        # This is handled by set_arb_waveform typically.
-        # If VOLATILE, DATA:VOL or DATA:DAC VOLATILE usually auto-selects FUNC USER with VOLATILE segment.
-        # If named, it needs to be selected after copy.
-        if name.upper() != "VOLATILE":
-             self.set_arb_waveform(channel, name) # Ensure the newly copied waveform is selected
-        else:
-             self.set_arb_waveform(channel, "VOLATILE")
-
-    def set_arb_waveform(self, channel: int, name: str):
+    def configure_trigger(self, channel, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """
-        Selects a previously defined arbitrary waveform segment.
-        [SCPI: SOURce[1|2]:FUNCtion:SHAPe USER; :SOURce[1|2]:FUNCtion:USER "<name>"]
-       
+        Configures the trigger for the selected channel. Calls the set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode functions to configure the trigger
+        args:
+            channel (int): The channel to configure the trigger on
+            trigger_source (str): The trigger source
+            trigger_level (float): The trigger level in volts
+            trigger_slope (str): The trigger slope
+            trigger_mode (str): The trigger mode
         """
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        
-        self.instrument.write(f"SOUR{channel}:FUNC:SHAP USER")
-        # "VOLATILE" is the default segment for SOUR:DATA:VOL.
-        # Selecting it by name might not be needed if DATA:VOL was just used.
-        self.instrument.write(f"SOUR{channel}:FUNC:USER \"{name}\"")
+        if trigger_source is None:
+            self.set_trigger_source(channel, trigger_source)
+        if trigger_level is not None:
+            self.set_trigger_level(channel, trigger_level)
+        if trigger_slope is not None:
+            self.set_trigger_slope(channel, trigger_slope)
+        if trigger_mode is not None:
+            self.set_trigger_mode(channel, trigger_mode) 
 
+    #additional methods
+    def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
+        """
+        This program configures the output amplifier for either maximum bandwith or amplitude. Taken from EKPY.
+        NOTE: If in HIV mode max frequnecy is 50MHz, otherwise you get the full 120MHz
+        NOTE: if sending a sin wave above 120MHz max voltage is 3V_pp
+        args:
+            self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
+            channel (str): Desired Channel to configure accepted params are [1,2]
+            type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
+        """
+        if type == 'HIV':
+            self.amplitude = (0, 10)
+            self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+        if type == 'HIB':
+            self.amplitude = (0, 5)
+            self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
+        self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
 
-    def set_trigger_source(self, channel: int, source: str):
-        """Sets ARM trigger source for the channel. [SCPI: ARM[:SEQuence[<n>]]:SOURce]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        src_upper = source.upper()
-        if src_upper == "INTERNAL": src_upper = "IMM" # Map generic term
-        if src_upper not in self.trigger_source: # Uses renamed attribute
-            raise ValueError(f"Invalid trigger source '{source}'. Allowed: {self.trigger_source}")
-        self.instrument.write(f"ARM{channel}:SOUR {src_upper}")
-
-    def set_trigger_level(self, channel: int, level: float):
-        """Sets system trigger level (for EXT source). [SCPI: TRIGger[:SEQuence]:LEVel]"""
-        # 'channel' arg kept for API consistency, but command is system-wide.
-        min_tl, max_tl = self.trigger_level # Uses renamed attribute
-        if not (min_tl <= level <= max_tl):
-            raise ValueError(f"Trigger level {level}V out of range {self.trigger_level}V.")
-        self.instrument.write(f"TRIG:LEV {level}")
-
-    def set_trigger_slope(self, channel: int, slope: str):
-        """Sets system trigger slope (for EXT source). [SCPI: TRIGger[:SEQuence]:SLOPe]"""
-        # 'channel' arg kept for API consistency, command is system-wide.
-        slope_upper = slope.upper()
-        slope_scpi = ""
-        if slope_upper.startswith("RISING"): slope_scpi = "POS"
-        elif slope_upper.startswith("FALLING"): slope_scpi = "NEG"
-        elif slope_upper in self.trigger_slope: slope_scpi = slope_upper # Uses renamed attribute
+    #Helper Functions
+def scale_waveform_data(data: np.array, preserve_vertical_resolution: bool=False) -> np.array:
+        """
+        Helper function that scales values to a max of 8191 in such a way that the abs(max) is 8191
+        and the rest is uniformly scaled. All VALUES SHOULD BE INTEGERS
+        NOTE YOU LOSE RESOLUTION WITH THIS METHOD if preserve_vertical_resoltuion is false, but it preserves the wf shape!
+        shuld print estimated lost in  PP VOLTAGE from resolution
+        """
+        max_abs = np.max(abs(data))
+        max_inst = 8191
+        scale_factor = None
+        if preserve_vertical_resolution:
+            scale_factor = max_inst/max_abs
         else:
-            raise ValueError(f"Invalid trigger slope '{slope}'. Allowed: {self.trigger_slope} or 'RISING'/'FALLING'.")
-        self.instrument.write(f"TRIG:SLOP {slope_scpi}")
+            while is_integer(scale_factor) is False: #this preserves scaling at the cost of vertical resolution
+                if max_inst < 4095:
+                    print("CAN NOT PRESERVE WF OVER HALF OF RESOLUTION IS GONE")
+                    scale_factor = 8191/max_abs #will not preserve scaling when rounding to ints
+                    break
+                scale_factor = max_inst/max_abs
+                max_inst -= 1
+        scaled_data = data*scale_factor
+        total = 8191*2 + 1
+        loss = 100* (abs(np.max(scaled_data)) + abs(np.min(scaled_data)))/total
+        print("Estimated Peak-to-Peak Ratio of targeted value is {:.1f}%".format(loss))
+        return scaled_data.astype(np.int32)
 
-    def set_trigger_mode(self, channel: int, mode: str):
-        """Sets continuous run mode based on triggers. [SCPI: INITiate[:SEQuence[<n>]]:CONTinuous]"""
-        if channel not in self.channel:
-            raise ValueError(f"Invalid channel {channel}. Allowed: {self.channel}")
-        mode_upper = mode.upper()
-        if mode_upper not in self.trigger_mode: # Uses renamed attribute (map)
-            raise ValueError(f"Invalid trigger mode '{mode}'. Allowed: {list(self.trigger_mode.keys())}")
-        
-        state_cmd = self.trigger_mode[mode_upper]
-        self.instrument.write(f"INIT{channel}:CONT {state_cmd}")
+def ask_user_to_select(options):
+        """
+        Helper function to format options to choose taken from help with CHATGPT
+        EXAMPLE USAGE:
+        # List of options
+        options = ['ARB1', 'PV', 'PUND', 'DWM']
 
-    def configure_trigger(self, channel: int, source: str = None, level: float = None,
-                          slope: str = None, mode: str = None):
-        """Configures trigger parameters for the channel."""
-        if source is not None: self.set_trigger_source(channel, source)
-        if level is not None: self.set_trigger_level(channel, level)
-        if slope is not None: self.set_trigger_slope(channel, slope)
-        if mode is not None: self.set_trigger_mode(channel, mode)
+        # Ask the user to select an option
+        selected_option = ask_user_to_select(options)
+        print(f"You selected: {selected_option}")
+        1. ARB1
+        2. PV
+        3. PUND
+        4. DWM
+        """
+        # Display the options
+        for i, option in enumerate(options, start=1):
+            print(f"{i}. {option}")
+
+        # Ask the user to select an option
+        while True:
+            try:
+                choice = int(input("Enter the number of your choice: "))
+                if 1 <= choice <= len(options):
+                    return options[choice - 1]
+                else:
+                    print(f"Please enter a number between 1 and {len(options)}.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+def is_integer(n):
+        """
+        Helper function to check if a number is an intger including stuff like 5.0
+        Taken with help from ChatGPT
+        """
+        if isinstance(n, int):
+            return True
+        elif isinstance(n, float):
+            return n.is_integer()
+        else:
+            return False

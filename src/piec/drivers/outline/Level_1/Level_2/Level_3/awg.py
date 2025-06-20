@@ -9,19 +9,20 @@ class Awg(Generator):
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     frequency = {'func': {'SIN': (1, 1), 'SQU': (1, 1), 'RAMP': (1, 1), 'PULS': (1, 1), 'NOIS': None, 'DC': None, 'USER': (1, 120e6)}}
     amplitude = (1, 1)
-    offset = (1, 10)
+    offset = amplitude #typically same as amplitude
     load_impedance = None #substandard
     source_impedance = None #substandard
     polarity = ['NORM', 'INV']
     duty_cycle = (0.0, 100.0)
     symmetry = (0.0, 100.0)
     pulse_width = (1, 1)
-    pulse_delay = (1, 1)
+    pulse_delay = pulse_width #typically the same
     rise_time = None
-    fall_time = None
+    fall_time = rise_time #typically the same
     trigger_source = ['IMM', "INT", "EXT", "MAN"] #[IMM (immediate), INT2 (internal), EXT (external), MAN (software trigger)]
     trigger_slope = ['POS', 'NEG', 'EITH'] #[POS (positive), NEG (negative), EITH (either)]
     trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
+    slew_rate = None #useful information about the instrument, but need not be implemented
 
 
     """
@@ -43,7 +44,7 @@ class Awg(Generator):
     #Standard waveform configuration functions
     def set_waveform(self, channel, waveform):
         """
-        Sets the waveform to be generated on the selected channel either built in or user defined.
+        Sets the built_in waveform to be generated on the selected channel.
         args:
             channel (int): The channel to set the waveform on
             waveform (str): The waveform to be generated
@@ -116,20 +117,18 @@ class Awg(Generator):
     #functions that are specific to waveform types
 
     #First for square waves
-    def set_duty_cycle(self, channel, duty_cycle):
+    def set_square_duty_cycle(self, channel, duty_cycle):
         """
-        Sets the duty cycle of the waveform to be generated on the selected channel
-        Useful for square waves
+        Sets the duty cycle of the square wave to be generated on the selected channel
         args:
             channel (int): The channel to set the duty cycle on
             duty_cycle (float): The duty cycle of the waveform as a percentage (0-100)
         """
 
-    #Now for triangular and ramp waves
-    def set_symmetry(self, channel, symmetry):
+    #Now for triangular/ramp waves
+    def set_ramp_symmetry(self, channel, symmetry):
         """
-        Sets the symmetry of the waveform to be generated on the selected channel
-        Useful for triangular and ramp waves
+        Sets the symmetry of the ramp waveform to be generated on the selected channel
         args:
             channel (int): The channel to set the symmetry on
             symmetry (float): The symmetry of the waveform as a percentage (0-100)
@@ -163,23 +162,33 @@ class Awg(Generator):
             fall_time (float): The fall time of the waveform in seconds
         """
 
+    def set_pulse_duty_cycle(self, channel, duty_cycle):
+        """
+        Sets the duty cycle of the pulse to be generated on the selected channel
+        args:
+            channel (int): The channel to set the duty cycle on
+            duty_cycle (float): The duty cycle of the pulse as a percentage (0-100)
+        """
+
     def set_pulse_delay(self, channel, pulse_delay):
         """
-        Sets the delay of the pulse to be generated on the selected channel
+        Set the pulse delay on the configured channel in units of seconds. Delay is the time between the start of the 
+        pulse period and the start of the leading edge of the pulse.
         args:
             channel (int): The channel to set the delay on
             pulse_delay (float): The delay of the waveform in seconds
         """
 
-    def configure_pulse(self, channel, pulse_width=None, pulse_delay=None, rise_time=None, fall_time=None):
+    def configure_pulse(self, channel, pulse_width=None, pulse_delay=None, rise_time=None, fall_time=None, duty_cycle=None):
         """
-        Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_delay, set_pulse_rise_time, and set_pulse_fall_time functions to configure the pulse waveform
+        Configures the pulse waveform on the selected channel. Calls the set_pulse_width, set_pulse_delay, set_pulse_rise_time, set_pulse_duty_cycle and set_pulse_fall_time functions to configure the pulse waveform
         args:
             channel (int): The channel to configure the pulse waveform on
             pulse_width (float): The pulse width of the waveform in seconds
             pulse_delay (float): The delay of the pulse waveform in seconds
             rise_time (float): The rise time of the waveform in seconds
             fall_time (float): The fall time of the waveform in seconds
+            duty_cycle (float): The duty cycle of the pulse as a percentage (0-100)
         """
         self.set_waveform(channel, "PULS") # Ensure waveform is pulse
         if pulse_delay is not None:
@@ -190,6 +199,8 @@ class Awg(Generator):
             self.set_pulse_rise_time(channel, rise_time)
         if fall_time is not None:
             self.set_pulse_fall_time(channel, fall_time)
+        if duty_cycle is not None:
+            self.set_pulse_duty_cycle(channel, duty_cycle)
 
     #Now we move to the arb functions
     def create_arb_waveform(self, channel, name, data):
