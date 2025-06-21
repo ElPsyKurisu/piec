@@ -29,6 +29,7 @@ NOTE: For outline, a good idea is to put the minimum args a class can take in th
 Command name syntax:
 if it says set_something() Then it should do a single action
 if it says configure_something() Then it should do multiple operations
+if it says get_something() Then it should return something
 
 
 AI PROMPT:
@@ -174,7 +175,7 @@ def function(self, arg1, arg2, arg3):
     returns
         something (return type) Description
 
-In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. When possible match the patterns in the given example code from the manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class). General writing guidelines for the functions is to again limit the use of text # comments and focus on the docstring given in the parent class and ensure what is asked there is implemented. If in the case an argument described in the parent class is not supported by the child instrument raise an error. Otherwise do not implement error handling for range checking etc (this will be done later at a global level).
+In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. When possible match the patterns in the given example code from the manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. A get_something command returns data. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class). General writing guidelines for the functions is to again limit the use of text # comments and focus on the docstring given in the parent class and ensure what is asked there is implemented. If in the case an argument described in the parent class is not supported by the child instrument raise an error. Otherwise do not implement error handling for range checking etc (this will be done later at a global level).
 Note, do NOT use \"{}\" for inputting an argument, assume the strings are implied in python
 
 Part 2:

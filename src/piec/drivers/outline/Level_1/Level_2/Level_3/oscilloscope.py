@@ -7,7 +7,7 @@ from ..measurer import Measurer
 class Oscilloscope(Measurer):
     # Initializer / Instance attributes
     """
-    All measurers must be able to read some data and give it to the computer
+    All oscilloscopes must be able to read some data and give it to the computer
     """
 
     #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
@@ -61,7 +61,7 @@ class Oscilloscope(Measurer):
             x_range (float): The absolute time range in seconds
         """
     def set_horizontal_position(self, x_position):
-        """
+        """ 
         Changes the position (delay) of the timebase
         args:
             x_position (float): The horizontal position in seconds
@@ -126,31 +126,55 @@ class Oscilloscope(Measurer):
         """
         Tells the scope to get ready to capture the data for the single shot etc
         """
-    def configure_data(self, length):
+
+    def set_acquisition_channel(self, channel):
+        """
+        Sets the scope to return the selected channel when asked for data
+        args:
+            channel (int): The desired channel to acquire 
+        """
+
+    def set_acquisition_mode(self, acquisition_mode):
+        """
+        Sets the acusition mode on the scope (e.g. normal, average, peak detect etc)
+        args:
+            acqusition_mode (str): The desired acquisition mode
+        """
+
+    def set_acquisition_points(self, acquisition_points):
+        """
+        Sets the scope to return the given number of points when asked for data
+        args:
+            points (int): The number of data points to capture
+        """
+
+    def configure_acquisition(self, channel, acquisition_mode, acquisition_points):
         """
         Configures the scope (ideally in binary) to specific parameters such as length (how much data to capture), etc
         args:
-            length (int): The number of data points to capture
+            channel (int): The desired channel to acquire
+            acquisition_mode (str): The desired acquisition mode (e.g. normal or averaging) 
+            acquisition_points (int): The number of data points to capture
         """
     
     #Time to get the data out NOTE: We already have from the measurer class the quick_read which technically goes under here
     def quick_read(self):
         """
-        Quick read function that returns the default data in a quick way (ideally in binary). Typically this should be used to get a snapshot of the current waveform (e.g. the current display).
+        Quick read function that returns the default data in a numpy array. Typically this should be used to get a snapshot of the current waveform (e.g. the current display).
         
         args:
             None
         Returns:
-            data (Dataframe): Returns the data in a quick way, typically in binary format.
+            data (ndarray): Returns the data in a quick way.
         """
 
     def get_data(self):
         """
-        Returns the data depending on how it was configured with the configure_data command.
+        Returns the data depending on how it was configured with the configure_acquisition command.
         Returns the data in a structured format, typically in a Pandas DataFrame that dispalys the time and voltage values in a structured way across all captured channels.
         args:
             None
         Returns:
-            data (Dataframe): Returns the data in a stuctured format, in a Pandas DataFrame or similar structure.
+            data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
     
