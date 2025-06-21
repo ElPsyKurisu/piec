@@ -7,15 +7,15 @@ class Awg(Generator):
     # Class attributes for parameter restrictions
     channel = [1]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
-    frequency = {'func': {'SIN': (1, 1), 'SQU': (1, 1), 'RAMP': (1, 1), 'PULS': (1, 1), 'NOIS': None, 'DC': None, 'USER': (1, 120e6)}}
-    amplitude = (1, 1)
+    frequency = {'func': {'SIN': (None, None), 'SQU': (None, None), 'RAMP': (None, None), 'PULS': (None, None), 'NOIS': None, 'DC': None, 'USER': (1, 120e6)}}
+    amplitude = (None, None)
     offset = amplitude #typically same as amplitude
     load_impedance = None #substandard
     source_impedance = None #substandard
     polarity = ['NORM', 'INV']
     duty_cycle = (0.0, 100.0)
     symmetry = (0.0, 100.0)
-    pulse_width = (1, 1)
+    pulse_width = (None, None)
     pulse_delay = pulse_width #typically the same
     rise_time = None
     fall_time = rise_time #typically the same
@@ -249,10 +249,10 @@ class Awg(Generator):
 
     def set_trigger_mode(self, channel, trigger_mode):
         """
-        Sets the trigger mode for the selected channel
+        Sets the trigger mode for the selected channel (aka trigger type)
         args:
             channel (int): The channel to set the trigger mode on
-            trigger_mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
+            trigger_mode (str): The trigger mode, e.g., 'EDGE' 
         """
         
     def configure_trigger(self, channel, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):

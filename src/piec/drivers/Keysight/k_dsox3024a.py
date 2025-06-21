@@ -27,7 +27,8 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
     trigger_source = ["CHAN1", "CHAN2", "CHAN3", "CHAN4", "EXT", "LINE", "WGEN"]
     trigger_level = (-6.0, 6.0)
     trigger_slope = ["POS", "NEG", "EITH", "ALT"]
-    trigger_mode = ["AUTO", "NORM"]
+    trigger_mode = ["EDGE"]
+    trigger_sweep = ["AUTO", "NORM"]
     acquisition_mode = ["NORM", "AVER", "HRES", "PEAK"]
     acquisition_points = (100, 8000000)
 
@@ -142,9 +143,18 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         """
         Changes the mode from auto, norm, manual, single, etc
         args:
-            mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
+            mode (str): The trigger mode, e.g. 'EDGE"
         """
-        self.instrument.write(f":TRIGger:SWEep {trigger_mode}")
+        self.instrument.write(f":TRIGger:MODE {trigger_mode}")
+    
+    def set_trigger_sweep(self, trigger_sweep):
+        """
+        Changes the trigger sweep settings of the oscilloscope
+        args:
+            trigger_sweep (str): The trigger sweep mode, e.g. 'auto'
+        """
+        self.instrument.write(f":TRIGger:SWEep {trigger_sweep}")
+
 
     def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """

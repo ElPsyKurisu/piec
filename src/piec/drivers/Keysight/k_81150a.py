@@ -309,7 +309,7 @@ class Keysight81150a(Awg, Scpi):
         Sets the trigger mode for the selected channel
         args:
             channel (int): The channel to set the trigger mode on
-            trigger_mode (str): The trigger mode, e.g., 'auto', 'normal', 'single'
+            trigger_mode (str): The trigger mode, e.g., 'EDGE'
         """
         self.instrument.write(":ARM:SENS{} {}".format(channel, trigger_mode))
         

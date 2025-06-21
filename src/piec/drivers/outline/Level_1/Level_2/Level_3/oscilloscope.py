@@ -9,6 +9,22 @@ class Oscilloscope(Measurer):
     """
     All oscilloscopes must be able to read some data and give it to the computer
     """
+    channel = [1]
+    vdiv = (None, None)
+    y_range = (None, None)
+    y_position = (None, None)
+    input_coupling = ["AC", "DC"]
+    probe_attenuation = (None, None)
+    tdiv = (None, None)
+    x_range = (None, None)
+    x_position = (None, None)
+    trigger_source = [1]
+    trigger_level = (None, None)
+    trigger_slope = ["POS", "NEG", "EITH"]
+    trigger_mode = ["AUTO", "NORM"]
+    acquisition_mode = ["NORM"]
+    acquisition_points = (None, None)
+
 
     #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
     def toggle_channel(self, channel, on=True):
@@ -100,10 +116,18 @@ class Oscilloscope(Measurer):
 
     def set_trigger_mode(self, trigger_mode):
         """
-        Changes the mode from auto, norm, manual, single, etc
+        Sets the trigger mode (aka trigger type)
         args:
-            mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
+            mode (str): The trigger mode, e.g. 'EDGE"
         """
+
+    def set_trigger_sweep(self, trigger_sweep):
+        """
+        Changes the trigger sweep settings of the oscilloscope
+        args:
+            trigger_sweep (str): The trigger sweep mode, e.g. 'auto'
+        """
+
     def configure_trigger(self, trigger_source, trigger_level, trigger_slope, trigger_mode):
         """
         Combines all the trigger commands into one, calls set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode
