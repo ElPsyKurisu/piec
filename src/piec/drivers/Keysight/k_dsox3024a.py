@@ -1,18 +1,37 @@
 """
-This is an outline for what the osc.py file should be like.
-
-A osc (oscilloscope) is defined as an instrument that has the typical features on expects an oscilloscope to have
+Driver for the Keysight DSOX3024A oscilloscope.
+This class implements the specific functionalities for the DSOX3024A model,
+inheriting from generic Oscilloscope and Scpi classes.
 """
 import numpy as np
+import pandas as pd
 from ..outline.Level_1.Level_2.Level_3.oscilloscope import Oscilloscope
 from ..outline.Level_1.scpi import Scpi
-class KeysightDSOX3024x(Oscilloscope):
-    # Initializer / Instance attributes
+
+class KeysightDSOX3024a(Oscilloscope, Scpi):
     """
-    Specific Class for this exact model of oscilloscope: Keysight DSOX3024a. Created by human.
+    Specific Class for this exact model of scope: Keysight DSOX3024a. Fully AI Generated.
+    NOTE: Not tested yet
     """
 
-    #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
+    # Class attributes for parameter restrictions, named after function arguments.
+    channel = [1, 2, 3, 4]
+    vdiv = (0.001, 5.0)
+    y_range = (0.008, 40.0)
+    y_position = (-40.0, 40.0)
+    input_coupling = ["AC", "DC"]
+    probe_attenuation = (0.001, 10000.0)
+    tdiv = (0.000000002, 50.0)
+    x_range = (0.00000002, 500.0)
+    x_position = (-500.0, 500.0)
+    trigger_source = ["CHAN1", "CHAN2", "CHAN3", "CHAN4", "EXT", "LINE", "WGEN"]
+    trigger_level = (-6.0, 6.0)
+    trigger_slope = ["POS", "NEG", "EITH", "ALT"]
+    trigger_mode = ["AUTO", "NORM"]
+    acquisition_mode = ["NORM", "AVER", "HRES", "PEAK"]
+    acquisition_points = (100, 8000000)
+
+
     def toggle_channel(self, channel, on=True):
         """
         Function that toggles the selected channel to on or off (what to display and what to acquire)
@@ -20,32 +39,39 @@ class KeysightDSOX3024x(Oscilloscope):
             channel (int): The channel to toggle
             on (bool): True to turn on, False to turn off
         """
+        self.instrument.write(f":CHANnel{channel}:DISPlay {int(on)}")
 
-    def set_vertical_scale(self, channel, vdiv, range):
+    def set_vertical_scale(self, channel, vdiv=None, y_range=None):
         """
         Function that sets the vertical scale in either volts per divison or absolute range
         args:
             channel (int): The channel to set the vertical scale on
             vdiv (float): The volts per division setting
-            range (float): The absolute range in volts
+            y_range (float): The absolute range in volts
         """
-    
-    def set_vertical_position(self, channel, position):
+        if vdiv:
+            self.instrument.write(f":CHANnel{channel}:SCALe {vdiv}")
+        if y_range:
+            self.instrument.write(f":CHANnel{channel}:RANGe {y_range}")
+
+    def set_vertical_position(self, channel, y_position):
         """
         Sets the vertical position of the scale (moves the waveform up and down)
         args:
             channel (int): The channel to set the vertical position on
-            position (float): The vertical position in volts
+            y_position (float): The vertical position in volts
         """
-    
-    def set_input_coupling(self, channel, coupling):
+        self.instrument.write(f":CHANnel{channel}:OFFSet {y_position}")
+
+    def set_input_coupling(self, channel, input_coupling):
         """
         Sets the input coupling, e.g. AC, DC, Ground
         args:
             channel (int): The channel to set the input coupling on
-            coupling (str): The input coupling type, e.g. 'AC', 'DC', 'GND'
+            input_coupling (str): The input coupling type, e.g. 'AC', 'DC', 'GND'
         """
-    
+        self.instrument.write(f":CHANnel{channel}:COUPling {input_coupling}")
+
     def set_probe_attenuation(self, channel, probe_attenuation):
         """
         Sets the probe attenuation e.g. 1x, 10x etc
@@ -53,69 +79,90 @@ class KeysightDSOX3024x(Oscilloscope):
             channel (int): The channel to set the probe attenuation on
             probe_attenuation (int): The probe attenuation factor, e.g. 1 for 1x, 10 for 10x
         """
-    #Now we move too setting the time_window which is shared ACROSS channels
+        self.instrument.write(f":CHANnel{channel}:PROBe {probe_attenuation}")
 
-    def set_horizontal_scale(self, tdiv, range):
+    def set_horizontal_scale(self, tdiv=None, x_range=None):
         """
         Sets the timebase in either time/division or in absolute range
         args:
             tdiv (float): The time per division setting
-            range (float): The absolute time range in seconds
+            x_range (float): The absolute time range in seconds
         """
-    def set_horizontal_position(self, position):
-        """
+        if tdiv:
+            self.instrument.write(f":TIMebase:SCALe {tdiv}")
+        if x_range:
+            self.instrument.write(f":TIMebase:RANGe {x_range}")
+
+    def set_horizontal_position(self, x_position):
+        """ 
         Changes the position (delay) of the timebase
         args:
-            position (float): The horizontal position in seconds
+            x_position (float): The horizontal position in seconds
         """
+        self.instrument.write(f":TIMebase:POSition {x_position}")
 
-    def configure_horizontal(self, tdiv, range, position):
+    def configure_horizontal(self, tdiv=None, x_range=None, x_position=None):
         """
         Combines into one function calls set_horizontal_scale and set_horizontal_position
         args:
             tdiv (float): The time per division setting
-            range (float): The absolute time range in seconds
-            position (float): The horizontal position in seconds
+            x_range (float): The absolute time range in seconds
+            x_position (float): The horizontal position in seconds
         """
-        
+        if tdiv or x_range:
+            self.set_horizontal_scale(tdiv=tdiv, x_range=x_range)
+        if x_position:
+            self.set_horizontal_position(x_position)
 
-    #Now we can go to triggering
-
-    def set_trigger_source(self, source):
+    def set_trigger_source(self, trigger_source):
         """
         Decides what the scope should trigger on
         args:
-            source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
+            trigger_source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
         """
-    def set_trigger_level(self, level):
+        self.instrument.write(f":TRIGger:EDGE:SOURce {trigger_source}")
+
+    def set_trigger_level(self, trigger_level):
         """
         The voltage level the signal must cross to initiate a capture
         args:
-            level (float): The trigger level in volts
+            trigger_level (float): The trigger level in volts
         """
-    def set_trigger_slope(self, slope):
+        self.instrument.write(f":TRIGger:EDGE:LEVel {trigger_level}")
+
+    def set_trigger_slope(self, trigger_slope):
         """
         Changes the trigger from falling, rising etc
         args:
-            slope (str): The trigger slope, e.g. 'rising', 'falling'
+            trigger_slope (str): The trigger slope, e.g. 'rising', 'falling'
         """
-    def set_trigger_mode(self, mode):
+        self.instrument.write(f":TRIGger:EDGE:SLOPe {trigger_slope}")
+
+    def set_trigger_mode(self, trigger_mode):
         """
         Changes the mode from auto, norm, manual, single, etc
         args:
             mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
         """
-    def configure_trigger(self, source, level, slope, mode):
+        self.instrument.write(f":TRIGger:SWEep {trigger_mode}")
+
+    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """
         Combines all the trigger commands into one, calls set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode
         args:
-            source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
-            level (float): The trigger level in volts
-            slope (str): The trigger slope, e.g. 'rising', 'falling'
-            mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
+            trigger_source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
+            trigger_level (float): The trigger level in volts
+            trigger_slope (str): The trigger slope, e.g. 'rising', 'falling'
+            trigger_mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
         """
-
-    #Time to control acquisition process
+        if trigger_source:
+            self.set_trigger_source(trigger_source)
+        if trigger_level:
+            self.set_trigger_level(trigger_level)
+        if trigger_slope:
+            self.set_trigger_slope(trigger_slope)
+        if trigger_mode:
+            self.set_trigger_mode(trigger_mode)
 
     def toggle_acquisition(self, run=True):
         """
@@ -123,33 +170,90 @@ class KeysightDSOX3024x(Oscilloscope):
         args:
             run (bool): True to start acquisition, False to halt it
         """
+        if run:
+            self.instrument.write(":RUN")
+        else:
+            self.instrument.write(":STOP")
+            
     def arm(self):
         """
         Tells the scope to get ready to capture the data for the single shot etc
         """
-    def configure_data(self, length):
+        self.instrument.write(":SINGle")
+
+    def set_acquisition_channel(self, channel):
+        """
+        Sets the scope to return the selected channel when asked for data
+        args:
+            channel (int): The desired channel to acquire 
+        """
+        self.instrument.write(f":WAVeform:SOURce CHANnel{channel}")
+        
+    def set_acquisition_mode(self, acquisition_mode):
+        """
+        Sets the acusition mode on the scope (e.g. normal, average, peak detect etc)
+        args:
+            acqusition_mode (str): The desired acquisition mode
+        """
+        self.instrument.write(f":ACQuire:TYPE {acquisition_mode}")
+
+    def set_acquisition_points(self, acquisition_points):
+        """
+        Sets the scope to return the given number of points when asked for data
+        args:
+            points (int): The number of data points to capture
+        """
+        self.instrument.write(f":WAVeform:POINts {acquisition_points}")
+
+    def configure_acquisition(self, channel=None, acquisition_mode=None, acquisition_points=None):
         """
         Configures the scope (ideally in binary) to specific parameters such as length (how much data to capture), etc
         args:
-            length (int): The number of data points to capture
+            channel (int): The desired channel to acquire
+            acquisition_mode (str): The desired acquisition mode (e.g. normal or averaging) 
+            acquisition_points (int): The number of data points to capture
         """
-    #Time to get the data out NOTE: We already have from the measurer class the quick_read which technically goes under here
+        if channel:
+            self.set_acquisition_channel(channel)
+        if acquisition_mode:
+            self.set_acquisition_mode(acquisition_mode)
+        if acquisition_points:
+            self.set_acquisition_points(acquisition_points)
+
     def quick_read(self):
         """
-        Quick read function that returns the default data in a quick way (ideally in binary). Typically this should be used to get a snapshot of the current waveform (e.g. the current display).
+        Quick read function that returns the default data in a numpy array. Typically this should be used to get a snapshot of the current waveform (e.g. the current display).
         
         args:
             None
         Returns:
-            data (Dataframe): Returns the data in a quick way, typically in binary format.
+            data (ndarray): Returns the data in a quick way.
         """
+        self.instrument.write(":WAVeform:FORMat BYTE")
+        self.instrument.write(":WAVeform:POINts:MODE NORMal")
+        data = self.instrument.query_binary_values(":WAVeform:DATA?", datatype='B')
+        return np.array(data)
+
     def get_data(self):
         """
-        Returns the data depending on how it was configured with the configure_data command.
+        Returns the data depending on how it was configured with the configure_acquisition command.
         Returns the data in a structured format, typically in a Pandas DataFrame that dispalys the time and voltage values in a structured way across all captured channels.
         args:
             None
         Returns:
-            data (Dataframe): Returns the data in a stuctured format, in a Pandas DataFrame or similar structure.
+            data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
-    
+        self.instrument.write(":WAVeform:FORMat WORD")
+        preamble = self.instrument.query(":WAVeform:PREamble?").split(',')
+        x_increment = float(preamble[4])
+        x_origin = float(preamble[5])
+        y_increment = float(preamble[7])
+        y_origin = float(preamble[8])
+        y_reference = float(preamble[9])
+
+        data_bytes = self.instrument.query_binary_values(":WAVeform:DATA?", datatype='h', is_big_endian=True)
+        
+        times = x_origin + np.arange(len(data_bytes)) * x_increment
+        voltages = (np.array(data_bytes) - y_reference) * y_increment + y_origin
+        
+        return pd.DataFrame({'Time': times, 'Voltage': voltages})
