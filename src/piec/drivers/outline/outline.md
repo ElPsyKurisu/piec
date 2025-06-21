@@ -221,8 +221,11 @@ If there are any discrepencies, and you can find the answer in the manual, make 
 
 
 TERTIARY AI PROMPT:
-You're job is to check the given driver's methods and ensure that ALL commands given to the instrument are valid based on the manual. E.g. go through each command and understand the command sent to the instrument and make sure it matches a valid command (with the correct syntax) from the manual. When looking at the manual prioritize example code to understand what is the correct command to send for the desired functionality. For every discrepency you find make a note of it and return what you would want to change, showing the old code, the new code, and the place in the manual where you found the discrepency. Otherwise, if no changes are necessary state that.
+Your job is to check the given driver's methods and ensure that ALL commands given to the instrument are valid based on the manual. E.g. go through each command and understand the command sent to the instrument and make sure it matches a valid command (with the correct syntax) from the manual. When looking at the manual prioritize example code to understand what is the correct command to send for the desired functionality. Furthermore, check the parent class and ensure that ALL parent class methods are overwritten correctly and no new extraneous class have been added. For every discrepency you find make a note of it and return what you would want to change, showing the old code, the new code, and the place in the manual where you found the discrepency. Otherwise, if no changes are necessary state that.
 
 QUATERNARY AI PROMPT:
+Your job is to check if the given arguments in the class attributes are valid commands when inputted in the class methods. As an example say I have a class attribute for attribbute1 = [arg1, arg2] and inside a class method I write self.instrument.write(f"Command{arg1}") but according to the manual it is not a valid command string, then try to figure out where the issue is and make a note of what you would change, showing the old code, the new code, and the place in the manual where you found the discrepency.
+
+QUINARY AI PROMPT:
 Your job is to look at the previous prompts, and implement them if told to do them. Understand the message below dictating what to implement or not based on the previous responses:
 ____
