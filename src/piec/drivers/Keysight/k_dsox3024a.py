@@ -32,6 +32,11 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
     acquisition_mode = ["NORM", "AVER", "HRES", "PEAK"]
     acquisition_points = (100, 8000000)
 
+    def autoscale(self):
+        """
+        Autoscales the oscilloscope
+        """
+        self.instrument.write(":AUToscale")
 
     def toggle_channel(self, channel, on=True):
         """
@@ -190,6 +195,12 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         Tells the scope to get ready to capture the data for the single shot etc
         """
         self.instrument.write(":SINGle")
+
+    def set_acquisition(self):
+        """
+        Sets the oscilloscope to capture the data as set up on the configure_acquisition commands to be ready for a transfer
+        """
+        self.instrument.write(":DIGitize")
 
     def set_acquisition_channel(self, channel):
         """

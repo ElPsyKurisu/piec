@@ -27,6 +27,11 @@ class Oscilloscope(Measurer):
 
 
     #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
+    def autoscale(self):
+        """
+        Autoscales the oscilloscope
+        """
+
     def toggle_channel(self, channel, on=True):
         """
         Function that toggles the selected channel to on or off (what to display and what to acquire)
@@ -149,6 +154,11 @@ class Oscilloscope(Measurer):
     def arm(self):
         """
         Tells the scope to get ready to capture the data for the single shot etc
+        """
+
+    def set_acquisition(self):
+        """
+        Sets the oscilloscope to capture the data as set up on the configure_acquisition commands to be ready for a transfer
         """
 
     def set_acquisition_channel(self, channel):
