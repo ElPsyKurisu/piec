@@ -25,8 +25,12 @@ class DiscreteWaveform:
         :data (pd.DataFrame): Captured waveform data (time and voltage)
         :metadata (pd.DataFrame): Measurement parameters and metadata
     """
+    mtype = None
+    length = None
+    filename = None
+    data = None
 
-    def __init__(self, awg, osc, v_div=0.01, voltage_channel:str='1', save_dir=r'\\scratch'):
+    def __init__(self, awg, osc, v_div=0.01, voltage_channel='1', save_dir=r'\\scratch'):
         """Initialize core waveform measurement system.
 
         Args:
@@ -42,8 +46,6 @@ class DiscreteWaveform:
         self.osc = osc
         self.voltage_channel = voltage_channel
         self.save_dir = save_dir
-        self.filename = None
-        self.data = None
         self.history = []
         self._update_metadata()
 
@@ -92,7 +94,7 @@ class DiscreteWaveform:
         self.awg.configure_impedance(channel='1', source_impedance='50', load_impedance='50')
         self.awg.configure_trigger(channel='1', trigger_source='MAN')
 
-    def configure_oscilloscope(self, channel:str = 1):
+    def configure_oscilloscope(self, channel = 1):
         """
         Set up oscilloscope for waveform capture.
         
@@ -124,7 +126,7 @@ class DiscreteWaveform:
         Coordinates instrument triggering, captures time-voltage data from oscilloscope,
         and stores results in self.data attribute (pandas DataFrame object). Includes instrument synchronization.
         """
-        print(f"Capturing waveform of type {self.type} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
+        print(f"Capturing waveform of type {self.mtype} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
         self.osc.initiate()
         self.awg.output_enable('1')
         self.awg.send_software_trigger()
@@ -145,7 +147,7 @@ class DiscreteWaveform:
         self._update_notes()
 
         if self.data is not None:
-            self.filename = create_measurement_filename(self.save_dir, self.type, self.notes)
+            self.filename = create_measurement_filename(self.save_dir, self.mtype, self.notes)
             metadata_and_data_to_csv(self.metadata, self.data, self.filename)
             print(f"Waveform data saved to {self.filename}")
         else:
@@ -203,7 +205,7 @@ class HysteresisLoop(DiscreteWaveform):
         :save_plots (bool): Save plot images flag
     """
 
-    type = "hysteresis"
+    mtype = "hysteresis"
 
     def __init__(self, awg=None, osc=None, v_div=0.1, frequency=1000.0, amplitude=1.0, offset=0.0,
                  n_cycles=2, voltage_channel:str='1', area=1.0e-5, time_offset=1e-8,
@@ -292,7 +294,7 @@ class ThreePulsePund(DiscreteWaveform):
         :reset_width (float): Reset pulse duration (s)
         :p_u_width (float): Measurement pulse duration (s)
     """
-    type = "3pulsepund"
+    mtype = "3pulsepund"
 
     def __init__(self, awg=None, osc=None, v_div=0.1,
                  reset_amp=1, reset_width=1e-3, reset_delay=1e-3,
