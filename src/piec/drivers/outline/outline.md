@@ -229,3 +229,21 @@ Your job is to check if the given arguments in the class attributes are valid co
 QUINARY AI PROMPT:
 Your job is to look at the previous prompts, and implement them if told to do them. Understand the message below dictating what to implement or not based on the previous responses:
 ____
+
+SENARY AI PROMPT:
+Your job is to look at the completed driver and create a testing jupyter notebook. In the starting cell try to connect to the instrument using the piec formulation:
+from piec.drivers.manufacturer.instrument import Instrument 
+from piec.drivers.utilities import PiecManager
+
+pm = PiecManager()
+pm.list_resources()
+
+#new cell
+test_instrument = Instrument("Address") #leave this as is and the technician will run the cell and figure out the address is
+
+#new cell
+logic to call the function as well as the expected output. The technician will be able to determine if it matches or not
+
+...
+
+Basically the job of this notebook is to walk the technician through testing to make sure the driver works. Make it as thorough as need be.
