@@ -242,8 +242,11 @@ pm.list_resources()
 test_instrument = Instrument("Address") #leave this as is and the technician will run the cell and figure out the address is
 
 #new cell
+Start with a .idn() call to ensure we have the correct instrument
+
+#new cell
 logic to call the function as well as the expected output. The technician will be able to determine if it matches or not
 
 ...
 
-Basically the job of this notebook is to walk the technician through testing to make sure the driver works. Make it as thorough as need be.
+Basically the job of this notebook is to walk the technician through testing to make sure the driver works. Make it as thorough as need be. And remember that the technician is running the cells sequentially from top to bottom, so a .reset() call may be in order between cells
