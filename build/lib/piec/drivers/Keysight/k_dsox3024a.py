@@ -1,36 +1,42 @@
 """
-This is an outline for what the osc.py file should be like.
-
-A osc (oscilloscope) is defined as an instrument that has the typical features on expects an oscilloscope to have
+Driver for the Keysight DSOX3024A oscilloscope.
+This class implements the specific functionalities for the DSOX3024A model,
+inheriting from generic Oscilloscope and Scpi classes.
 """
-from ..measurer import Measurer
-class Oscilloscope(Measurer):
-    # Initializer / Instance attributes
+import numpy as np
+import pandas as pd
+from ..outline.Level_1.Level_2.Level_3.oscilloscope import Oscilloscope
+from ..outline.Level_1.scpi import Scpi
+
+class KeysightDSOX3024a(Oscilloscope, Scpi):
     """
-    All oscilloscopes must be able to read some data and give it to the computer
+    Specific Class for this exact model of scope: Keysight DSOX3024a. Fully AI Generated.
+    NOTE: Not tested yet
     """
-    channel = [1]
-    vdiv = (None, None)
-    y_range = (None, None)
-    y_position = (None, None)
+
+    # Class attributes for parameter restrictions, named after function arguments.
+    channel = [1, 2, 3, 4]
+    vdiv = (0.001, 5.0)
+    y_range = (0.008, 40.0)
+    y_position = (-40.0, 40.0)
     input_coupling = ["AC", "DC"]
-    probe_attenuation = (None, None)
-    tdiv = (None, None)
-    x_range = (None, None)
-    x_position = (None, None)
-    trigger_source = [1]
-    trigger_level = (None, None)
-    trigger_slope = ["POS", "NEG", "EITH"]
-    trigger_mode = ["AUTO", "NORM"]
-    acquisition_mode = ["NORM"]
-    acquisition_points = (None, None)
+    probe_attenuation = (0.001, 10000.0)
+    tdiv = (0.000000002, 50.0)
+    x_range = (0.00000002, 500.0)
+    x_position = (-500.0, 500.0)
+    trigger_source = ["CHAN1", "CHAN2", "CHAN3", "CHAN4", "EXT", "LINE", "WGEN"]
+    trigger_level = (-6.0, 6.0)
+    trigger_slope = ["POS", "NEG", "EITH", "ALT"]
+    trigger_mode = ["EDGE"]
+    trigger_sweep = ["AUTO", "NORM"]
+    acquisition_mode = ["NORM", "AVER", "HRES", "PEAK"]
+    acquisition_points = (100, 8000000)
 
-
-    #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
     def autoscale(self):
         """
         Autoscales the oscilloscope
         """
+        self.instrument.write(":AUToscale")
 
     def toggle_channel(self, channel, on=True):
         """
@@ -39,8 +45,9 @@ class Oscilloscope(Measurer):
             channel (int): The channel to toggle
             on (bool): True to turn on, False to turn off
         """
+        self.instrument.write(f":CHANnel{channel}:DISPlay {int(on)}")
 
-    def set_vertical_scale(self, channel, vdiv, y_range):
+    def set_vertical_scale(self, channel, vdiv=None, y_range=None):
         """
         Function that sets the vertical scale in either volts per divison or absolute range
         args:
@@ -48,7 +55,11 @@ class Oscilloscope(Measurer):
             vdiv (float): The volts per division setting
             y_range (float): The absolute range in volts
         """
-    
+        if vdiv:
+            self.instrument.write(f":CHANnel{channel}:SCALe {vdiv}")
+        if y_range:
+            self.instrument.write(f":CHANnel{channel}:RANGe {y_range}")
+
     def set_vertical_position(self, channel, y_position):
         """
         Sets the vertical position of the scale (moves the waveform up and down)
@@ -56,7 +67,8 @@ class Oscilloscope(Measurer):
             channel (int): The channel to set the vertical position on
             y_position (float): The vertical position in volts
         """
-    
+        self.instrument.write(f":CHANnel{channel}:OFFSet {y_position}")
+
     def set_input_coupling(self, channel, input_coupling):
         """
         Sets the input coupling, e.g. AC, DC, Ground
@@ -64,7 +76,8 @@ class Oscilloscope(Measurer):
             channel (int): The channel to set the input coupling on
             input_coupling (str): The input coupling type, e.g. 'AC', 'DC', 'GND'
         """
-    
+        self.instrument.write(f":CHANnel{channel}:COUPling {input_coupling}")
+
     def set_probe_attenuation(self, channel, probe_attenuation):
         """
         Sets the probe attenuation e.g. 1x, 10x etc
@@ -72,23 +85,29 @@ class Oscilloscope(Measurer):
             channel (int): The channel to set the probe attenuation on
             probe_attenuation (int): The probe attenuation factor, e.g. 1 for 1x, 10 for 10x
         """
-    #Now we move too setting the time_window which is shared ACROSS channels
+        self.instrument.write(f":CHANnel{channel}:PROBe {probe_attenuation}")
 
-    def set_horizontal_scale(self, tdiv, x_range):
+    def set_horizontal_scale(self, tdiv=None, x_range=None):
         """
         Sets the timebase in either time/division or in absolute range
         args:
             tdiv (float): The time per division setting
             x_range (float): The absolute time range in seconds
         """
+        if tdiv:
+            self.instrument.write(f":TIMebase:SCALe {tdiv}")
+        if x_range:
+            self.instrument.write(f":TIMebase:RANGe {x_range}")
+
     def set_horizontal_position(self, x_position):
         """ 
         Changes the position (delay) of the timebase
         args:
             x_position (float): The horizontal position in seconds
         """
+        self.instrument.write(f":TIMebase:POSition {x_position}")
 
-    def configure_horizontal(self, tdiv, x_range, x_position):
+    def configure_horizontal(self, tdiv=None, x_range=None, x_position=None):
         """
         Combines into one function calls set_horizontal_scale and set_horizontal_position
         args:
@@ -96,9 +115,10 @@ class Oscilloscope(Measurer):
             x_range (float): The absolute time range in seconds
             x_position (float): The horizontal position in seconds
         """
-        
-
-    #Now we can go to triggering
+        if tdiv or x_range:
+            self.set_horizontal_scale(tdiv=tdiv, x_range=x_range)
+        if x_position:
+            self.set_horizontal_position(x_position)
 
     def set_trigger_source(self, trigger_source):
         """
@@ -106,34 +126,42 @@ class Oscilloscope(Measurer):
         args:
             trigger_source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
         """
+        self.instrument.write(f":TRIGger:EDGE:SOURce {trigger_source}")
+
     def set_trigger_level(self, trigger_level):
         """
         The voltage level the signal must cross to initiate a capture
         args:
             trigger_level (float): The trigger level in volts
         """
+        self.instrument.write(f":TRIGger:EDGE:LEVel {trigger_level}")
+
     def set_trigger_slope(self, trigger_slope):
         """
         Changes the trigger from falling, rising etc
         args:
             trigger_slope (str): The trigger slope, e.g. 'rising', 'falling'
         """
+        self.instrument.write(f":TRIGger:EDGE:SLOPe {trigger_slope}")
 
     def set_trigger_mode(self, trigger_mode):
         """
-        Sets the trigger mode (aka trigger type)
+        Changes the mode from auto, norm, manual, single, etc
         args:
             mode (str): The trigger mode, e.g. 'EDGE"
         """
-
+        self.instrument.write(f":TRIGger:MODE {trigger_mode}")
+    
     def set_trigger_sweep(self, trigger_sweep):
         """
         Changes the trigger sweep settings of the oscilloscope
         args:
             trigger_sweep (str): The trigger sweep mode, e.g. 'auto'
         """
+        self.instrument.write(f":TRIGger:SWEep {trigger_sweep}")
 
-    def configure_trigger(self, trigger_source, trigger_level, trigger_slope, trigger_mode):
+
+    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """
         Combines all the trigger commands into one, calls set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode
         args:
@@ -142,8 +170,14 @@ class Oscilloscope(Measurer):
             trigger_slope (str): The trigger slope, e.g. 'rising', 'falling'
             trigger_mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
         """
-
-    #Time to control acquisition process
+        if trigger_source:
+            self.set_trigger_source(trigger_source)
+        if trigger_level:
+            self.set_trigger_level(trigger_level)
+        if trigger_slope:
+            self.set_trigger_slope(trigger_slope)
+        if trigger_mode:
+            self.set_trigger_mode(trigger_mode)
 
     def toggle_acquisition(self, run=True):
         """
@@ -151,15 +185,22 @@ class Oscilloscope(Measurer):
         args:
             run (bool): True to start acquisition, False to halt it
         """
+        if run:
+            self.instrument.write(":RUN")
+        else:
+            self.instrument.write(":STOP")
+            
     def arm(self):
         """
         Tells the scope to get ready to capture the data for the single shot etc
         """
+        self.instrument.write(":SINGle")
 
     def set_acquisition(self):
         """
         Sets the oscilloscope to capture the data as set up on the configure_acquisition commands to be ready for a transfer
         """
+        self.instrument.write(":DIGitize")
 
     def set_acquisition_channel(self, channel):
         """
@@ -167,13 +208,15 @@ class Oscilloscope(Measurer):
         args:
             channel (int): The desired channel to acquire 
         """
-
+        self.instrument.write(f":WAVeform:SOURce CHANnel{channel}")
+        
     def set_acquisition_mode(self, acquisition_mode):
         """
         Sets the acusition mode on the scope (e.g. normal, average, peak detect etc)
         args:
             acqusition_mode (str): The desired acquisition mode
         """
+        self.instrument.write(f":ACQuire:TYPE {acquisition_mode}")
 
     def set_acquisition_points(self, acquisition_points):
         """
@@ -181,8 +224,9 @@ class Oscilloscope(Measurer):
         args:
             points (int): The number of data points to capture
         """
+        self.instrument.write(f":WAVeform:POINts {acquisition_points}")
 
-    def configure_acquisition(self, channel, acquisition_mode, acquisition_points):
+    def configure_acquisition(self, channel=None, acquisition_mode=None, acquisition_points=None):
         """
         Configures the scope (ideally in binary) to specific parameters such as length (how much data to capture), etc
         args:
@@ -190,8 +234,13 @@ class Oscilloscope(Measurer):
             acquisition_mode (str): The desired acquisition mode (e.g. normal or averaging) 
             acquisition_points (int): The number of data points to capture
         """
-    
-    #Time to get the data out NOTE: We already have from the measurer class the quick_read which technically goes under here
+        if channel:
+            self.set_acquisition_channel(channel)
+        if acquisition_mode:
+            self.set_acquisition_mode(acquisition_mode)
+        if acquisition_points:
+            self.set_acquisition_points(acquisition_points)
+
     def quick_read(self):
         """
         Quick read function that returns the default data in a numpy array. Typically this should be used to get a snapshot of the current waveform (e.g. the current display).
@@ -201,6 +250,10 @@ class Oscilloscope(Measurer):
         Returns:
             data (ndarray): Returns the data in a quick way.
         """
+        self.instrument.write(":WAVeform:FORMat BYTE")
+        self.instrument.write(":WAVeform:POINts:MODE NORMal")
+        data = self.instrument.query_binary_values(":WAVeform:DATA?", datatype='B')
+        return np.array(data)
 
     def get_data(self):
         """
@@ -211,4 +264,17 @@ class Oscilloscope(Measurer):
         Returns:
             data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
-    
+        self.instrument.write(":WAVeform:FORMat WORD")
+        preamble = self.instrument.query(":WAVeform:PREamble?").split(',')
+        x_increment = float(preamble[4])
+        x_origin = float(preamble[5])
+        y_increment = float(preamble[7])
+        y_origin = float(preamble[8])
+        y_reference = float(preamble[9])
+
+        data_bytes = self.instrument.query_binary_values(":WAVeform:DATA?", datatype='h', is_big_endian=True)
+        
+        times = x_origin + np.arange(len(data_bytes)) * x_increment
+        voltages = (np.array(data_bytes) - y_reference) * y_increment + y_origin
+        
+        return pd.DataFrame({'Time': times, 'Voltage': voltages})

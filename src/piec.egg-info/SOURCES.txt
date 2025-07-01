@@ -21,6 +21,7 @@ src/piec/drivers/Arduino/__init__.py
 src/piec/drivers/Arduino/arduino_stepper.py
 src/piec/drivers/Keysight/__init__.py
 src/piec/drivers/Keysight/k_81150a.py
+src/piec/drivers/Keysight/k_dsox3024a.py
 src/piec/drivers/old/__init__.py
 src/piec/drivers/old/arduino.py
 src/piec/drivers/old/instrument.py
