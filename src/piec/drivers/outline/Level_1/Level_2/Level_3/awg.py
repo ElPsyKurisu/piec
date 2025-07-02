@@ -7,7 +7,7 @@ class Awg(Generator):
     # Class attributes for parameter restrictions
     channel = [1]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
-    frequency = {'func': {'SIN': (None, None), 'SQU': (None, None), 'RAMP': (None, None), 'PULS': (None, None), 'NOIS': None, 'DC': None, 'USER': (1, 120e6)}}
+    frequency = {'func': {'SIN': (None, None), 'SQU': (None, None), 'RAMP': (None, None), 'PULS': (None, None), 'NOIS': None, 'DC': None, 'USER': (None, None)}}
     amplitude = (None, None)
     offset = amplitude #typically same as amplitude
     load_impedance = None #substandard
