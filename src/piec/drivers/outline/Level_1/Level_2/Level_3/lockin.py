@@ -7,6 +7,19 @@ from ..generator import Generator
 from ..measurer import Measurer #NOTE Measurer is the main class for lockin
 class Lockin(Measurer, Generator):
     # Initializer / Instance attributes
+    channel = ['1'] 
+    source = None
+    frequency = (None, None) 
+    harmonic = None
+    phase = (None, None) 
+    input_configuration = None
+    input_coupling = ["AC", "DC"]
+    sensitivity = (None, None) 
+    notch_filter = (None, None)
+    time_constant = (None, None)
+    filter_slope = (None, None)
+
+
     """
     All lockins must be able to lockin to a signal and measure it
     """
@@ -15,6 +28,7 @@ class Lockin(Measurer, Generator):
         """
         Sets the reference source for the lockin. Typically this could be internal, external, or a specific channel
         """
+    
     #this is only if the lockin has a reference frequency, some lockins only have a reference source
 
     def set_reference_frequency(self, frequency):
@@ -30,64 +44,65 @@ class Lockin(Measurer, Generator):
         Sets the phase for the lockin
         """
     #signal input channel setup
-    def set_input_configuration(self, channel, configuration):
+    def set_input_configuration(self, configuration):
         """
         Sets the input configuration for the lockin (single ended, differential, etc.)
         """
-    def set_input_coupling(self, channel, coupling):
+    def set_input_coupling(self, coupling):
         """
         Sets the input coupling for the lockin (AC, DC, etc.)
         """
-    def set_sensitivity(self, channel, sensitivity):
+    def set_sensitivity(self, sensitivity):
         """
         Sets the sensitivity for the lockin (volts, amps, etc.)
         """
-    def set_notch_filter(self, channel, notch_filter):
+    def set_notch_filter(self, notch_filter):
         """
         Sets the notch filter for the lockin (if available)
         """
     #demodulation and low-pass filter setup
-    def set_time_constant(self, channel, time_constant):
+    def set_time_constant(self, time_constant):
         """
         Sets the time constant for the lockin defines the cutoff frequency of the low-pass filter
         """
-    def set_filter_slope(self, channel, slope):
+    def set_filter_slope(self, filter_slope):
         """
-        Sets the filter slope for the lockin (e.g., 6 dB/octave, 12 dB/octave)
+        Sets the filter slope for the lockin. Usually in dB/octave or dB/decade
         """
     #data acquisition and output
     def quick_read(self):
         """
         Quick read function that returns the default data (X and Y typically)
         """
-    def read_data(self, channel):
+
+    def read_data(self):
         """
-        Reads the data from the specified channel, For a lockin this is typically X, Y, R and Theta
+        Reads the data from the lockin, For a lockin this is typically X, Y, R and Theta
         """
-    def read_X(self, channel):
+    def read_X(self):
         """
-        Reads the X data from the specified channel
+        Reads the X data 
         """
-    def read_Y(self, channel):
+    def read_Y(self):
         """
-        Reads the Y data from the specified channel
+        Reads the Y data
         """
-    def read_R(self, channel):
+    def read_R(self):
         """
-        Reads the R data from the specified channel
+        Reads the R data
         """
-    def read_theta(self, channel):
+    def read_theta(self):
         """
-        Reads the Theta (phase) data from the specified channel
+        Reads the Theta (phase)
         """
     #auto commands
-    def auto_gain(self, channel):
+    def auto_gain(self):
         """
-        Automatically sets the gain (sensitivity) for the specified channel based on the input signal
+        Automatically sets the gain (sensitivity) based on the input signal
         """
-    def auto_phase(self, channel):
+    def auto_phase(self):
         """
-        Automatically sets the phase for the specified channel based on the input signal
+        Automatically sets the phase based on the input signal
         """
     
     
