@@ -25,8 +25,8 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
     polarity = np.sign(p_u_amp) #palarity of the waveform
 
     # add on time-dependent processed arrays
-    processed_df['current (A)'] = processed_df['voltage (V)']/50/area*100 # 50Ohm conversion, area correction, C/m^2 to uC/cm^2
-    processed_df['polarization (uC/cm^2)'] = cumulative_trapezoid(processed_df['current (A)'], processed_df['time (s)'], initial=0)
+    processed_df['current (A)'] = processed_df['voltage (V)']/50 # 50Ohm conversion, area correction, C/m^2 to uC/cm^2
+    processed_df['polarization (uC/cm^2)'] = cumulative_trapezoid(processed_df['current (A)'], processed_df['time (s)'], initial=0)/area*100
 
     N_t0 = np.searchsorted(processed_df['time (s)'].values, time_offset) # manual t0 specification
 
