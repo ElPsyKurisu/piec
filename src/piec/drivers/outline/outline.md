@@ -250,3 +250,100 @@ logic to call the function as well as the expected output. The technician will b
 ...
 
 Basically the job of this notebook is to walk the technician through testing to make sure the driver works. Make it as thorough as need be. And remember that the technician is running the cells sequentially from top to bottom, so a .reset() call may be in order between cells
+
+
+
+AI Prompt V4:
+class_name = ________
+parent_classes = ______
+attached_files = ______
+
+You are tasked with creating an instrument specific python driver for the package piec according to the following syntax. Inside the piec package (which is attached) please note that under the drivers subpackage there exists an outline split into 4 Levels. Read and understand the outline.md file to get the gist of how the package should operate. We are operating in the Level_4 regime in this symbolic representation. Please check existing drivers for the import syntax from the outline (e.g.) piec.drivers.Keysight k_81150a.py to import the relevant parent classes. (e.g. if we wish to import the awg from the outline we would write from ..outline.Level_1.Level_2.Level_3.awg import Awg) Our driver has two main parts and the workflow should go as follows:
+
+Part 1: For the given parent classes (except for the special case of level 1 classes e.g. scpi), our job is to overwrite all functions listed in the class (make sure to follow the function explicitly). For information how to actually complete the role of the function look for the given manual in the attached files. We do not want to use ANY text comments using # and instead should rely on a robust docstring in the given psuedo_code:
+
+def function(self, arg1, arg2, arg3):
+    """
+    This function does something (brief general description)
+    args:
+        arg1 (argtype): Description
+        arg2 (argtype): Description
+        arg3 (argtype): Description
+    returns
+        something (return type) Description
+
+In order to get the functionality requested in the docstring of the parent class USE the manual and ensure that the given command comes from the given manual. When possible match the patterns in the given example code from the manual. The syntax for command names is given by the parent class but assume a set_something command does a single action and a configure_something command calls multiple set_something commands. A get_something (or read_something) command returns data. For all configure_something commands ensure all non-essential args are intiliazed to None (see example code in parent class). General writing guidelines for the functions is to again limit the use of text # comments and focus on the docstring given in the parent class and ensure what is asked there is implemented. If in the case an argument described in the parent class is not supported by the child instrument raise an error. Otherwise do not implement error handling for range checking etc (this will be done later at a global level).
+Note, do NOT use \"{}\" for inputting an argument, assume the strings are implied in python
+
+Part 2:
+After we have successfully filled out the parent classes for our specific instrument we now focus on the class attributes we want to add to our instrument. Note the class attributes instantiated in the parent class. At minimum we want to fill out the the same class attributes as the parent class. We want to parse the manual and understand the limitations of our instrument and write them into the class attributes. We want to write class attributes for every argument passed in to the functions we wrote with the exception of arguments that take booleon values. Follow this syntax:
+1. If the argument takes a limited number of values (e.g. channel) we write this in a list of the argtype (e.g. channel = [1,2])
+2. If the argument takes a range of values (e.g voltage) we write this as a tuple of the appropiate type (e.g. amplitude = (0,5))
+3. If the argument depends on another argument (e.g. frequency in the case of an AWG) we write this as a dictionary of the nested appropiate types (e.g. point 1 and 2 above) As an example if an awg has different frequency ranges for different waveforms (the argument frequency depends on the argument waveform) we write it as follows:
+frequency = {'waveform': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+where the key of the dictionary is the argument this argument depends on.
+THIS IS VERY IMPORTANT: All class attributes should have the same name as the arg it refers too!
+When parsing the manual to understand what ranges to choose make sure we take the explicit values they give us associated with the command and not some calculation we make.
+
+As a final check ensure that any write/query/read commands passed to the instrument come from the given manual (if a manual is given)
+and prioritize example code over written descriptions if possible.
+
+
+PART III:
+You will notice in the parent class that are some class attributes, we need to make sure that the the class you made takes at minimum the valid arguments listed in the parent class. As an example, assume a parent class called parent has this attribute:
+
+attributte = ["arg1", "arg2"]
+
+Let's assume the child class from the manual lists that attributte can take more than just the attributtes listed. We should keep the args in the attribute but can add the extra ones afterwards, so we are left with
+attributte = ["arg1", "arg2", "new_arg1", "new_arg2"]
+
+Next step is the more difficult one. Let us say the parent class wants the argument "arg1" to be valid, but in our instrument manual the command to be passed through to the instrument is actually "different_arg1" that does the intended result of "arg1" in the parent class, we need to ensure that our instrument class method takes "arg1", but it gets translated to the correct argument to be passed to the instrument (e.g. self.instrument.write("different_arg1")) when given "arg1".
+
+
+SECONDARY AI PROMPT (Given to a second AI to check the work of the first)
+Given the following driver for an instrument and the given instrument files (manual) check the driver and make note of any discrepencies between the class attributes and the instrument parameters outlined in the manual. Our drivers class attributes are written in such a way that the attribute name MUST match exactly with the name of the argument in one of the driver functions.
+
+1. Ensure all class attributes have the same name as an argument in one of the class methods
+2. Ensure the class attribute values match what is in the given instrument manual
+3. The given syntax is as follows:
+Follow this syntax:
+1. If the argument takes a limited number of values (e.g. channel) we write this in a list of the argtype (e.g. channel = [1,2])
+2. If the argument takes a range of values (e.g voltage) we write this as a tuple of the appropiate type (e.g. amplitude = (0,5))
+3. If the argument depends on another argument (e.g. frequency in the case of an AWG) we write this as a dictionary of the nested appropiate types (e.g. point 1 and 2 above) As an example if an awg has different frequency ranges for different waveforms (the argument frequency depends on the argument waveform) we write it as follows:
+frequency = {'waveform': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+
+If there are any discrepencies, and you can find the answer in the manual, make a list of the suggested changes and return what you would want to change, showing the old code, the new code, and the place in the manual you found the discrepancy. Otherwise, if no changes are necessary state that.
+
+
+TERTIARY AI PROMPT:
+Your job is to check the given driver's methods and ensure that ALL commands given to the instrument are valid based on the manual. E.g. go through each command and understand the command sent to the instrument and make sure it matches a valid command (with the correct syntax) from the manual. When looking at the manual prioritize example code to understand what is the correct command to send for the desired functionality. Furthermore, check the parent class and ensure that ALL parent class methods are overwritten correctly and no new extraneous class have been added. For every discrepency you find make a note of it and return what you would want to change, showing the old code, the new code, and the place in the manual where you found the discrepency. Otherwise, if no changes are necessary state that.
+
+QUATERNARY AI PROMPT:
+Your job is to check if the given arguments in the class attributes are valid commands when inputted in the class methods. As an example say I have a class attribute for attribbute1 = [arg1, arg2] and inside a class method I write self.instrument.write(f"Command{arg1}") but according to the manual it is not a valid command string, then try to figure out where the issue is and make a note of what you would change, showing the old code, the new code, and the place in the manual where you found the discrepency.
+
+QUINARY AI PROMPT:
+Your job is to look at the previous prompts, and implement them if told to do them. Understand the message below dictating what to implement or not based on the previous responses:
+____
+
+SENARY AI PROMPT:
+Your job is to look at the completed driver and create a testing jupyter notebook. In the starting cell try to connect to the instrument using the piec formulation:
+from piec.drivers.manufacturer.instrument import Instrument 
+from piec.drivers.utilities import PiecManager
+
+pm = PiecManager()
+pm.list_resources()
+
+#new cell
+test_instrument = Instrument("Address") #leave this as is and the technician will run the cell and figure out the address is
+
+#new cell
+Start with a .idn() call to ensure we have the correct instrument
+
+#new cell
+logic to call the function as well as the expected output. The technician will be able to determine if it matches or not
+
+...
+
+Basically the job of this notebook is to walk the technician through testing to make sure the driver works. Make it as thorough as need be. And remember that the technician is running the cells sequentially from top to bottom, so a .reset() call may be in order between cells
