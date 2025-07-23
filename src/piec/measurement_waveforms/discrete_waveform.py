@@ -274,7 +274,7 @@ class HysteresisLoop(DiscreteWaveform):
         """
         interp_v_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
-        n_points = self.awg.arb_data_length[1] # Use new attribute for max points
+        n_points = self.awg.arb_data_length[1] # Use attribute for max points
         dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=n_points)
         
         # Scale normalized data to AWG's DAC values (0-16383)
