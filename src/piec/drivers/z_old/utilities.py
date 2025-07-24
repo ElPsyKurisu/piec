@@ -12,7 +12,7 @@ except FileNotFoundError:
 class PiecManager():
     """
     Basically Resource Manager that melds MCC digilent stuff into it
-    Alllows to get all resources
+    Allows to get all resources
     """
     def __init__(self):
         self.rm = ResourceManager()
