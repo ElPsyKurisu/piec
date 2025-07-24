@@ -21,6 +21,7 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
     y_position = (-40.0, 40.0)
     input_coupling = ["AC", "DC"]
     probe_attenuation = (0.001, 10000.0)
+    channel_impedance = ["50", "1M"]
     tdiv = (0.000000002, 50.0)
     x_range = (0.00000002, 500.0)
     x_position = (-500.0, 500.0)
