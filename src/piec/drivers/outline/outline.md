@@ -347,3 +347,20 @@ logic to call the function as well as the expected output. The technician will b
 ...
 
 Basically the job of this notebook is to walk the technician through testing to make sure the driver works. Make it as thorough as need be. And remember that the technician is running the cells sequentially from top to bottom, so a .reset() call may be in order between cells
+
+#This assumes a new method, where we do not attach the repo and only the parent class, so will need some python script to do it for us
+#it should also make the template to hold the data. Aka need to make file called generate template
+AI Prompt V5:
+class_name = ________
+parent_classes = ______
+attached_files = ______
+
+You are tasked with creating a driver based on the outline given as well as the manual attached. Your job is ONLY to fill out the driver classes and rename the appropiate parts. Based on the given .py file; first fill out the class attributes with regards to the manual. The syntax for class attributes is as follows:
+Follow this syntax:
+1. If the argument takes a limited number of values (e.g. channel) we write this in a list of the argtype (e.g. channel = [1,2])
+2. If the argument takes a range of values (e.g voltage) we write this as a tuple of the appropiate type (e.g. amplitude = (0,5))
+3. If the argument depends on another argument (e.g. frequency in the case of an AWG) we write this as a dictionary of the nested appropiate types (e.g. point 1 and 2 above) As an example if an awg has different frequency ranges for different waveforms (the argument frequency depends on the argument waveform) we write it as follows:
+frequency = {'waveform': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+
+Please note that the given outline for the driver (the .py file) already may have some 

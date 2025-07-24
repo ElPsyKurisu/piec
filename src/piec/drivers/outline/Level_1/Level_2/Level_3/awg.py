@@ -23,6 +23,7 @@ class Awg(Generator):
     trigger_slope = ['POS', 'NEG', 'EITH'] #[POS (positive), NEG (negative), EITH (either)]
     trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
     slew_rate = None #useful information about the instrument, but need not be implemented
+    arb_data_range = (None, None) #range of data points for arbitrary waveform generation
 
 
     """
