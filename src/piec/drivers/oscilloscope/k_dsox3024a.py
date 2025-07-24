@@ -95,7 +95,8 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
             channel (int): The channel to set the impedance on
             channel_impedance (str): The impedance setting, e.g. '1M', '50'
         """
-        self.instrument.write("CHAN{}:IMP {}".format(channel, channel_impedance))
+        IMPEDANCE_MAP = {'50': 'FIFT','1M': 'ONEM'}
+        self.instrument.write("CHAN{}:IMP {}".format(channel, IMPEDANCE_MAP[channel_impedance]))
 
     def set_horizontal_scale(self, tdiv=None, x_range=None):
         """
