@@ -1,9 +1,9 @@
 """
 An awg (arbitrary waveform generator) is defined as an instrument that has the typical features on expects an awg to have
 """
-from ..generator import Generator
+from ..instrument import Instrument
 
-class Awg(Generator):
+class Awg(Instrument):
     # Class attributes for parameter restrictions
     channel = [1]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']

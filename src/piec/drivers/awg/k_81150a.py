@@ -4,10 +4,6 @@ This class implements the specific functionalities for the 81150A model,
 inheriting from generic Awg and Scpi classes.
 """
 
-# Imports assuming standard PIEC file structure:
-# 81150a.py in .../Level_4/Keysight/
-# awg.py in .../Level_3/
-# scpi.py in .../Level_1/
 import numpy as np
 from .awg import Awg
 from ..scpi import Scpi

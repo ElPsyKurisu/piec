@@ -3,8 +3,8 @@ This is an outline for what the osc.py file should be like.
 
 A osc (oscilloscope) is defined as an instrument that has the typical features on expects an oscilloscope to have
 """
-from ..measurer import Measurer
-class Oscilloscope(Measurer):
+from ..instrument import Instrument
+class Oscilloscope(Instrument):
     # Initializer / Instance attributes
     """
     All oscilloscopes must be able to read some data and give it to the computer
@@ -26,6 +26,11 @@ class Oscilloscope(Measurer):
     acquisition_mode = ["NORM"]
     acquisition_points = (None, None)
 
+    def quick_read(self):
+        """
+        All oscilloscopes must be able to read something, so therefore we need a method to read the data. It would be very beneficial to
+        ensure that all Measurers have a utility command that quickly reads out the data that is displayed (or the current value etc)
+        """
 
     #These functions make the signal visible and are used on a per channel basis (aka channel dependant)
     def autoscale(self):
