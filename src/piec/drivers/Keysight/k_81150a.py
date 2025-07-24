@@ -37,6 +37,8 @@ class Keysight81150a(Awg, Scpi):
     trigger_source = ['IMM', "INT", "EXT", "MAN"] #[IMM (immediate), INT (internal), EXT (external), MAN (software trigger)]
     trigger_slope = ['POS', 'NEG', 'EITH'] #[POS (positive), NEG (negative), EITH (either)]
     trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
+    slew_rate = 1.0e9
+    arb_data_range = (2, 524288)
     #Parent class methods
 
     def __init__(self, address):

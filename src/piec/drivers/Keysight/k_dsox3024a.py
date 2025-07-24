@@ -86,6 +86,15 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
             probe_attenuation (int): The probe attenuation factor, e.g. 1 for 1x, 10 for 10x
         """
         self.instrument.write(f":CHANnel{channel}:PROBe {probe_attenuation}")
+    
+    def set_channel_impedance(self, channel, channel_impedance):
+        """
+        Sets the channel impedance, e.g. 1MOhm, 50Ohm
+        args:
+            channel (int): The channel to set the impedance on
+            channel_impedance (str): The impedance setting, e.g. '1M', '50'
+        """
+        self.instrument.write("CHAN{}:IMP {}".format(channel, channel_impedance))
 
     def set_horizontal_scale(self, tdiv=None, x_range=None):
         """

@@ -15,6 +15,7 @@ class Oscilloscope(Measurer):
     y_position = (None, None)
     input_coupling = ["AC", "DC"]
     probe_attenuation = (None, None)
+    channel_impedance = ["50"]
     tdiv = (None, None)
     x_range = (None, None)
     x_position = (None, None)
@@ -72,6 +73,15 @@ class Oscilloscope(Measurer):
             channel (int): The channel to set the probe attenuation on
             probe_attenuation (int): The probe attenuation factor, e.g. 1 for 1x, 10 for 10x
         """
+    
+    def set_channel_impedance(self, channel, channel_impedance):
+        """
+        Sets the channel impedance, e.g. 1MOhm, 50Ohm
+        args:
+            channel (int): The channel to set the impedance on
+            channel_impedance (str): The impedance setting, e.g. '1M', '50'
+        """
+
     #Now we move too setting the time_window which is shared ACROSS channels
 
     def set_horizontal_scale(self, tdiv, x_range):
