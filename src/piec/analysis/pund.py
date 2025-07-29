@@ -83,15 +83,12 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
     times = [0, reset_width, reset_delay, p_u_width, p_u_delay, p_u_width, p_u_delay,]
     sum_times = [sum(times[:i+1]) for i, t in enumerate(times)]
     # calculate full amplitude of pulse profile and fractional amps of pulses
-    amplitude = abs(reset_amp) + abs(p_u_amp)
-    frac_reset_amp = reset_amp/amplitude
-    frac_p_u_amp = p_u_amp/amplitude
 
     # specify sparse t and v coordinates which define PUND pulse train
     sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],
                             sum_times[4], sum_times[4], sum_times[5], sum_times[5], sum_times[6],])
-    sparse_v = np.array([-frac_reset_amp, -frac_reset_amp, 0, 0, frac_p_u_amp, frac_p_u_amp, 0, 0,
-                            frac_p_u_amp, frac_p_u_amp, 0, 0,]) * polarity
+    sparse_v = np.array([-reset_amp, -reset_amp, 0, 0, p_u_amp, p_u_amp, 0, 0,
+                            p_u_amp, p_u_amp, 0, 0,]) * polarity
     
     n_points = int(length/timestep) # n points to use is max
 
