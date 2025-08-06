@@ -87,12 +87,14 @@ class DiscreteWaveform:
         """
         Configure basic AWG settings for waveform generation.
         
-        Sets up impedance matching (50Ω), and manual triggering.
+        Sets up impedance matching (50Ω), and bus triggering.
         Should be called before any waveform-specific configuration.
         """
-        self.awg.initialize()
-        self.awg.configure_impedance(channel='1', source_impedance='50', load_impedance='50')
-        self.awg.configure_trigger(channel='1', trigger_source='MAN')
+        # Removed self.awg.initialize() - Handled by base class
+        self.awg.set_source_impedance(channel=int(self.voltage_channel), source_impedance=50)
+        self.awg.set_load_impedance(channel=int(self.voltage_channel), load_impedance=50)
+        # Set trigger to BUS to allow software triggering via *TRG
+        self.awg.set_trigger_source(channel=int(self.voltage_channel), source='BUS')
 
     def configure_oscilloscope(self, channel = 1):
         """
@@ -104,11 +106,15 @@ class DiscreteWaveform:
         Args:
             :channel: Oscilloscope channel to configure (default 1)
         """
-        self.osc.initialize()
-        self.osc.configure_timebase(time_base_type='MAIN', time_reference='CENTer', time_scale=f'{self.length/8}', position=f'{5*(self.length/10)}') #this should be made general
-        self.osc.configure_channel(channel=f'{channel}', voltage_scale=f'{self.v_div}', impedance='FIFT')#set both to 50ohm
-        self.osc.configure_trigger_characteristics(trigger_source='EXT', trigger_low_level='0.75', trigger_high_level='0.95', trigger_sweep='NORM')
-        self.osc.configure_trigger_edge(trigger_source='EXT', trigger_input_coupling='DC')
+        # Removed self.osc.initialize() - Handled by base class
+        self.osc.configure_horizontal(tdiv=self.length/8, x_position=5*(self.length/10))
+        # NOTE: Impedance setting ('FIFT') is not available in the new driver and has been removed.
+        # Please set the 50 Ohm impedance manually on the oscilloscope.
+        self.osc.set_vertical_scale(channel=channel, vdiv=float(self.v_div))
+        self.osc.set_trigger_source(trigger_source='EXT')
+        self.osc.set_trigger_level(trigger_level=0.95) # Using the old high_level value
+        self.osc.set_trigger_sweep(trigger_sweep='NORM')
+        # configure_trigger_edge call removed as functionality is now in the calls above.
 
     def configure_awg(self):
         """
@@ -126,14 +132,20 @@ class DiscreteWaveform:
         Coordinates instrument triggering, captures time-voltage data from oscilloscope,
         and stores results in self.data attribute (pandas DataFrame object). Includes instrument synchronization.
         """
-        print(f"Capturing waveform of type {self.mtype} for {self.length} seconds...")  # Wait for the oscilloscope to capture the waveform
-        self.osc.initiate()
-        self.awg.output_enable('1')
-        self.awg.send_software_trigger()
-        self.osc.operation_complete_query()
-        self.osc.setup_wf(source='CHAN1')
-        _, trace_t, trace_v  = self.osc.query_wf()#change
-        self.data = pd.DataFrame({"time (s)":trace_t, "voltage (V)": trace_v}) # Retrieve the data from the oscilloscope
+        print(f"Capturing waveform of type {self.mtype} for {self.length} seconds...")
+        self.osc.arm()
+        self.awg.output(channel=int(self.voltage_channel), on=True)
+        self.awg.instrument.write('*TRG') # New driver lacks a direct method, send SCPI command
+        
+        # New driver lacks a blocking operation complete query.
+        # Wait for a duration slightly longer than the waveform to ensure capture.
+        time.sleep(self.length * 1.2)
+        
+        self.osc.set_acquisition_channel(channel=1) # Setup waveform source
+        
+        # New driver returns a structured DataFrame
+        df = self.osc.get_data()
+        self.data = pd.DataFrame({"time (s)": df['Time'], "voltage (V)": df['Voltage']}) # Store data
         print("Waveform captured.")
 
     def save_waveform(self):
@@ -259,24 +271,29 @@ class HysteresisLoop(DiscreteWaveform):
         Generate AWG triangle waveform for hysteresis measurement.
         
         Creates multi-cycle bipolar triangle wave with specified parameters.
-        Automatically checks against AWG slew rate limitations.
         """
-        # Set the AWG to generate a triangle wave
         interp_v_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
-        n_points = self.awg.arb_wf_points_range[1]
+        n_points = self.awg.arb_data_length[1] # Use attribute for max points
         dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=n_points)
+        
+        # Scale normalized data to AWG's DAC values (0-16383)
+        min_dac, max_dac = self.awg.arb_dac_value
+        scaled_dense = [int((val + 1) / 2 * (max_dac - min_dac) + min_dac) for val in dense]
 
-        # Check if we are going too fast for the awg
-        for v in dense:
-            if (v*self.amplitude)/(self.frequency/len(dense)) > self.awg.slew_rate:
-                print('WARNING: DEFINED WAVEFORM IS FASTER THAN AWG SLEW RATE')
-                break
-
-        invert = self.amplitude < 0 # Check if we want opposite polarity
-
-        self.awg.create_arb_wf(dense)
-        self.awg.configure_wf(self.voltage_channel, 'USER', voltage=f'{abs(self.amplitude)*2}', offset=f'{self.offset}', frequency=f'{self.frequency}', invert=invert) 
+        # Create the arbitrary waveform in the AWG's volatile memory
+        self.awg.create_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE", data=scaled_dense)
+        
+        # Configure the AWG output using the specific methods
+        invert = self.amplitude < 0
+        polarity = "INV" if invert else "NORM"
+        
+        self.awg.set_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE")
+        # Vpp = amplitude*2
+        self.awg.set_amplitude(channel=int(self.voltage_channel), amplitude=abs(self.amplitude) * 2)
+        self.awg.set_offset(channel=int(self.voltage_channel), offset=self.offset)
+        self.awg.set_frequency(channel=int(self.voltage_channel), frequency=self.frequency)
+        self.awg.set_polarity(channel=int(self.voltage_channel), polarity=polarity)
 
 class ThreePulsePund(DiscreteWaveform):
     """
@@ -354,38 +371,42 @@ class ThreePulsePund(DiscreteWaveform):
         Generate PUND pulse waveform for AWG output.
         
         Constructs pulse sequence with specified amplitudes and timing.
-        Automatically scales pulses to AWG voltage range and handles
-        polarity inversion when needed.
+        Automatically scales pulses to AWG voltage range.
         """
         # calculate time steps for voltage trace
         times = [0, self.reset_width, self.reset_delay, self.p_u_width, self.p_u_delay, self.p_u_width, self.p_u_delay,]
         sum_times = [sum(times[:i+1]) for i, t in enumerate(times)]
-        # calculate full amplitude of pulse profile and fractional amps of pulses
+        # calculate full amplitude of pulse profile (Vpp)
         amplitude = abs(self.reset_amp) + abs(self.p_u_amp)
-        frac_reset_amp = self.reset_amp/amplitude
-        frac_p_u_amp = self.p_u_amp/amplitude
         
         polarity = np.sign(self.p_u_amp)
 
         # specify sparse t and v coordinates which define PUND pulse train
+        # The fractional amplitudes are calculated within interpolate_sparse_to_dense if needed,
+        # but here we build the final shape before scaling to DAC values.
+        frac_reset_amp = self.reset_amp/amplitude
+        frac_p_u_amp = self.p_u_amp/amplitude
+
         sparse_t = np.array([sum_times[0], sum_times[1], sum_times[1], sum_times[2], sum_times[2], sum_times[3], sum_times[3],
                                 sum_times[4], sum_times[4], sum_times[5], sum_times[5], sum_times[6],])
         sparse_v = np.array([-abs(frac_reset_amp), -abs(frac_reset_amp), 0, 0, abs(frac_p_u_amp), abs(frac_p_u_amp), 0, 0,
                              abs(frac_p_u_amp), abs(frac_p_u_amp), 0, 0,]) * polarity
         
-        n_points = self.awg.arb_wf_points_range[1] # n points to use is max
+        n_points = self.awg.arb_data_length[1] # n points to use is max
 
-        # densify the array, rise/fall times of pulses will be equal to the awg resolution
+        # densify the array
         dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=n_points)
+        
+        # Scale normalized data to AWG's DAC values (0-16383)
+        min_dac, max_dac = self.awg.arb_dac_value
+        scaled_dense_v = [int((val + 1) / 2 * (max_dac - min_dac) + min_dac) for val in dense_v]
+
         # write to awg
-        self.awg.create_arb_wf(dense_v)
-        self.awg.configure_wf(self.voltage_channel, 'USER', offset=f'{self.offset}', voltage=f'{abs(amplitude)}', frequency=f'{1/self.length}')
+        self.awg.create_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE", data=scaled_dense_v)
+        
+        # Configure the AWG output using the specific methods
+        self.awg.set_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE")
+        self.awg.set_offset(channel=int(self.voltage_channel), offset=self.offset)
+        self.awg.set_amplitude(channel=int(self.voltage_channel), amplitude=abs(amplitude))
+        self.awg.set_frequency(channel=int(self.voltage_channel), frequency=1/self.length)
         print("AWG configured for a PUND pulse.")
-
-    
-
-# Example usage:
-# experiment = HysteresisLoop(keysight81150a("GPIB::10::INSTR"), keysightdsox3024a("GPIB::1::INSTR"))
-# experiment.run_experiment(save_path="pad1_hysteresis_data.csv")
-# NOTE Docstrings written with help from DeepSeekR1 LLM
-
