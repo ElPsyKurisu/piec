@@ -1,77 +1,132 @@
+"""
+Ferroelectric Material Simulation Module
+
+This module provides classes for simulating various materials including resistors,
+dielectrics, and ferroelectrics. It implements Landau-Devonshire theory for 
+ferroelectric hysteresis and includes parasitic effects like leakage current.
+
+Classes:
+    Material: Base class for all materials
+    Resistor: Simulates ohmic resistance
+    Dielectric: Simulates linear dielectric response
+    Ferroelectric: Simulates ferroelectric behavior with hysteresis
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import fsolve # For solving the polynomial equation
-
-"""
-The purpose of this script is to create a material that can simulate whatever we want in a FE material. Goal is to be able to have a realistic FE material
-that combines resistor, with dielectric with fe
-
-ASSUMES: You pass in a V(t) you wanna apply, lets assume its 2 numpy arrays for now one is v other is t each of the same length
-
-NOTE: Does it make sense to give it an I(t) or a V(t)? on the awg we do V(t) but for resistor than you just get a flat line
-"""
+from scipy.optimize import fsolve
 
 class Material:
     """
-    This material is the parent class that literally does nothing but passes the trace through it
+    Base class for all material simulations.
+    
+    Provides a pass-through implementation that returns input unchanged.
+    Serves as parent class for specific material implementations.
     """
     def __init__(self):
+        """Initialize base material."""
         self.name = "pass_through"
 
-    def voltage_response(self, v,t):
+    def voltage_response(self, v, t):
         """
-        Returns the voltage and time arrays back
-        NOTE: do we even need the t array? ima say yes since we can use the dielectric equation etc.
+        Calculate voltage response for applied waveform.
         
-        args:
-            v (ndarray): voltage array of the applied waveform
-            t (ndarray): time array of the applied waveform
+        Args:
+            v (ndarray): Voltage waveform array
+            t (ndarray): Time points array
+            
+        Returns:
+            tuple: (voltage_response, time_array)
         """
-        return v,t
+        return v, t
 
 class Resistor(Material):
     """
-    This class simulates a resistor and be default it has 1kohm. units is in SI units
+    Simulates an ideal ohmic resistor.
+    
+    Implements V=IR relationship for linear current response.
     """
     def __init__(self, resistance=1e3):
+        """
+        Initialize resistor with given resistance.
+        
+        Args:
+            resistance (float): Resistance in ohms, defaults to 1kΩ
+        """
         self.resistance = resistance
         self.name = "resistor"
     
     def voltage_response(self, v, t):
         """
-        Returns a linear response
-        NOTE: do we even need the t array? ima say yes since we can use the dielectric equation etc.
+        Calculate current through resistor using Ohm's law.
         
-        args:
-            v (ndarray): voltage array of the applied waveform
-            t (ndarray): time array of the applied waveform
-        """ 
+        Args:
+            v (ndarray): Applied voltage array
+            t (ndarray): Time points array
+            
+        Returns:
+            tuple: (current_response, time_array) where current = V/R
+        """
         return v/self.resistance, t
 
 class Dielectric(Material):
     """
-    This class simulates a pure dielectric and by default the permittivity is 1epislon_0
+    Simulates an ideal linear dielectric material.
+    
+    Models displacement current response based on permittivity.
     """
     def __init__(self, permittivity=8.85e-12):
+        """
+        Initialize dielectric with given permittivity.
+        
+        Args:
+            permittivity (float): Material permittivity in F/m, defaults to ε₀
+        """
         self.permittivity = permittivity
         self.name = "dielectric"
 
-    def voltage_response(self, v, t):
-        """
-        Returns a dielectric response
-        """
-
 class Ferroelectric(Material):
     """
-    This class simulates a ferroelectric material and by default the permittivity is 1epsilon_0
+    Simulates a ferroelectric material using Landau-Devonshire theory.
+    
+    Includes:
+    - Hysteresis loop calculation
+    - Temperature dependence
+    - Strain effects
+    - Parasitic effects (leakage, linear dielectric)
+    
+    Attributes:
+        material_dict (dict): Material parameters including:
+            - ferroelectric: Properties of ferroelectric layer
+            - substrate: Properties of substrate
+            - electrode: Properties of electrodes
+        temperature (float): Operating temperature in Kelvin
+        name (str): Material identifier
     """
-    def __init__(self, material_dict, temperature = 300):
+    
+    def __init__(self, material_dict, temperature=300):
+        """
+        Initialize ferroelectric material simulation.
+        
+        Args:
+            material_dict (dict): Material parameters dictionary
+            temperature (float): Temperature in Kelvin, defaults to 300K
+        """
         self.name = None
         self.material_dict = material_dict
         self.temperature = temperature
-
     
     def run_landau_hysteresis_simulation(self, V_applied_path, temperature=300):
+        """
+        Calculate ferroelectric hysteresis using Landau-Devonshire theory.
+        
+        Args:
+            V_applied_path (ndarray): Applied voltage waveform
+            temperature (float): Temperature in Kelvin
+            
+        Returns:
+            ndarray: Polarization response array
+        """
         # This function is the same as the previous response that traces the loop.
         # It calculates and returns V_applied_path and P_loop (the ideal ferroelectric loop).
         fe = self.material_dict['ferroelectric']
@@ -118,7 +173,18 @@ class Ferroelectric(Material):
 
     def add_parasitic_effects(self, V_applied_path, P_ideal_loop):
         """
-        Adds both linear dielectric and ohmic leakage effects to an ideal P-V loop.
+        Add realistic non-ideal effects to hysteresis loop.
+        
+        Includes:
+        - Linear dielectric contribution (loop tilt)
+        - Leakage current (loop rounding)
+        
+        Args:
+            V_applied_path (ndarray): Applied voltage waveform
+            P_ideal_loop (ndarray): Ideal polarization response
+            
+        Returns:
+            tuple: (total_polarization, parasitic_only_polarization)
         """
         EPSILON_0 = 8.854e-12 # F/m, vacuum permittivity 
         epsilon_r = self.material_dict['ferroelectric']['epsilon_r']
@@ -145,11 +211,14 @@ class Ferroelectric(Material):
    
     def apply_waveform(self, v, t):
         """
-        Applies a voltage waveform to the ferroelectric material and returns the response.
+        Apply voltage waveform and calculate complete material response.
         
-        args:
-            v (ndarray): voltage array of the applied waveform
-            t (ndarray): time array of the applied waveform
+        Combines ideal hysteresis with parasitic effects to generate
+        realistic voltage response measured across series resistor.
+        
+        Args:
+            v (ndarray): Voltage waveform array
+            t (ndarray): Time points array
         """
         
         self.t = t
@@ -171,8 +240,14 @@ class Ferroelectric(Material):
         
 
     def get_voltage_response(self):
-        return self.output_voltage, self.t #multiply current by 50 ohm to get voltage response,
+        """
+        Get the calculated voltage response.
         
+        Returns:
+            tuple: (voltage_response, time_array)
+        """
+        return self.output_voltage, self.t #multiply current by 50 ohm to get voltage response,
+
 
 
 

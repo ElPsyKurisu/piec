@@ -1,3 +1,10 @@
+"""
+Virtual Arbitrary Waveform Generator (AWG) Module
+
+This module provides a virtual implementation of the Keysight 81150A AWG for simulation and testing purposes.
+It mimics the behavior of a physical AWG by maintaining internal state and generating synthetic waveforms.
+"""
+
 import numpy as np
 
 from ..virtual_instrument import VirtualInstrument
@@ -8,7 +15,24 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
     """
     Virtual version of the Keysight81150a AWG for simulation/testing.
     Stores state internally and generates synthetic output.
+
+    Attributes:
+        channel (list): Available output channels [1, 2]
+        waveform (list): Supported waveform types ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+        amplitude (tuple): Output amplitude range in volts (min, max)
+        offset (tuple): DC offset range in volts (min, max)
+        polarity (list): Output polarity modes ['NORM', 'INV']
+        duty_cycle (tuple): Duty cycle range in percent (min, max)
+        symmetry (tuple): Ramp symmetry range in percent (min, max)
+        pulse_width (tuple): Pulse width range in seconds (min, max)
+        pulse_delay (tuple): Pulse delay range in seconds (min, max)
+        trigger_source (list): Available trigger sources ['IMM', 'INT', 'EXT', 'MAN']
+        trigger_slope (list): Trigger slope options ['POS', 'NEG', 'EITH']
+        trigger_mode (list): Trigger mode options ['EDGE', 'LEV']
+        arb_dac_value (tuple): DAC value range for arbitrary waveforms (min, max)
+        arb_data_length (tuple): Number of points range for arbitrary waveforms (min, max)
     """
+
     channel = [1, 2]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     amplitude = (0, 5)
@@ -26,6 +50,12 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
     arb_data_length = (2, 1000) # Points, for arbitrary waveform data len
 
     def __init__(self, address='123'):
+        """
+        Initialize the virtual AWG with default settings.
+
+        Args:
+            address (str, optional): Virtual address for the instrument. Defaults to '123'.
+        """
         VirtualInstrument.__init__(self, address=address)
 
         self.instrument = self
@@ -53,10 +83,24 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
        
     
     def idn(self):
+        """Get the identification string of the virtual AWG.
+        
+        Returns:
+            str: Identification string "Virtual AWG"
+        """
         return "Virtual AWG"
+
     def send_software_trigger(self):
+        """Send a software trigger command to the AWG."""
         self.write('*TRG')
+
     def write(self, command):
+        """
+        Simulate writing a SCPI command to the instrument.
+
+        Args:
+            command (str): SCPI command string to process
+        """
         if command == '*TRG':
             
             v = self.get_waveform(self.state['acquisition_channel'])
@@ -72,30 +116,100 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         # Simulate writing a command to the instrument
         
     def set_source_impedance(self, channel, source_impedance):
+        """
+        Set the source impedance for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            source_impedance (float): Source impedance in ohms
+        """
         self.state['source_impedance'][channel] = source_impedance
+
     def output(self, channel, on=True):
+        """
+        Enable or disable the output for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            on (bool, optional): True to enable output, False to disable. Defaults to True.
+        """
         self.state['output'][channel] = on
 
     def set_waveform(self, channel, waveform):
+        """
+        Set the waveform type for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            waveform (str): Waveform type (e.g., 'SIN', 'SQU', etc.)
+        """
         self.state['waveform'][channel] = waveform
 
     def set_frequency(self, channel, frequency):
+        """
+        Set the frequency for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            frequency (float): Frequency in hertz
+        """
         self.state['frequency'][channel] = frequency
 
     def set_amplitude(self, channel, amplitude):
+        """
+        Set the amplitude for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            amplitude (float): Amplitude in volts
+        """
         self.state['amplitude'][channel] = amplitude
         self.state['arb_waveform'][channel]=self.state['arb_waveform'][channel]*self.state['amplitude'][channel]/2
 
     def set_offset(self, channel, offset):
+        """
+        Set the DC offset for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            offset (float): DC offset in volts
+        """
         self.state['offset'][channel] = offset
 
     def set_load_impedance(self, channel, load_impedance):
+        """
+        Set the load impedance for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            load_impedance (float): Load impedance in ohms
+        """
         self.state['load_impedance'][channel] = load_impedance
 
     def set_polarity(self, channel, polarity):
+        """
+        Set the output polarity for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            polarity (str): Polarity mode ('NORM' or 'INV')
+        """
         self.state['polarity'][channel] = polarity
 
     def configure_wf(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None, user_func=None):
+        """
+        Configure the waveform settings for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            waveform (str): Waveform type
+            frequency (float, optional): Frequency in hertz
+            amplitude (float, optional): Amplitude in volts
+            offset (float, optional): DC offset in volts
+            load_impedance (float, optional): Load impedance in ohms
+            polarity (str, optional): Polarity mode ('NORM' or 'INV')
+            user_func (callable, optional): User-defined function for 'USER' waveform
+        """
         self.set_waveform(channel, waveform)
         if frequency is not None:
             self.set_frequency(channel, frequency)
@@ -111,12 +225,33 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             self.state['arb_waveform'][channel] = np.array(user_func)
 
     def set_square_duty_cycle(self, channel, duty_cycle):
+        """
+        Set the duty cycle for square waves.
+
+        Args:
+            channel (int): Channel number (1-2)
+            duty_cycle (float): Duty cycle in percent
+        """
         self.state['duty_cycle'][channel] = duty_cycle
 
     def set_ramp_symmetry(self, channel, symmetry):
+        """
+        Set the symmetry for ramp waves.
+
+        Args:
+            channel (int): Channel number (1-2)
+            symmetry (float): Symmetry in percent
+        """
         self.state['symmetry'][channel] = symmetry
 
     def set_pulse_width(self, channel, pulse_width):
+        """
+        Set the pulse width for pulse waves.
+
+        Args:
+            channel (int): Channel number (1-2)
+            pulse_width (float): Pulse width in seconds
+        """
         self.state['pulse_width'][channel] = pulse_width
 
     def set_pulse_rise_time(self, channel, rise_time):
@@ -128,12 +263,37 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         pass
 
     def set_pulse_duty_cycle(self, channel, duty_cycle):
+        """
+        Set the duty cycle for pulse waves.
+
+        Args:
+            channel (int): Channel number (1-2)
+            duty_cycle (float): Duty cycle in percent
+        """
         self.state['duty_cycle'][channel] = duty_cycle
 
     def set_pulse_delay(self, channel, pulse_delay):
+        """
+        Set the pulse delay for pulse waves.
+
+        Args:
+            channel (int): Channel number (1-2)
+            pulse_delay (float): Pulse delay in seconds
+        """
         self.state['pulse_delay'][channel] = pulse_delay
 
     def configure_pulse(self, channel, pulse_width=None, pulse_delay=None, rise_time=None, fall_time=None, duty_cycle=None):
+        """
+        Configure the pulse settings for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            pulse_width (float, optional): Pulse width in seconds
+            pulse_delay (float, optional): Pulse delay in seconds
+            rise_time (float, optional): Rise time in seconds
+            fall_time (float, optional): Fall time in seconds
+            duty_cycle (float, optional): Duty cycle in percent
+        """
         self.set_waveform(channel, 'PULS')
         if pulse_delay is not None:
             self.set_pulse_delay(channel, pulse_delay)
@@ -147,6 +307,14 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             self.set_pulse_duty_cycle(channel, duty_cycle)
 
     def create_arb_waveform(self, channel, name, data):
+        """
+        Create and store an arbitrary waveform.
+
+        Args:
+            channel (int): Channel number (1-2)
+            name (str): Name of the waveform
+            data (list or np.array): Waveform data points
+        """
         # Store the arbitrary waveform in state
         scaled_dac_data = data
         min_dac, max_dac = self.arb_dac_value
@@ -157,23 +325,68 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         self.state['arb_waveform'][channel] = np.array(voltage_data)
 
     def set_arb_waveform(self, channel, name):
+        """
+        Set the arbitrary waveform for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            name (str): Name of the waveform
+        """
         # For simulation, just mark the waveform as selected
         self.state['waveform'][channel] = 'USER'
         
 
     def set_trigger_source(self, channel, source):
+        """
+        Set the trigger source for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            source (str): Trigger source ('IMM', 'INT', 'EXT', 'MAN')
+        """
         self.state['trigger_source'][channel] = source
 
     def set_trigger_level(self, channel, level):
+        """
+        Set the trigger level for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            level (float): Trigger level voltage
+        """
         self.state['trigger_level'][channel] = level
 
     def set_trigger_slope(self, channel, slope):
+        """
+        Set the trigger slope for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            slope (str): Trigger slope ('POS', 'NEG', 'EITH')
+        """
         self.state['trigger_slope'][channel] = slope
 
     def set_trigger_mode(self, channel, mode):
+        """
+        Set the trigger mode for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            mode (str): Trigger mode ('EDGE' or 'LEV')
+        """
         self.state['trigger_mode'][channel] = mode
 
     def configure_trigger(self, channel, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
+        """
+        Configure the trigger settings for a channel.
+
+        Args:
+            channel (int): Channel number (1-2)
+            trigger_source (str, optional): Trigger source
+            trigger_level (float, optional): Trigger level voltage
+            trigger_slope (str, optional): Trigger slope
+            trigger_mode (str, optional): Trigger mode
+        """
         if trigger_source is not None:
             self.set_trigger_source(channel, trigger_source)
         if trigger_level is not None:
@@ -184,6 +397,13 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             self.set_trigger_mode(channel, trigger_mode)
 
     def configure_output_amplifier(self, channel='1', type='HIV'):
+        """
+        Configure the output amplifier settings.
+
+        Args:
+            channel (str, optional): Channel number as string ('1' or '2')
+            type (str, optional): Amplifier type ('HIV' or 'HIB')
+        """
         # Simulate amplifier config by changing amplitude range
         if type == 'HIV':
             self.amplitude = (0, 10)
@@ -191,7 +411,15 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             self.amplitude = (0, 5)
 
     def get_waveform(self, channel):
-        # Generate a synthetic waveform based on current settings
+        """
+        Generate a synthetic waveform based on current settings.
+
+        Args:
+            channel (int): Channel number (1-2)
+
+        Returns:
+            np.array: Array of waveform data points
+        """
         print("Getting waveform for channel:", channel)
         wf = self.state['waveform'][channel]
         amp = self.state['amplitude'][channel]
