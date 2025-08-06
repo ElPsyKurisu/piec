@@ -63,3 +63,5 @@ src/piec/measurement_waveforms/__init__.py
 src/piec/measurement_waveforms/amr.py
 src/piec/measurement_waveforms/discrete_waveform.py
 src/piec/measurement_waveforms/magneto_transport.py
+src/piec/simulations/__init__.py
+src/piec/simulations/fe_material.py

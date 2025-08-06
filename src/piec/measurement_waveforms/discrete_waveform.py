@@ -91,7 +91,6 @@ class DiscreteWaveform:
         Should be called before any waveform-specific configuration.
         """
         # Removed self.awg.initialize() - Handled by base class
-        self.awg.set_source_impedance(channel=int(self.voltage_channel), source_impedance=50)
         self.awg.set_load_impedance(channel=int(self.voltage_channel), load_impedance=50)
         # Set trigger to BUS to allow software triggering via *TRG
         self.awg.set_trigger_source(channel=int(self.voltage_channel), source='BUS')
