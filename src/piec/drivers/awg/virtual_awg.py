@@ -152,7 +152,6 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         min_dac, max_dac = self.arb_dac_value
         voltage_data = []
         for val in scaled_dac_data:
-            
             voltage_data.append(( (2 * (val - min_dac)) / (max_dac - min_dac) ) - 1)
     
         self.state['arb_waveform'][channel] = np.array(voltage_data)
@@ -217,12 +216,6 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         elif wf == 'USER' and self.state['arb_waveform'][channel] is not None:
             
             data = self.state['arb_waveform'][channel]
-            print(99999999999999999)
-            print(data)
-            print(data[1])
-            print(max(data))
-            print(min(data))
-            print(data[-0])
             v = np.interp(np.linspace(0, len(data)-1, self.arb_data_length[1]), np.arange(len(data)), data)
         else:
             v = np.zeros(self.arb_data_length)

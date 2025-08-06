@@ -151,13 +151,7 @@ class Ferroelectric(Material):
             v (ndarray): voltage array of the applied waveform
             t (ndarray): time array of the applied waveform
         """
-        # Placeholder for actual ferroelectric response logic
-        # For now, just return the voltage and time arrays
-        import matplotlib.pyplot as plt
-        g = plt.plot(t,v)
-        plt.title("Checking input waveform")
-        plt.show()
-        print("max and min of v", max(v), min(v))
+        
         self.t = t
         
         import matplotlib.pyplot as plt
@@ -165,24 +159,16 @@ class Ferroelectric(Material):
         p_ideal = self.run_landau_hysteresis_simulation(v)
         p_total, p_noise = self.add_parasitic_effects(v, p_ideal)
 
-        print("P_total INDEX 0:", p_total[0])
+
         p_total[-0] = p_total[-1]
         p_total[0] = 0
-        print("P_total INDEX 0:", p_total[0])
-
-        #plt.plot(v, p_total)
         
-        #p_total.pop(0)
-        #t.pop(0)
-        # Sawyer-Tower circuit formula
-        su = plt.plot(v, p_total, label='modeld p loop')
-        plt.title('modeld p loop')
-        plt.show()
+
+        
+        
         self.output_voltage = (np.gradient(p_total, t))*50*self.material_dict['electrode']['area']
         self.output_voltage[0:10] = self.output_voltage[10]
-        #p_total*self.material_dict['electrode']['area']/(10e-6) #multiply current by 50 ohm to get voltage response,
         
-        #plt.plot(v, self.output_voltage, label='Voltage Response')
 
     def get_voltage_response(self):
         return self.output_voltage, self.t #multiply current by 50 ohm to get voltage response,
