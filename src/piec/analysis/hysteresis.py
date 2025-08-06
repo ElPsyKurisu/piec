@@ -29,9 +29,9 @@ def process_raw_hyst(path:str, show_plots=False, save_plots=False, auto_timeshif
     time_offset = metadata['time_offset'].values[0]
     
     # add on time-dependent processed arrays
-    processed_df['current (A)'] = processed_df['voltage (V)']/50/area*100 # 50Ohm conversion, area correction, C/m^2 to uC/cm^2
+    processed_df['current (A)'] = processed_df['voltage (V)']/50 # 50Ohm conversion, area correction, C/m^2 to uC/cm^2
     processed_df['current (A)'] = processed_df['current (A)'].values - np.mean(processed_df['current (A)'].values[:20]) # offset correct
-    processed_df['polarization (uC/cm^2)'] = cumulative_trapezoid(processed_df['current (A)'], processed_df['time (s)'], initial=0)
+    processed_df['polarization (uC/cm^2)'] = cumulative_trapezoid(processed_df['current (A)']/area*100, processed_df['time (s)'], initial=0)
 
     if auto_timeshift:
         # determine time offset
