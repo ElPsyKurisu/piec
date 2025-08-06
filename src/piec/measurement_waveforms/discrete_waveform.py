@@ -91,9 +91,10 @@ class DiscreteWaveform:
         Should be called before any waveform-specific configuration.
         """
         # Removed self.awg.initialize() - Handled by base class
+        self.awg.initialize()
         self.awg.set_load_impedance(channel=int(self.voltage_channel), load_impedance=50)
         # Set trigger to BUS to allow software triggering via *TRG
-        self.awg.set_trigger_source(channel=int(self.voltage_channel), source='BUS')
+        self.awg.set_trigger_source(channel=int(self.voltage_channel), trigger_source='MAN')
 
     def configure_oscilloscope(self, channel = 1):
         """
@@ -105,6 +106,7 @@ class DiscreteWaveform:
         Args:
             :channel: Oscilloscope channel to configure (default 1)
         """
+        self.osc.initialize()
         # Removed self.osc.initialize() - Handled by base class
         self.osc.configure_horizontal(tdiv=self.length/8, x_position=5*(self.length/10))
         # NOTE: Impedance setting ('FIFT') is not available in the new driver and has been removed.
@@ -273,15 +275,11 @@ class HysteresisLoop(DiscreteWaveform):
         """
         interp_v_array = [0,1,0,-1,0]+([1,0,-1,0]*((self.n_cycles)-1))
 
-        n_points = self.awg.arb_data_length[1] # Use attribute for max points
+        n_points = self.awg.arb_data_range[1] # Use attribute for max points
         dense = interpolate_sparse_to_dense(np.linspace(0,len(interp_v_array),len(interp_v_array)), interp_v_array, total_points=n_points)
-        
-        # Scale normalized data to AWG's DAC values (0-16383)
-        min_dac, max_dac = self.awg.arb_dac_value
-        scaled_dense = [int((val + 1) / 2 * (max_dac - min_dac) + min_dac) for val in dense]
 
         # Create the arbitrary waveform in the AWG's volatile memory
-        self.awg.create_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE", data=scaled_dense)
+        self.awg.create_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE", data=dense)
         
         # Configure the AWG output using the specific methods
         invert = self.amplitude < 0
@@ -391,17 +389,13 @@ class ThreePulsePund(DiscreteWaveform):
         sparse_v = np.array([-abs(frac_reset_amp), -abs(frac_reset_amp), 0, 0, abs(frac_p_u_amp), abs(frac_p_u_amp), 0, 0,
                              abs(frac_p_u_amp), abs(frac_p_u_amp), 0, 0,]) * polarity
         
-        n_points = self.awg.arb_data_length[1] # n points to use is max
+        n_points = self.awg.arb_data_range[1] # n points to use is max
 
         # densify the array
         dense_v = interpolate_sparse_to_dense(sparse_t, sparse_v, total_points=n_points)
         
-        # Scale normalized data to AWG's DAC values (0-16383)
-        min_dac, max_dac = self.awg.arb_dac_value
-        scaled_dense_v = [int((val + 1) / 2 * (max_dac - min_dac) + min_dac) for val in dense_v]
-
         # write to awg
-        self.awg.create_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE", data=scaled_dense_v)
+        self.awg.create_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE", data=dense_v)
         
         # Configure the AWG output using the specific methods
         self.awg.set_arb_waveform(channel=int(self.voltage_channel), name="VOLATILE")
