@@ -275,17 +275,47 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         Returns:
             data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
-        self.instrument.write(":WAVeform:FORMat BYTE")
-        preamble = self.instrument.query(":WAVeform:PREamble?").split(',')
-        x_increment = float(preamble[4])
-        x_origin = float(preamble[5])
-        y_increment = float(preamble[7])
-        y_origin = float(preamble[8])
-        y_reference = float(preamble[9])
-
-        data_bytes = self.instrument.query_binary_values(":WAVeform:DATA?", datatype='h', is_big_endian=True)
+        byte_order = 'msbf'  # Default byte order
+        unsigned = 'off'  # Default unsigned setting
+        preamble = self.instrument.query(":WAVeform:PREamble?")
+        preamble1 = preamble.split()
+        preamble_list = preamble1[0].split(',')
+        preamble_dict = {
+        'format': np.int16(preamble_list[0]),
+        'type': np.int16(preamble_list[1]),
+        'points': np.int32(preamble_list[2]),
+        'count': np.int32(preamble_list[3]),
+        'x_increment': np.float64(preamble_list[4]),
+        'x_origin': np.float64(preamble_list[5]),
+        'x_reference': np.int32(preamble_list[6]),
+        'y_increment': np.float32(preamble_list[7]),
+        'y_origin': np.float32(preamble_list[8]),
+        'y_reference': np.int32(preamble_list[9]),
+        }
+        if byte_order == 'msbf':
+            is_big_endian = True
+        if byte_order == 'lsbf':
+            is_big_endian = False
+        if unsigned == 'off':
+            is_unsigned = False
+        if unsigned == 'on':
+            is_unsigned = True
+        else:
+            if preamble_dict["format"] == 0 and not is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='b', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 0 and is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='B', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 1 and not is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='h', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 1 and is_unsigned:
+                data = self.instrument.query_binary_values("WAVeform:DATA?", datatype='H', is_big_endian=is_big_endian)
+            if preamble_dict["format"] == 4:
+                data = self.instrument.query_ascii_values("WAVeform:DATA?")
+            time = []
+            wfm = []
+            for t in range(preamble_dict["points"]):
+                time.append((t* preamble_dict["x_increment"]) + preamble_dict["x_origin"])
+            for d in data:
+                wfm.append((d * preamble_dict["y_increment"]) + preamble_dict["y_origin"])
         
-        times = x_origin + np.arange(len(data_bytes)) * x_increment
-        voltages = (np.array(data_bytes) - y_reference) * y_increment + y_origin
-        
-        return pd.DataFrame({'Time': times, 'Voltage': voltages})
+        return pd.DataFrame({'Time': time, 'Voltage': wfm})
