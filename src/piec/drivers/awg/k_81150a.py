@@ -329,6 +329,12 @@ class Keysight81150a(Awg, Scpi):
             self.set_trigger_slope(channel, trigger_slope)
         if trigger_mode is not None:
             self.set_trigger_mode(channel, trigger_mode) 
+    
+    def output_trigger(self):
+            """
+            Outputs the trigger signal for the awg. This is typically used to synchronize the output of the awg with other instruments or systems. Typically the same as manually triggering the awg from the front panel.
+            """
+            self.instrument.write("*TRG")
 
     #additional methods
     def configure_output_amplifier(self, channel: str='1', type: str='HIV'):

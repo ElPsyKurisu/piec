@@ -41,7 +41,7 @@ class Awg(Instrument):
             channel (int): The channel to output on
             on (bool): Whether to turn the output on or off
         """
-    
+
     #Standard waveform configuration functions
     def set_waveform(self, channel, waveform):
         """
@@ -275,3 +275,7 @@ class Awg(Instrument):
         if trigger_mode is not None:
             self.set_trigger_mode(channel, trigger_mode) 
 
+        def output_trigger(self):
+            """
+            Outputs the trigger signal for the awg. This is typically used to synchronize the output of the awg with other instruments or systems. Typically the same as manually triggering the awg from the front panel.
+            """
