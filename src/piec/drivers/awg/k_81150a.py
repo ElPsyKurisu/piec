@@ -334,7 +334,7 @@ class Keysight81150a(Awg, Scpi):
             """
             Outputs the trigger signal for the awg. This is typically used to synchronize the output of the awg with other instruments or systems. Typically the same as manually triggering the awg from the front panel.
             """
-            self.instrument.write("*TRG")
+            self.instrument.write(":TRIG")
 
     #additional methods
     def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
