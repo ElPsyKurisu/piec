@@ -136,7 +136,7 @@ class DiscreteWaveform:
         print(f"Capturing waveform of type {self.mtype} for {self.length} seconds...")
         self.osc.arm()
         self.awg.output(channel=int(self.voltage_channel), on=True)
-        self.awg.instrument.write('*TRG') # New driver lacks a direct method, send SCPI command
+        self.awg.output_trigger()
         
         # New driver lacks a blocking operation complete query.
         # Wait for a duration slightly longer than the waveform to ensure capture.

@@ -268,14 +268,14 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
 
     def get_data(self):
         """
-        Returns the data depending on how it was configured with the configure_acquisition command.
+        Returns the data depending on how it was configured with the configure_acquisition command. Requires set_acquisition to be called first. 
         Returns the data in a structured format, typically in a Pandas DataFrame that dispalys the time and voltage values in a structured way across all captured channels.
         args:
             None
         Returns:
             data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
-        self.instrument.write(":WAVeform:FORMat WORD")
+        self.instrument.write(":WAVeform:FORMat BYTE")
         preamble = self.instrument.query(":WAVeform:PREamble?").split(',')
         x_increment = float(preamble[4])
         x_origin = float(preamble[5])
