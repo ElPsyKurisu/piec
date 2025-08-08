@@ -275,7 +275,7 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         Returns:
             data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
-        byte_order = 'msbf'  # Default byte order
+        byte_order = 'lsbf'  # Default byte order
         unsigned = 'off'  # Default unsigned setting
         preamble = self.instrument.query(":WAVeform:PREamble?")
         preamble1 = preamble.split()
