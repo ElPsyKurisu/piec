@@ -3,7 +3,7 @@ This is an outline for how the arduino_stepper.py file should be like
 """
 import time
 import re
-from utilities import PiecManager
+from ..utilities import PiecManager
 from .stepper_motor import Stepper
 
 class Geos_Stepper(Stepper):
