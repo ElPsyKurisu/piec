@@ -4,7 +4,7 @@ This is an outline for how the arduino_stepper.py file should be like
 import time
 import re
 from utilities import PiecManager
-from ..outline.Level_1.Level_2.Level_3.stepper_motor import Stepper
+from .stepper_motor import Stepper
 
 class Geos_Stepper(Stepper):
     """
@@ -49,7 +49,8 @@ class Geos_Stepper(Stepper):
                 
         if "Complete" in answer:
             return number
-                
+        if "ERROR" in answer:
+            print(answer)
         else: 
             print("Did not complete task")
 

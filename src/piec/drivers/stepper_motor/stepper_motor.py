@@ -3,8 +3,8 @@ This is an outline for what the stepper_motor.py file should be like.
 
 A stepper_motor is defined as an instrument that can control a stepper_motor (tbh naming should be changed to like stepper_driver but wtv)
 """
-from ..secondary import Secondary
-class Stepper(Secondary):
+from ..instrument import Instrument
+class Stepper(Instrument):
     # Initializer / Instance attributes
     """
     All steppers must be able to step!
