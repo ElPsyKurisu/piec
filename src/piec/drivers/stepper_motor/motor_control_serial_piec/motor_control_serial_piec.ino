@@ -23,8 +23,8 @@ const byte ledPin = 13;      // Indicator that motor is moving
 // --- Stepper Motor & Position Settings ---
 const int pulseWidthMicros = 20;     // Pulse width in microseconds
 const int millisbetweenSteps = 50;   // Speed control: milliseconds between steps
-const int MAX_POS = 540;            // <<< SET YOUR MAXIMUM ALLOWED POSITION HERE
-const int MIN_POS = -540;           // <<< SET YOUR MINIMUM ALLOWED POSITION HERE
+const int MAX_POS = 300;            // <<< SET YOUR MAXIMUM ALLOWED POSITION HERE
+const int MIN_POS = -300;           // <<< SET YOUR MINIMUM ALLOWED POSITION HERE
 
 // --- Global Variables ---
 int steps = 0; // Steps to move, received from Serial
@@ -103,8 +103,10 @@ void loop() {
     // Check if the calculated move would go past your defined limits.
     if (potential_pos > MAX_POS) {
       Serial.println("ERROR: Move denied. Exceeds maximum limit of " + String(MAX_POS));
+      Serial.println("Current Position: " + String(pos));
     } else if (potential_pos < MIN_POS) {
       Serial.println("ERROR: Move denied. Exceeds minimum limit of " + String(MIN_POS));
+      Serial.println("Current Position: " + String(pos));
     } else {
       // If the move is within limits, proceed.
       pos = potential_pos; // Officially update the position variable
