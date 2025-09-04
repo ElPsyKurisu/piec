@@ -15,6 +15,7 @@ class Keysight81150a(Awg, Scpi):
 
     # Class attributes for parameter restrictions, named after function arguments.
     # Values based on Keysight 81150A User Guide
+    idn = "81150A"  # Identifier string for the instrument
     
     channel = [1, 2]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']

@@ -83,87 +83,111 @@ This code is the the autodetect driver portion
 import inspect
 import importlib
 from pathlib import Path
+import pyvisa
 
-# Note the '.' before 'instrument'. This is a relative import.
-from .instrument import Instrument
+# --- 1. Static Registry (Fast Path) ---
+# Add your most frequently used drivers here manually.
+# The system will automatically add to this dictionary when it discovers new drivers.
+#
+# from .awg import k_81150a # Example of a manual import
+# from .oscilloscope import k_dsox3024a
+#
+STATIC_DRIVER_REGISTRY = {
+    # "81150A": k_81150a.Keysight81150a, # Manually add for top speed
+    # "DSO-X 3024A": k_dsox3024a.KeysightDSOX3024A
+}
 
-def build_driver_registry():
+_dynamic_scan_complete = False # A flag to ensure we only scan once
+
+def _dynamic_driver_scan():
     """
-    Dynamically discovers all driver classes within the 'drivers' package
-    and builds a registry mapping their ID_STRING to the class itself.
+    Dynamically discovers all driver classes and updates the static registry.
+    This is the "slow path" and should only run when needed.
     """
-    driver_registry = {}
-    # __file__ is the path to this file (utilities.py)
-    # .parent gives us the path to the 'drivers' directory
+    global _dynamic_scan_complete
+    if _dynamic_scan_complete:
+        return
+
+    print("--- Running dynamic driver scan... ---")
     drivers_path = Path(__file__).parent
-
-    # 1. Walk through all .py files in the drivers subdirectories
+    
+    new_drivers_found = 0
     for file_path in drivers_path.glob('**/*.py'):
-        # Skip special files
-        if file_path.name in ('__init__.py', 'instrument.py', 'utilities.py'):
+        if file_path.name in ('__init__.py', 'instrument.py', 'utilities.py', 'scpi.py'):
             continue
 
-        # 2. Convert file path to a module path for importing
-        # e.g., .../drivers/oscilloscope/tek.py -> drivers.oscilloscope.tek
-        relative_path = file_path.relative_to(drivers_path)
-        module_name = '.'.join(relative_path.parts).replace('.py', '')
-        module_path = f"drivers.{module_name}"
+        module_path = '.'.join(file_path.relative_to(drivers_path.parent).parts).replace('.py', '')
 
         try:
-            # 3. Dynamically import the module
             module = importlib.import_module(module_path)
-
-            # 4. Inspect the module for valid driver classes
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, Instrument) and obj is not Instrument and obj.ID_STRING:
-                    print(f"Found driver: '{obj.ID_STRING}' -> {obj.__name__}")
-                    driver_registry[obj.ID_STRING] = obj
+                identifier = getattr(obj, 'idn', getattr(obj, 'model', None))
+                if isinstance(identifier, str) and identifier and identifier not in STATIC_DRIVER_REGISTRY:
+                    print(f"  -> Discovered new driver: '{identifier}' -> {obj.__name__}")
+                    STATIC_DRIVER_REGISTRY[identifier] = obj # Add to the registry
+                    new_drivers_found += 1
+        except Exception:
+            pass
+            
+    if new_drivers_found == 0:
+        print("--- Dynamic scan complete. No new drivers found. ---")
+    else:
+        print(f"--- Dynamic scan complete. Added {new_drivers_found} new drivers to registry. ---")
 
-        except ImportError as e:
-            print(f"Could not import module {module_path}: {e}")
+    _dynamic_scan_complete = True
 
-    return driver_registry
-
-# --- The autodetect function now lives here ---
-
-# Build the registry once when this module is first imported.
-DRIVER_REGISTRY = build_driver_registry()
 
 def _probe_scpi(address):
-    """Probes for a SCPI device and returns its ID string and VISA resource."""
+    """Connects via VISA and queries the ID string."""
     try:
         rm = pyvisa.ResourceManager()
         instrument = rm.open_resource(address)
-        instrument.timeout = 2000 # 2-second timeout
+        instrument.timeout = 2000
         identity = instrument.query('*IDN?').strip()
-        return identity, instrument
+        instrument.close()
+        return identity
     except pyvisa.errors.VisaIOError:
-        return None, None
+        return None
+
+def _find_match_in_registry(instrument_id):
+    """Helper function to find a matching driver in the current registry."""
+    for id_key, driver_class in STATIC_DRIVER_REGISTRY.items():
+        if id_key in instrument_id:
+            return driver_class
+    return None
 
 def autodetect_instrument(address):
     """
-    Automatically detects and initializes an instrument at the given address.
+    Detects an instrument using a two-tiered registry system.
+    First checks a fast static list, then falls back to a full dynamic scan if needed.
     """
-    print(f"\n🔎 Attempting to autodetect instrument at {address}...")
+    print(f"\n🔎 Probing instrument at {address}...")
+    instrument_id = _probe_scpi(address)
 
-    # For now, we only have a SCPI probe. You could add more probes here.
-    instrument_id, visa_resource = _probe_scpi(address)
-
-    if instrument_id and visa_resource:
-        print(f"  - Received ID: '{instrument_id}'")
+    if not instrument_id:
+        print(f"❌ Could not get an ID from the instrument at {address}.")
+        return None
         
-        # Look for a matching driver in our dynamically built registry
-        for id_key, driver_class in DRIVER_REGISTRY.items():
-            if instrument_id.startswith(id_key):
-                print(f"✅ Match found! Initializing driver: {driver_class.__name__}")
-                # Check if the driver is an SCPI instrument to pass the VISA resource
-                if issubclass(driver_class, SCPIInstrument):
-                    return driver_class(address, visa_resource)
-                else:
-                    visa_resource.close() # Close if not used
-                    return driver_class(address)
-    
-    print(f"❌ No matching driver found for instrument at {address}.")
-    if visa_resource:
-        visa_resource.close()
+    print(f"  - VISA ID: '{instrument_id}'")
+
+    # 1. First, check the fast static registry
+    driver_class = _find_match_in_registry(instrument_id)
+
+    # 2. If not found, run the dynamic discovery and check again
+    if not driver_class:
+        print("  - Driver not found in static registry. Starting dynamic scan...")
+        _dynamic_driver_scan()
+        driver_class = _find_match_in_registry(instrument_id)
+
+    # 3. If a match is found, instantiate and return the driver
+    if driver_class:
+        id_key = next(key for key, val in STATIC_DRIVER_REGISTRY.items() if val == driver_class)
+        print(f"✅ Match found for '{id_key}'! Initializing driver: {driver_class.__name__}")
+        try:
+            return driver_class(address=address)
+        except Exception as e:
+            print(f"  - Error initializing {driver_class.__name__}: {e}")
+            return None
+
+    print(f"❌ No matching driver found for the instrument at {address} after full scan.")
     return None

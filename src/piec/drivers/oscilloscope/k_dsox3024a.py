@@ -15,6 +15,8 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
     """
 
     # Class attributes for parameter restrictions, named after function arguments.
+    idn = "DSO-X 3024A"  # Identifier string for the instrument
+    
     channel = [1, 2, 3, 4]
     vdiv = (0.001, 5.0)
     y_range = (0.008, 40.0)
