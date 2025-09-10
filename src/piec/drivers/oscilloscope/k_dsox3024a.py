@@ -208,6 +208,7 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         Tells the scope to get ready to capture the data for the single shot etc
         """
         self.instrument.write(":SINGle")
+        self.instrument.write(":WAVeform:UNSigned {}".format("OFF"))
 
     def set_acquisition(self):
         """
@@ -277,7 +278,7 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         Returns:
             data (Dataframe): Returns the data in a Pandas Dataframe ideally complete with.
         """
-        byte_order = 'lsbf'  # Default byte order
+        byte_order = 'msbf'  # Default byte order
         unsigned = 'off'  # Default unsigned setting
         preamble = self.instrument.query(":WAVeform:PREamble?")
         preamble1 = preamble.split()

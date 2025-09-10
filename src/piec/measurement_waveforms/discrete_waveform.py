@@ -109,12 +109,11 @@ class DiscreteWaveform:
         self.osc.initialize()
         # Removed self.osc.initialize() - Handled by base class
         self.osc.configure_horizontal(tdiv=self.length/8, x_position=5*(self.length/10))
-        # NOTE: Impedance setting ('FIFT') is not available in the new driver and has been removed.
-        # Please set the 50 Ohm impedance manually on the oscilloscope.
         self.osc.set_vertical_scale(channel=channel, vdiv=float(self.v_div))
         self.osc.set_trigger_source(trigger_source='EXT')
         self.osc.set_trigger_level(trigger_level=0.95) # Using the old high_level value
         self.osc.set_trigger_sweep(trigger_sweep='NORM')
+        self.osc.set_channel_impedance(channel, channel_impedance='50')
         # configure_trigger_edge call removed as functionality is now in the calls above.
 
     def configure_awg(self):
