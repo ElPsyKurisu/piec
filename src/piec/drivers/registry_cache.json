@@ -1,4 +1,6 @@
 {
     "81150A": "piec.drivers.awg.k_81150a.Keysight81150a",
+    "33522B": "piec.drivers.example.specific_example.AnnotatedAwgDriver",
+    "33622A": "piec.drivers.example.specific_example.AnnotatedAwgDriver",
     "DSO-X 3024A": "piec.drivers.oscilloscope.k_dsox3024a.KeysightDSOX3024a"
 }
