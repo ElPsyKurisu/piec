@@ -3,9 +3,8 @@ This is an outline for what the daq.py file should be like.
 
 A daq (Data Acqusition System) is defined as an instrument that has the typical features one expects a daq to have
 """
-from ..generator import Generator
-from ..measurer import Measurer 
-class Daq(Measurer, Generator):
+from ..instrument import Instrument 
+class Daq(Instrument):
     # Initializer / Instance attributes
     """
     All daqs must be able to acquire data and output signals. Need a way to get the list of analog and digital IO

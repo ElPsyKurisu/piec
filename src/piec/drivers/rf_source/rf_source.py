@@ -3,8 +3,8 @@ This is an outline for what the rf_source.py file should be like.
 
 A rf source is defined as an instrument that has the typical features one expects a rf source to have
 """
-from ..generator import Generator
-class RF_source(Generator):
+from ..instrument import Instrument
+class RF_source(Instrument):
     # Initializer / Instance attributes
     """
     All rf sources must be able to generate an RF signal

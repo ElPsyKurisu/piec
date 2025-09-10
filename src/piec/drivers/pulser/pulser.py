@@ -3,8 +3,8 @@ This is an outline for what the puler.py file should be like.
 
 A pulser is defined as an instrument that has the typical features one expects a pulser to have
 """
-from ..generator import Generator
-class Pulser(Generator):
+from ..instrument import Instrument
+class Pulser(Instrument):
     # Initializer / Instance attributes
     """
     All Pulsers must be able to generate a pulse. Assumes 50Ohm output impedance unless otherwise specified.
