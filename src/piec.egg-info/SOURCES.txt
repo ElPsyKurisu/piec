@@ -17,6 +17,7 @@ src/piec/analysis/pund.py
 src/piec/analysis/utilities.py
 src/piec/drivers/__init__.py
 src/piec/drivers/instrument.py
+src/piec/drivers/registry_cache.json
 src/piec/drivers/scpi.py
 src/piec/drivers/utilities.py
 src/piec/drivers/virtual_instrument.py

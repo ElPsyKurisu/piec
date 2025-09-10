@@ -137,27 +137,43 @@ def _dynamic_driver_scan():
     print("--- Running dynamic driver scan... ---")
     drivers_path = Path(__file__).parent
     
+    EXCLUDED_DIRS = ['z_old', 'old', '__pycache__', 'outline']
+    
     new_drivers_found = False
     for file_path in drivers_path.glob('**/*.py'):
+        if any(part in EXCLUDED_DIRS for part in file_path.parts):
+            continue  # Skip this file if it's in an excluded directory
+
         if file_path.name in ('__init__.py', 'instrument.py', 'utilities.py', 'scpi.py'):
             continue
         
-        # NOTE: Using piec as the root package name based on your setup
-        module_path = 'piec.drivers.' + '.'.join(file_path.relative_to(drivers_path).parts).replace('.py', '')
+        root_package = drivers_path.parent.name
+        drivers_package = drivers_path.name
+        sub_module_path = '.'.join(file_path.relative_to(drivers_path).parts).replace('.py', '')
+        module_path = f"{root_package}.{drivers_package}.{sub_module_path}"
 
         try:
             module = importlib.import_module(module_path)
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                identifier = getattr(obj, 'idn', getattr(obj, 'model', None))
-                if isinstance(identifier, str) and identifier and identifier not in STATIC_DRIVER_REGISTRY:
-                    print(f"  -> Discovered new driver: '{identifier}' -> {obj.__name__}")
-                    STATIC_DRIVER_REGISTRY[identifier] = obj
-                    new_drivers_found = True
+                # Get the identifier attribute, which can be a string or a list of strings
+                identifier_attr = getattr(obj, 'AUTODETECT_ID', getattr(obj, 'idn', getattr(obj, 'model', None)))
+                
+                # Ensure we have a list to iterate over, whether it's a single string or a list
+                if isinstance(identifier_attr, str):
+                    identifiers = [identifier_attr] # Treat a single string as a list with one item
+                elif isinstance(identifier_attr, list):
+                    identifiers = identifier_attr
+                else:
+                    continue # Skip if it's not a string or a list
+
+                # Loop through all provided identifiers and register the driver for each one
+                for identifier in identifiers:
+                    if isinstance(identifier, str) and identifier and identifier not in STATIC_DRIVER_REGISTRY:
+                        print(f"  -> Discovered new driver: '{identifier}' -> {obj.__name__}")
+                        STATIC_DRIVER_REGISTRY[identifier] = obj
+                        new_drivers_found = True
         except Exception as e:
-            # --- THIS IS THE DEBUGGING CHANGE ---
-            # This will now print any error that happens when trying to load a driver file.
             print(f"  [DEBUG] Failed to import or inspect module '{module_path}'. Reason: {e}")
-            # --- END OF CHANGE ---
             pass
 
     if new_drivers_found:
@@ -210,7 +226,6 @@ def autodetect_instrument(address):
         id_key = next((key for key, val in STATIC_DRIVER_REGISTRY.items() if val == driver_class), None)
         print(f"✅ Match found for '{id_key}'! Initializing driver: {driver_class.__name__}")
         try:
-            # Assumes the driver's __init__ takes an 'address' argument
             return driver_class(address=address)
         except Exception as e:
             print(f"  - Error initializing {driver_class.__name__}: {e}")
@@ -218,3 +233,4 @@ def autodetect_instrument(address):
 
     print(f"❌ No matching driver found for the instrument at {address} after full scan.")
     return None
+
