@@ -78,45 +78,72 @@ def list_mcc_resources():
 """
 This code is the the autodetect driver portion
 """
-# drivers/utilities.py
-
 import inspect
 import importlib
 from pathlib import Path
 import pyvisa
+import json
+import os
 
-# --- 1. Static Registry (Fast Path) ---
-# Add your most frequently used drivers here manually.
-# The system will automatically add to this dictionary when it discovers new drivers.
-#
-# from .awg import k_81150a # Example of a manual import
-# from .oscilloscope import k_dsox3024a
-#
-STATIC_DRIVER_REGISTRY = {
-    # "81150A": k_81150a.Keysight81150a, # Manually add for top speed
-    # "DSO-X 3024A": k_dsox3024a.KeysightDSOX3024A
-}
+# Define the path for our cache file, right next to this utility script
+_CACHE_FILE = Path(__file__).parent / 'registry_cache.json'
 
-_dynamic_scan_complete = False # A flag to ensure we only scan once
+def _load_registry_from_cache():
+    """Loads the driver registry from a JSON cache file if it exists."""
+    if not os.path.exists(_CACHE_FILE):
+        return {}
+    try:
+        with open(_CACHE_FILE, 'r') as f:
+            registry_data = json.load(f)
+        
+        loaded_registry = {}
+        for identifier, class_path in registry_data.items():
+            try:
+                module_name, class_name = class_path.rsplit('.', 1)
+                module = importlib.import_module(module_name)
+                driver_class = getattr(module, class_name)
+                loaded_registry[identifier] = driver_class
+            except (ImportError, AttributeError, ValueError):
+                # This can happen if a file is moved or a class is renamed
+                continue 
+        print("--- Loaded driver registry from cache. ---")
+        return loaded_registry
+    except (IOError, json.JSONDecodeError):
+        return {}
+
+def _save_registry_to_cache(registry):
+    """Saves the current driver registry to the JSON cache file."""
+    serializable_registry = {
+        identifier: f"{driver_class.__module__}.{driver_class.__name__}"
+        for identifier, driver_class in registry.items()
+    }
+    try:
+        with open(_CACHE_FILE, 'w') as f:
+            json.dump(serializable_registry, f, indent=4)
+        print(f"--- Saved updated driver registry to {_CACHE_FILE} ---")
+    except IOError:
+        print(f"Warning: Could not save registry cache to {_CACHE_FILE}")
+
+
+STATIC_DRIVER_REGISTRY = _load_registry_from_cache()
+_dynamic_scan_complete = False
 
 def _dynamic_driver_scan():
-    """
-    Dynamically discovers all driver classes and updates the static registry.
-    This is the "slow path" and should only run when needed.
-    """
+    """Dynamically discovers drivers and updates the static registry."""
     global _dynamic_scan_complete
     if _dynamic_scan_complete:
         return
-
+    
     print("--- Running dynamic driver scan... ---")
     drivers_path = Path(__file__).parent
     
-    new_drivers_found = 0
+    new_drivers_found = False
     for file_path in drivers_path.glob('**/*.py'):
         if file_path.name in ('__init__.py', 'instrument.py', 'utilities.py', 'scpi.py'):
             continue
-
-        module_path = '.'.join(file_path.relative_to(drivers_path.parent).parts).replace('.py', '')
+        
+        # NOTE: Using piec as the root package name based on your setup
+        module_path = 'piec.drivers.' + '.'.join(file_path.relative_to(drivers_path).parts).replace('.py', '')
 
         try:
             module = importlib.import_module(module_path)
@@ -124,19 +151,22 @@ def _dynamic_driver_scan():
                 identifier = getattr(obj, 'idn', getattr(obj, 'model', None))
                 if isinstance(identifier, str) and identifier and identifier not in STATIC_DRIVER_REGISTRY:
                     print(f"  -> Discovered new driver: '{identifier}' -> {obj.__name__}")
-                    STATIC_DRIVER_REGISTRY[identifier] = obj # Add to the registry
-                    new_drivers_found += 1
-        except Exception:
+                    STATIC_DRIVER_REGISTRY[identifier] = obj
+                    new_drivers_found = True
+        except Exception as e:
+            # --- THIS IS THE DEBUGGING CHANGE ---
+            # This will now print any error that happens when trying to load a driver file.
+            print(f"  [DEBUG] Failed to import or inspect module '{module_path}'. Reason: {e}")
+            # --- END OF CHANGE ---
             pass
-            
-    if new_drivers_found == 0:
-        print("--- Dynamic scan complete. No new drivers found. ---")
+
+    if new_drivers_found:
+        _save_registry_to_cache(STATIC_DRIVER_REGISTRY)
     else:
-        print(f"--- Dynamic scan complete. Added {new_drivers_found} new drivers to registry. ---")
+        print("--- Dynamic scan complete. No new drivers found. ---")
 
     _dynamic_scan_complete = True
-
-
+    
 def _probe_scpi(address):
     """Connects via VISA and queries the ID string."""
     try:
@@ -159,7 +189,6 @@ def _find_match_in_registry(instrument_id):
 def autodetect_instrument(address):
     """
     Detects an instrument using a two-tiered registry system.
-    First checks a fast static list, then falls back to a full dynamic scan if needed.
     """
     print(f"\n🔎 Probing instrument at {address}...")
     instrument_id = _probe_scpi(address)
@@ -170,20 +199,18 @@ def autodetect_instrument(address):
         
     print(f"  - VISA ID: '{instrument_id}'")
 
-    # 1. First, check the fast static registry
     driver_class = _find_match_in_registry(instrument_id)
 
-    # 2. If not found, run the dynamic discovery and check again
     if not driver_class:
-        print("  - Driver not found in static registry. Starting dynamic scan...")
+        print("  - Driver not in cached registry. Starting dynamic scan...")
         _dynamic_driver_scan()
         driver_class = _find_match_in_registry(instrument_id)
 
-    # 3. If a match is found, instantiate and return the driver
     if driver_class:
-        id_key = next(key for key, val in STATIC_DRIVER_REGISTRY.items() if val == driver_class)
+        id_key = next((key for key, val in STATIC_DRIVER_REGISTRY.items() if val == driver_class), None)
         print(f"✅ Match found for '{id_key}'! Initializing driver: {driver_class.__name__}")
         try:
+            # Assumes the driver's __init__ takes an 'address' argument
             return driver_class(address=address)
         except Exception as e:
             print(f"  - Error initializing {driver_class.__name__}: {e}")

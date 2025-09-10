@@ -3,9 +3,8 @@ This is an outline for what the lockin.py file should be like.
 
 A lockin is defined as an instrument that has the typical features one expects a lockin to have
 """
-from ..generator import Generator
-from ..measurer import Measurer #NOTE Measurer is the main class for lockin
-class Lockin(Measurer, Generator):
+from ..instrument import Instrument
+class Lockin(Instrument):
     # Initializer / Instance attributes
     channel = ['1'] 
     reference_source = None
@@ -24,7 +23,7 @@ class Lockin(Measurer, Generator):
     All lockins must be able to lockin to a signal and measure it
     """
     #configure the reference signal
-    def set_reference_source(self, refernce_source):
+    def set_reference_source(self, reference_source):
         """
         Sets the reference source for the lockin. Typically this could be internal, external, or a specific channel
 
