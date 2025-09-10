@@ -81,6 +81,11 @@ class Keysight81150a(Awg, Scpi):
             channel (int): The channel to set the amplitude on
             amplitude (float): The amplitude of the waveform in volts (usually Vpp but use instrument default)
         """
+        #autoswap to high voltage mode if amplitude > 5V
+        if amplitude > 5:
+            self.configure_output_amplifier(channel, type='HIV') #switch to high voltage mode
+        else:
+            self.configure_output_amplifier(channel, type='HIB') #switch to high bandwidth mode
         self.instrument.write(":VOLT{} {}".format(channel, amplitude))
 
     def set_offset(self, channel, offset):
