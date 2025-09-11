@@ -59,6 +59,9 @@ class VirtualScope(VirtualInstrument, Oscilloscope, Scpi):
         """
         VirtualInstrument.__init__(self, address=address)
 
+        # In virtual mode, treat the instrument as self so SCPI helpers can call write/query safely
+        self.instrument = self
+
         self.state = {
             'channels_on': {ch: True for ch in self.channel},
             'vdiv': {ch: 1.0 for ch in self.channel},
@@ -88,6 +91,36 @@ class VirtualScope(VirtualInstrument, Oscilloscope, Scpi):
             str: Identification string for the virtual oscilloscope
         """
         return "Virtual Oscilloscope"
+    
+    # --- Minimal SCPI surface for virtual mode ---
+    def write(self, command):
+        """Accept SCPI-like write commands (no-op for virtual scope)."""
+        # For future: handle commands like *RST/*CLS if needed
+        return None
+
+    def query(self, command):
+        """Respond to common SCPI queries used by base helpers."""
+        if command == "*IDN?":
+            return self.idn()
+        if command == "*ESR?":
+            return "0"
+        if command == "*OPC?":
+            return "1"
+        return ""
+
+    def reset(self):
+        """Reset the virtual scope to defaults (equivalent to autoscale)."""
+        # Reinitialize state to defaults
+        self.__init__()
+
+    def clear(self):
+        """Clear status (no-op in virtual mode)."""
+        return None
+
+    def initialize(self):
+        """Initialize virtual scope to a known state without external I/O."""
+        # Keep any provided address; just refresh state
+        self.autoscale()
     
     def autoscale(self):
         """
