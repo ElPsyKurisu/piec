@@ -6,7 +6,7 @@ A lockin is defined as an instrument that has the typical features one expects a
 from ..instrument import Instrument
 class Lockin(Instrument):
     # Initializer / Instance attributes
-    channel = ['1'] 
+    channel = [1] 
     reference_source = None
     frequency = (None, None) 
     harmonic = None
