@@ -1,10 +1,10 @@
 from .lockin import Lockin
-from ..scpi import SCPI
+from ..scpi import Scpi
 
 """
 Fully AI generated, untested atm. Minor corrections on import statements.
 """
-class SRS830(Lockin, SCPI):
+class SRS830(Lockin, Scpi):
     """
     Driver for the Stanford Research Systems SR830 DSP Lock-In Amplifier.
 

@@ -29,6 +29,7 @@ src/piec/drivers/daq/__init__.py
 src/piec/drivers/daq/daq.py
 src/piec/drivers/lockin/__init__.py
 src/piec/drivers/lockin/lockin.py
+src/piec/drivers/lockin/srs830.py
 src/piec/drivers/oscilloscope/__init__.py
 src/piec/drivers/oscilloscope/k_dsox3024a.py
 src/piec/drivers/oscilloscope/oscilloscope.py
