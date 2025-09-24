@@ -14,22 +14,11 @@ class DMM(Instrument):
     This class defines the minimum required methods and attributes for a DMM driver.
     It focuses solely on measurement functions.
     """
-    # --- Class Attributes ---
-    # Defines the "contract" for any DMM driver that inherits from this class.
-    
+    # --- Class Attributes ---    
     channel = [1]
-    
-    # A generic set of base measurement functions common to most DMMs.
-    # Specific drivers should override/extend this list.
-    sense_func = ['VOLT', 'CURR', 'RES', 'DIOD', 'CONT', 'CAP']
-    
-    # Supported signal modes for voltage and current measurements.
-    measurement_mode = ['DC', 'AC']
-
-    # Supported wiring modes for resistance measurements.
-    wire_mode = ['2W', '4W']
-    
-    # Placeholder for min/max measurement ranges.
+    sense_func = ['VOLT', 'CURR', 'RES']
+    coupling = ['DC', 'AC']
+    sense_mode = ['2W', '4W']
     sense_range = (None, None)
     
     def __init__(self, address):
@@ -40,28 +29,28 @@ class DMM(Instrument):
 
     # --- Core Measurement Configuration ---
 
-    def set_sense_function(self, sens_func):
+    def set_sense_function(self, sense_func):
         """
         Sets the base measurement function of the DMM.
         Args:
-            sens_func (str): The measurement function, e.g., 'VOLT', 'CURR', 'RES'.
+            sense_func (str): The measurement function, e.g., 'VOLT', 'CURR', 'RES'.
         """
         raise NotImplementedError
 
-    def set_measurement_mode(self, mode):
+    def set_measurement_coupling(self, coupling):
         """
-        Sets the signal mode for the current function (e.g., AC or DC).
+        Sets the signal coupling for the current function (e.g., AC or DC).
         This is typically applicable only for VOLT and CURR functions.
         Args:
-            mode (str): The signal mode, e.g., 'AC' or 'DC'.
+            coupling (str): The signal coupling, e.g., 'AC' or 'DC'.
         """
         raise NotImplementedError
 
-    def set_wire_mode(self, mode):
+    def set_sense_mode(self, sense_mode):
         """
-        Sets the wiring configuration for resistance measurements.
+        Sets the wiring configuration for sensing.
         Args:
-            mode (str): The wire mode, '2W' (2-wire) or '4W' (4-wire).
+            sense_mode (str): The wire mode, '2W' (2-wire) or '4W' (4-wire).
         """
         raise NotImplementedError
 

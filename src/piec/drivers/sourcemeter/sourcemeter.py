@@ -11,7 +11,7 @@ class Sourcemeter(Instrument):
     channel = [1]
     source_func = ['VOLT', 'CURR']
     sense_func = ['VOLT', 'CURR', 'RES']
-    sense_mode = ['2W', '4W'] #the sense mode
+    sense_mode = ['2W', '4W']
     voltage = (None, None)
     current = (None, None)
     voltage_compliance = (None, None)
