@@ -62,9 +62,7 @@ class SRS830(Lockin, Scpi):
             address (str): The communication address of the instrument (e.g., GPIB::8).
         """
         # The SCPI parent would typically handle the connection
-        # super().__init__(address) 
-        self.address = address
-        print(f"Connected to SRS830 at address: {self.address}")
+        super().__init__(address)   
 
     def set_reference_source(self, reference_source):
         """
