@@ -11,7 +11,7 @@ class Sourcemeter(Instrument):
     channel = [1]
     source_func = ['VOLT', 'CURR']
     sense_func = ['VOLT', 'CURR', 'RES']
-    mode = ['2W', '4W'] #the sense mode
+    sense_mode = ['2W', '4W'] #the sense mode
     voltage = (None, None)
     current = (None, None)
     voltage_compliance = (None, None)
@@ -39,18 +39,18 @@ class Sourcemeter(Instrument):
             source_func (str): The source function, e.g., 'VOLT' or 'CURR'.
         """
 
-    def set_sense_function(self, sens_func):
+    def set_sense_function(self, sense_func):
         """
         Sets the measurement (sense) function.
         args:
-            sens_func (str): The measurement function, e.g., 'VOLT', 'CURR', or 'RES'.
+            sense_func (str): The measurement function, e.g., 'VOLT', 'CURR', or 'RES'.
         """
         
-    def set_sense_mode(self, mode):
+    def set_sense_mode(self, sense_mode):
         """
         Sets the wiring configuration for sensing.
         args:
-            mode (str): The sense mode, '2W' (2-wire) or '4W' (4-wire).
+            sens_mode (str): The sense mode, '2W' (2-wire) or '4W' (4-wire).
         """
 
     # --- Source Configuration Methods ---
