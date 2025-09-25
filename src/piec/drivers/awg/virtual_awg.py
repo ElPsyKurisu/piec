@@ -30,7 +30,7 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         trigger_slope (list): Trigger slope options ['POS', 'NEG', 'EITH']
         trigger_mode (list): Trigger mode options ['EDGE', 'LEV']
         arb_dac_value (tuple): DAC value range for arbitrary waveforms (min, max)
-        arb_data_length (tuple): Number of points range for arbitrary waveforms (min, max)
+        arb_data_range (tuple): Number of points range for arbitrary waveforms (min, max)
     """
 
     channel = [1, 2]
@@ -46,8 +46,8 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
     trigger_slope = ['POS', 'NEG', 'EITH']
     trigger_mode = ['EDGE', 'LEV']
 
-    arb_dac_value = (0, 16383) # Range for individual DAC points in arb_data_length data list
-    arb_data_length = (2, 1000) # Points, for arbitrary waveform data len
+    arb_dac_value = (0, 16383) # Range for individual DAC points in arb_data_range data list
+    arb_data_range = (2, 1000) # Points, for arbitrary waveform data len
 
     def __init__(self, address='123'):
         """
@@ -109,7 +109,6 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             duration = 1.0 / freq  # one period
             t = np.linspace(0, duration, len(v))
             print("Applying waveform to virtual sample...")
-           
             self.sample.apply_waveform(v, t)
         else: 
             pass
@@ -196,10 +195,10 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         """
         self.state['polarity'][channel] = polarity
 
-    def configure_wf(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None, user_func=None):
+    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None, user_func=None):
         """
-        Configure the waveform settings for a channel.
-
+        Configures the waveform to be generated on the selected channel. Calls the set_waveform, set_frequency, set_amplitude, set_offset, set_load_impedance, and set_polarity functions to configure the waveform
+        
         Args:
             channel (int): Channel number (1-2)
             waveform (str): Waveform type
@@ -315,14 +314,8 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             name (str): Name of the waveform
             data (list or np.array): Waveform data points
         """
-        # Store the arbitrary waveform in state
-        scaled_dac_data = data
-        min_dac, max_dac = self.arb_dac_value
-        voltage_data = []
-        for val in scaled_dac_data:
-            voltage_data.append(( (2 * (val - min_dac)) / (max_dac - min_dac) ) - 1)
-    
-        self.state['arb_waveform'][channel] = np.array(voltage_data)
+        
+        self.state['arb_waveform'][channel] = np.array(data)
 
     def set_arb_waveform(self, channel, name):
         """
@@ -336,15 +329,15 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         self.state['waveform'][channel] = 'USER'
         
 
-    def set_trigger_source(self, channel, source):
+    def set_trigger_source(self, channel, trigger_source):
         """
-        Set the trigger source for a channel.
-
+        Sets the trigger source for the selected channel
+        
         Args:
             channel (int): Channel number (1-2)
-            source (str): Trigger source ('IMM', 'INT', 'EXT', 'MAN')
+            trigger_source (str): The trigger source, e.g., 'IMM', 'INT', 'EXT', 'MAN'
         """
-        self.state['trigger_source'][channel] = source
+        self.state['trigger_source'][channel] = trigger_source
 
     def set_trigger_level(self, channel, level):
         """
@@ -410,6 +403,14 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         elif type == 'HIB':
             self.amplitude = (0, 5)
 
+    def output_trigger(self):
+        """
+        Outputs the trigger signal for the awg. This is typically used to synchronize 
+        the output of the awg with other instruments or systems. Typically the same 
+        as manually triggering the awg from the front panel.
+        """
+        self.send_software_trigger()
+
     def get_waveform(self, channel):
         """
         Generate a synthetic waveform based on current settings.
@@ -425,7 +426,7 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         amp = self.state['amplitude'][channel]
         freq = self.state['frequency'][channel]
         offset = self.state['offset'][channel]
-        t = np.linspace(0, 1, self.arb_data_length[1])
+        t = np.linspace(0, 1, self.arb_data_range[1])
         
         
         if wf == 'SIN':
@@ -438,15 +439,15 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             duty = self.state['duty_cycle'][channel] / 100.0
             v = amp * (np.mod(t * freq, 1) < duty) + offset
         elif wf == 'NOIS':
-            v = amp * np.random.randn(self.arb_data_length) + offset
+            v = amp * np.random.randn(self.arb_data_range) + offset
         elif wf == 'DC':
-            v = np.ones(self.arb_data_length) * offset
+            v = np.ones(self.arb_data_range) * offset
         elif wf == 'USER' and self.state['arb_waveform'][channel] is not None:
-            
             data = self.state['arb_waveform'][channel]
-            v = np.interp(np.linspace(0, len(data)-1, self.arb_data_length[1]), np.arange(len(data)), data)
+            v = np.interp(np.linspace(0, len(data)-1, self.arb_data_range[1]), np.arange(len(data)), data)
+           
         else:
-            v = np.zeros(self.arb_data_length)
+            v = np.zeros(self.arb_data_range)
         
         return v
 
