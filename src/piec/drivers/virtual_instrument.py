@@ -35,28 +35,35 @@ class VirtualInstrument(Instrument):
         """
         if VirtualInstrument._shared_sample is None:
             default_material = {
-                'ferroelectric': { #PZT
-                    'a0': 824800,  # J m / (C^2 K)
-                    'b': -838800000,  # J m^5 / C^4 (Negative for first-order transition)
-                    'c': 7764000000,  # J m^9 / C^6
-                    'T0': 388,    # Curie-Weiss Temp (K)
-                    'Q12': -0.034,  # m^4 / C^2 (Electrostrictive coefficient)
-                    's11': 12.7e-12,  # m^2 / N (Elastic compliance)
-                    's12': -4.2e-12,  # m^2 / N (Elastic compliance)
-                    'lattice_a': 0.402e-9,  # meters
-                    "film_thickness": 10e-9,  # meters
-                    'epsilon_r': 400,  # no unit
-                    'leakage_resistance': 5e3,  # Ohms
+                'ferroelectric': {
+                    # Core Landau coefficients derived from Haun et al. for PZT 53/47
+                    'a0': 2*(-5.88e7)/(400-23),      # J m / (C^2 K)
+                    'b': 4*(4.764e7),      # J m^5 / C^4 (Negative for first-order transition)
+                    'c': 6*(2.336e8),       # J m^9 / C^6
+                    'T0': 273+400,         # Curie-Weiss Temp (K), converted from 231.5 C
+                    
+                    # Electromechanical and elastic constants from literature for PZT
+                    'Q12': -4.6e-2,     # m^4 / C^2 (Electrostrictive coefficient)
+                    's11': 14.1e-12,   # m^2 / N (Elastic compliance)
+                    's12': -4.56e-12,  # m^2 / N (Elastic compliance)
+                    
+                    # Assumed device parameters
+                    'lattice_a': 0.406e-9, # meters, typical for PZT near MPB
+                    "film_thickness": 30e-9,  # meters
+                    'epsilon_r': 500,     # A reasonable background permittivity for PZT
+                    'leakage_resistance': 5e19, # Ohms (Set high to ensure a clear ferroelectric loop)
                 },
-                'substrate': {  # SrTiO3 substrate
-                    'lattice_a': 0.3905e-9  # meters
+                'substrate': { #SRO
+                    
+                    'lattice_a': 0.395e-9 # meters
+                    
                 },
-                'electrode': {  # Platinum electrodes
-                    'screening_lambda': 0.05e-9,  # meters
-                    'permittivity_e': 8.0,  # dimensionless
-                    'area': (20e-6)**2  # meters^2
+                'electrode': { #YBCO
+                    'screening_lambda': 0.1e-9, # meters
+                    'permittivity_e': 7.0e6, # dimensionless
+                    'area': (40e-6)**2 # meters^2
                 }
-            }
+            } 
             VirtualInstrument._shared_sample = Ferroelectric(material_dict=default_material)
             VirtualInstrument._shared_sample.name = "virtual_sample"
         self.sample = VirtualInstrument._shared_sample

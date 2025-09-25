@@ -206,7 +206,7 @@ class Ferroelectric(Material):
 
         # --- Part 3: Total Measured Polarization ---
         P_total_loop = P_ideal_loop + P_dielectric + P_leak_loop
-        
+      
         return P_total_loop, P_dielectric + P_ideal_loop
    
     def apply_waveform(self, v, t):
@@ -222,10 +222,8 @@ class Ferroelectric(Material):
         """
         
         self.t = t
-        
-        import matplotlib.pyplot as plt
-        
         p_ideal = self.run_landau_hysteresis_simulation(v)
+
         p_total, p_noise = self.add_parasitic_effects(v, p_ideal)
 
 
