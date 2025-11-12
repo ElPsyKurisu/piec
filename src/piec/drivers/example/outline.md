@@ -350,6 +350,7 @@ Basically the job of this notebook is to walk the technician through testing to 
 
 #This assumes a new method, where we do not attach the repo and only the parent class, so will need some python script to do it for us
 #it should also make the template to hold the data. Aka need to make file called generate template
+#typical attached files: scpi.py (if scpi), parent.py, manual.pdf
 AI Prompt V5:
 class_name = ________
 parent_classes = ______
@@ -362,6 +363,7 @@ Follow this syntax:
 3. If the argument depends on another argument (e.g. frequency in the case of an AWG) we write this as a dictionary of the nested appropiate types (e.g. point 1 and 2 above) As an example if an awg has different frequency ranges for different waveforms (the argument frequency depends on the argument waveform) we write it as follows:
 frequency = {'waveform': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
 waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
+In addition to the attributes from the outline, you MUST add a new class attribute AUTODETECT_ID at the top of the class attributes section. To find its value, you must search the attached manual for the *IDN? (Identify or equivalent) command. Find the example response string. The value for AUTODETECT_ID MUST be the unique model identifier substring from that response (e.g., if the response is "KEYSIGHT,81150A,...", the ID is "81150A"; if it's "Stanford_Research_Systems,SR830,...", the ID is "SR830"). If the manual does not provide an example *IDN? response, you MUST set AUTODETECT_ID = None.
 
 Please note that the given outline for the driver (the .py file) already may have some values filled out (e.g. some values are not None). In this case, the outline file (attached .py file) dictates what allowed arguments must be supported. An excellent example for this is that instruments that support channel arguments must accept the argument '1' (int format). Say some manual only accepts 'A' or 'B' then some logic must be taken in the driver side to map the argument 1 to a valid argument the instrument can take. If for example the parent class mentions a class attribute the specific instrument you are asked to implement does not have simply make it pass through (e.g. do nothing). An example again could be the channel argument. Let's say our instrument only has one port on it and thus only one channel so the developer never wrote any logic to switch channels. Simply allow the pass through of the argument channel=1 but make it do nothing.
 
