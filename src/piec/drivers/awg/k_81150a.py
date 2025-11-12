@@ -36,10 +36,6 @@ class Keysight81150a(Awg, Scpi):
     trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
     slew_rate = 1.0e9
     arb_data_range = (2, 524288)
-    #Parent class methods
-
-    def __init__(self, address):
-        super().__init__(address)
 
     #core output channel control functions
 

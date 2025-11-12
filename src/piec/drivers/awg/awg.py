@@ -29,10 +29,6 @@ class Awg(Instrument):
     """
     All awgs must be able to generate an arbitrary waveform and output it to the selected channel
     """
-    def __init__(self, address):
-        super().__init__(address)
-
-    #core output channel control functions
 
     def output(self, channel, on=True):
         """

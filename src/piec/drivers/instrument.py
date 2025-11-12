@@ -3,7 +3,7 @@ This is the top level instrument that dictates if something is
 scpi, dac, arduino, etc.
 
 This class now includes the AutoCheckMeta framework for
-automatic parameter validation.
+automatic parameter validation and state tracking.
 """
 import functools
 import inspect
@@ -14,9 +14,6 @@ import os
 import numpy as np
 import pandas as pd
 
-# Assuming utilities.py exists with PiecManager
-# from .utilities import PiecManager
-
 # Placeholder PiecManager if utilities.py is not present
 # and to make this file runnable for testing.
 try:
@@ -25,12 +22,20 @@ except ImportError:
     print("Warning: Could not import PiecManager. Using placeholder.")
     class PiecManager:
         def open_resource(self, address, **kwargs):
-            print(f"PiecManager: Opening {address} with {kwargs}")
+            # print(f"PiecManager: Opening {address} with {kwargs}")
             class DummyResource:
+                def __init__(self, addr, **kwargs):
+                    self.resource_name = addr
                 def query(self, q): return f"DUMMY QUERY: {q}"
                 def write(self, c): print(f"DUMMY WRITE: {c}")
                 def read(self): return ""
-            return DummyResource()
+                def query_binary_values(self, query, datatype='h', is_big_endian=True):
+                    print(f"DUMMY BINARY QUERY: {query}")
+                    return [0.0] * 10
+                def query_ascii_values(self, query):
+                    print(f"DUMMY ASCII QUERY: {query}")
+                    return [0.0] * 10
+            return DummyResource(address, **kwargs)
 
 # --- Metaclass and Decorator for Auto-Checking ---
 
@@ -39,6 +44,9 @@ def auto_check_params(func):
     Decorator to automatically call self._check_params on a method
     if the instance's `check_params` flag is True.
     Also converts all string arguments to lowercase.
+    
+    *** NEW: This decorator also updates the instrument's internal state
+    (e.g., self._current_frequency) with any valid arguments passed.
     """
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -49,14 +57,26 @@ def auto_check_params(func):
         locals_dict = {k: v for k, v in bound_args.arguments.items() if k != 'self'}
         lower_params = convert_to_lowercase(locals_dict)
         
+        # 1. Perform validation checks first
         if getattr(self, 'check_params', False):
-            self._check_params(lower_params)
+            self._check_params(self, lower_params)
         
-        # Update bound_args with the (potentially modified) lowercase values
+        # 2. --- NEW STATE-TRACKING LOGIC ---
+        # If validation passed, update the internal state
+        class_attr_keys = recursive_lower(get_class_attributes_from_instance(self)).keys()
+        
+        for key, value in lower_params.items():
+            if key in class_attr_keys and value is not None:
+                # This is the "writer"
+                setattr(self, f"_current_{key}", value)
+        # --- END NEW LOGIC ---
+
+        # 3. Update bound_args with the lowercase values for the function call
         for key, value in lower_params.items():
             if key in bound_args.arguments:
                 bound_args.arguments[key] = value
 
+        # 4. Call the original function
         return func(*bound_args.args, **bound_args.kwargs)
     
     return wrapper
@@ -81,8 +101,9 @@ class VirtualRMInstrument:
     This class replaces the resource manager object in the virtual case,
     just needs to replace the .write() and .query() methods
     """
-    def __init__(self, verbose:bool = False, **kwargs): # Added **kwargs
+    def __init__(self, address, verbose:bool = False, **kwargs): # Added **kwargs and address
         self.verbose = verbose
+        self.resource_name = address
         print('INITIALIZING VIRTUAL RESOURCE MANAGER, VISA NOT CONNECTED')
         current_dir = os.path.dirname(__file__)
 
@@ -99,6 +120,9 @@ class VirtualRMInstrument:
             self.query_dict["*IDN?"] = "Stanford_Research_Systems,SR830,s/n_virtual,ver1.0"
         if "ISRC?" not in self.query_dict:
             self.query_dict["ISRC?"] = "0" # Default to 'A' input
+        if "DSO-X 3024A" not in self.query_dict.get("*IDN?", ""):
+             self.query_dict["*IDN?"] = "KEYSIGHT TECHNOLOGIES,DSO-X 3024A,MY54100101,2.41.2014091600"
+
 
     def query(self, input:str):
         time.sleep(0.01)
@@ -120,12 +144,12 @@ class VirtualRMInstrument:
     def query_binary_values(self, query, datatype='h', is_big_endian=True):
         time.sleep(0.01)
         if self.verbose: print('Binary query recieved: ', query)
-        return [0.0]
+        return [0] * 100 # Return a list of bytes
 
     def query_ascii_values(self, query):
         time.sleep(0.01)
         if self.verbose: print('ASCII query recieved: ', query)
-        return [0.0]
+        return [0.0] * 100 # Return a list of floats
         
     def read(self):
         if self.verbose: print('Read recieved')
@@ -137,10 +161,40 @@ def convert_to_lowercase(params):
     return {key: value.lower() if isinstance(value, str) else value for key, value in params.items()}
 
 def is_contained(value, lst):
+    """
+    Robustly checks if a value is in a list, handling strings,
+    integers, and floats.
+    """
     if value is None: return True
-    my_string = str(value).lower()
-    my_list = [str(item).lower() for item in lst]
-    return my_string in my_list
+    
+    # 1. Direct Check
+    if value in lst:
+        return True
+        
+    # 2. String Check (for case-insensitivity)
+    # e.g., "ac" in ["AC", "DC"]
+    try:
+        str_value = str(value).lower()
+        str_list = [str(item).lower() for item in lst]
+        if str_value in str_list:
+            return True
+    except:
+        pass # Some items might not be convertible to string
+
+    # 3. Numeric Check (for int/float equivalence)
+    # e.g., 1.0 in [1, 2, 3]
+    try:
+        num_value = float(value)
+        # This check works because in Python, 1.0 == 1 is True
+        if num_value in lst:
+            return True
+        # Check floats in list (e.g. 1e-9 in [1e-9, 2e-9])
+        if any(np.isclose(num_value, float(item)) for item in lst):
+            return True
+    except (ValueError, TypeError):
+        pass # Value or list items not numeric
+
+    return False
 
 def is_value_between(value, num_tuple):
     if value is None: return True
@@ -193,20 +247,29 @@ class Instrument(metaclass=AutoCheckMeta):
                       (e.g., baud_rate=9600).
         """
         self.check_params = check_params
+        
+        # --- NEW STATE-TRACKING LOGIC ---
+        # Initialize all _current_ attributes to None
+        class_attributes = get_class_attributes_from_instance(self)
+        for key in class_attributes.keys():
+            setattr(self, f"_current_{key}", None)
+        # --- END NEW LOGIC ---
+        
         self.virtual = (address.upper() == 'VIRTUAL')
+        
+        connection_kwargs = kwargs.copy()
         
         try:
             if self.virtual:
-                self.instrument = VirtualRMInstrument(verbose=True, **kwargs)
+                self.instrument = VirtualRMInstrument(address, verbose=True, **connection_kwargs)
             else:
-                # Use your PiecManager to open the resource
                 pm = PiecManager()
-                self.instrument = pm.open_resource(address, **kwargs)
+                self.instrument = pm.open_resource(address, **connection_kwargs)
         
         except Exception as e:
             print(f"Error initializing instrument at {address}: {e}")
             print("Falling back to VIRTUAL mode.")
-            self.instrument = VirtualRMInstrument(verbose=True, **kwargs)
+            self.instrument = VirtualRMInstrument(address, verbose=True, **connection_kwargs)
             self.virtual = True
 
     def idn(self):
@@ -216,25 +279,33 @@ class Instrument(metaclass=AutoCheckMeta):
         """
         return "Default IDN function not implemented, please override in subclass"
 
-    def _check_params(self, locals_dict):
+    def _check_params(self, instance_self, locals_dict):
         """
         This is the parameter checking function that is called by the decorator.
         It validates function arguments against the class attributes.
+        
+        Args:
+            instance_self (Instrument): The instance of the driver class.
+            locals_dict (dict): The dictionary of arguments passed to the method.
         """
-        class_attributes = recursive_lower(get_class_attributes_from_instance(self))
+        class_attributes = get_class_attributes_from_instance(instance_self) # Use original case
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         
         for key in keys_to_check:
-            attribute_value = getattr(self, key)
+            # Get the class attribute (e.g., self.sensitivity)
+            attribute_value = getattr(instance_self, key)
+            
             if attribute_value is None:
-                print(f"Warning: no range-checking defined for \033[1m{key}\033[0m, skipping _check_params")
+                # This is the "off switch". If a driver wants to handle
+                # validation itself (like SRS830.set_sensitivity), it
+                # should set its class attribute to `None`.
                 continue
             
-            attribute_value = recursive_lower(attribute_value)
+            # Get the value passed to the function (e.g., 1e-9)
             input_value = locals_dict[key]
-            
-            if input_value is None: continue
+            if input_value is None: continue # Skip None values
 
+            # --- Simple Checks (List or Tuple) ---
             if isinstance(attribute_value, tuple):
                 if not is_value_between(input_value, attribute_value):
                     exit_with_error(f"Error input value of \033[1m{input_value}\033[0m for arg \033[1m{key}\033[0m is out of acceptable Range \033[1m{attribute_value}\033[0m")
@@ -243,24 +314,51 @@ class Instrument(metaclass=AutoCheckMeta):
                 if not is_contained(input_value, attribute_value):
                     exit_with_error(f"Error input value of \033[1m{input_value}\033[0m for arg \033[1m{key}\033[0m is not in list of acceptable \033[1m{attribute_value}\033[0m")
             
+            # --- Dictionary (Dependent) Check ---
             elif isinstance(attribute_value, dict):
-                dependency_keys = get_matching_keys(locals_dict, attribute_value)
-                if len(dependency_keys) != 1:
-                    print(f"WARNING: Found {len(dependency_keys)} dependency keys {dependency_keys} for '{key}', skipping checking.")
+                attribute_value_lower = recursive_lower(attribute_value)
+                
+                if not attribute_value_lower: continue # Skip empty dicts
+                
+                # Assume the first key in the dict is the dependency
+                dependency_key = list(attribute_value_lower.keys())[0] # e.g., 'input_configuration'
+                
+                dep_value = None
+                
+                # 1. Check function arguments (stateless)
+                #    e.g., set_something(sensitivity=1e-9, input_configuration='A')
+                if dependency_key in locals_dict:
+                    dep_value = locals_dict[dependency_key]
+                
+                # 2. Check for the *Standardized* state attribute (stateful)
+                #    e.g. self._current_input_configuration
+                standard_attr_name = f"_current_{dependency_key}"
+                if hasattr(instance_self, standard_attr_name):
+                    dep_value = getattr(instance_self, standard_attr_name)
+                
+                if dep_value is None:
+                    # No value found in args OR in the standard state variable.
+                    print(f"WARNING: Could not find dependency '{dependency_key}' in function args "
+                          f"or in state variable 'self.{standard_attr_name}'. Skipping check for '{key}'.")
                     continue
-                
-                dep_key = dependency_keys[0]
-                dep_value = locals_dict[dep_key]
-                
+
+                # Lowercase the found value (e.g., "A-B" -> "a-b")
+                dep_value = str(dep_value).lower() 
+
                 try:
-                    valid_range = attribute_value[dep_key][dep_value]
-                    if isinstance(valid_range, tuple):
-                         if not is_value_between(input_value, valid_range):
-                            exit_with_error(f"Error: input value \033[1m{input_value}\033[0m for arg \033[1m{key}\033[0m is out of range \033[1m{valid_range}\033[0m (for {dep_key} = '{dep_value}')")
-                    elif isinstance(valid_range, list):
-                        if not is_contained(input_value, valid_range):
-                            exit_with_error(f"Error: input value \033[1m{input_value}\033[0m for arg \033[1m{key}\033[0m is not in list \033[1m{valid_range}\033[0m (for {dep_key} = '{dep_value}')")
+                    # Use the dependency value to get the valid list/tuple
+                    # e.g., attribute_value_lower['input_configuration']['a-b']
+                    valid_range_or_list = attribute_value_lower[dependency_key][dep_value] 
+                    
+                    if isinstance(valid_range_or_list, tuple):
+                         if not is_value_between(input_value, valid_range_or_list):
+                            exit_with_error(f"Error: input value \033[1m{input_value}\033[0m for arg \033[1m{key}\033[0m is out of range \033[1m{valid_range_or_list}\033[0m (for {dependency_key} = '{dep_value}')")
+                    elif isinstance(valid_range_or_list, list):
+                        if not is_contained(input_value, valid_range_or_list): # Use robust check
+                            exit_with_error(f"Error: input value \033[1m{input_value}\033[0m for arg \033[1m{key}\033[0m is not in list \033[1m{valid_range_or_list}\033[0m (for {dependency_key} = '{dep_value}')")
+                
                 except KeyError:
-                    exit_with_error(f"Error: Invalid dependency value '\033[1m{dep_value}\033[0m' for argument '\033[1m{dep_key}\033[0m'.")
+                    valid_options = list(attribute_value_lower[dependency_key].keys())
+                    exit_with_error(f"Error: Invalid dependency value '\033[1m{dep_value}\033[0m' for '{dependency_key}'. Valid options are: {valid_options}")
                 except Exception as e:
                     print(f"An error occurred during dependent parameter check for '{key}': {e}")

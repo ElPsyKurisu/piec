@@ -33,7 +33,7 @@ src/piec/drivers/dmm/dmm.py
 src/piec/drivers/lockin/__init__.py
 src/piec/drivers/lockin/lockin.py
 src/piec/drivers/lockin/srs830.py
-src/piec/drivers/lockin/srs8302.py
+src/piec/drivers/lockin/srs830_old.py
 src/piec/drivers/oscilloscope/__init__.py
 src/piec/drivers/oscilloscope/k_dsox3024a.py
 src/piec/drivers/oscilloscope/oscilloscope.py
