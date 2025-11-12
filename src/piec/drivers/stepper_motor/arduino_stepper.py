@@ -10,6 +10,9 @@ class Geos_Stepper(Stepper):
     """
     This is the base level - instrument specific of the Arduino_Stepper used in our lab
     """
+    num_steps = (0, 600) #typical step sizes (arduino code as limit of -300 to 300)
+    direction = [0,1] #0 is CW 1 is CCW
+
     def __init__(self, address):
         """
         Connects to the instrument by opening a ResourceManager and talking to it (use PiecManager)
