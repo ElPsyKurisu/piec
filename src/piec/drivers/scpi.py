@@ -10,13 +10,13 @@ class Scpi(Instrument):
     This is taken from scpi-99 standard and includes the IEEE Mandated Commands
     https://www.ivifoundation.org/downloads/SCPI/scpi-99.pdf
     """
-    def __init__(self, address):
+    def __init__(self, address, **kwargs):
         """
         Opens the instrument and enables communication with it. In the case of SCPI, this is usually done over GPIB if possible, or USB, or Ethernet.
         The address is usually a string that represents the connection method and the address of the instrument (e.g. 'GPIB::1::INSTR', 'USB0::0x1234::0x5678::INSTR', etc.)
         Uses the built in PiecManager to handle the connection and communication with the instrument.
         """
-        super().__init__(address)
+        super().__init__(address, **kwargs)
 
     def idn(self):
         """

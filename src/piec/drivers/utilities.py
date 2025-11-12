@@ -206,11 +206,11 @@ def autodetect_instrument(address):
     """
     Detects an instrument using a two-tiered registry system.
     """
-    print(f"\n🔎 Probing instrument at {address}...")
+    print(f"\n Searching for instrument at {address}...")
     instrument_id = _probe_scpi(address)
 
     if not instrument_id:
-        print(f"❌ Could not get an ID from the instrument at {address}.")
+        print(f" Could not get an ID from the instrument at {address}.")
         return None
         
     print(f"  - VISA ID: '{instrument_id}'")
@@ -224,13 +224,13 @@ def autodetect_instrument(address):
 
     if driver_class:
         id_key = next((key for key, val in STATIC_DRIVER_REGISTRY.items() if val == driver_class), None)
-        print(f"✅ Match found for '{id_key}'! Initializing driver: {driver_class.__name__}")
+        print(f"Match found for '{id_key}'! Initializing driver: {driver_class.__name__}")
         try:
             return driver_class(address=address)
         except Exception as e:
             print(f"  - Error initializing {driver_class.__name__}: {e}")
             return None
 
-    print(f"❌ No matching driver found for the instrument at {address} after full scan.")
+    print(f"No matching driver found for the instrument at {address}.")
     return None
 
