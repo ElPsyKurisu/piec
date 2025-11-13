@@ -370,3 +370,4 @@ Please note that the given outline for the driver (the .py file) already may hav
 Ok now try to fill out the driver classes and be sure too take programming examples from the manual if possible and do not assume anything that is not in the manual. Note, if the given prompt included SCPI as the parent class but the instrument (based on the manual) does not implement SCPI please try to create new commands that follow the exact same naming convention as the given SCPI parent class but with the correct implementation based on the driver, else raise a non_implemented error (and say its not supported)
 
 NOTES: need to tell it to do .instruemnt.write etc
+NOTES: also please note that all class attributes represent possible paramter values, but when initilizaing the driver it will also make _current_attribute (for each attribute) to None, that gets updates everytime we do stuff
