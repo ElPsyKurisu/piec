@@ -31,7 +31,10 @@ class Scpi(Instrument):
         Calls the *RST command to reset the instrument to its default state.
         This is useful for clearing any settings or configurations that may have been set previously.
         """
+        #SCPI Command
         self.instrument.write("*RST")
+        #set _current_attribute to None
+        self._initialize_state()
 
     def clear(self):
         """

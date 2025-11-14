@@ -61,23 +61,26 @@ def auto_check_params(func):
         if getattr(self, 'check_params', False):
             self._check_params(self, lower_params)
         
-        # 2. --- NEW STATE-TRACKING LOGIC ---
-        # If validation passed, update the internal state
+        # 3. Update bound_args with the lowercase values for the function call
+        for key, value in lower_params.items():
+            if key in bound_args.arguments:
+                bound_args.arguments[key] = value
+        
+        # 4. Call the original function FIRST.
+        #    If this function raises an error (like our manual validation),
+        #    the decorator will stop here, and the state will NOT be updated.
+        result = func(*bound_args.args, **bound_args.kwargs)
+
+        # 2. --- STATE-TRACKING LOGIC ---
+        #    This code only runs if the function call above SUCCEEDED.
         class_attr_keys = recursive_lower(get_class_attributes_from_instance(self)).keys()
         
         for key, value in lower_params.items():
             if key in class_attr_keys and value is not None:
                 # This is the "writer"
                 setattr(self, f"_current_{key}", value)
-        # --- END NEW LOGIC ---
 
-        # 3. Update bound_args with the lowercase values for the function call
-        for key, value in lower_params.items():
-            if key in bound_args.arguments:
-                bound_args.arguments[key] = value
-
-        # 4. Call the original function
-        return func(*bound_args.args, **bound_args.kwargs)
+        return result
     
     return wrapper
 
@@ -236,6 +239,15 @@ class Instrument(metaclass=AutoCheckMeta):
     This is the top-level class that provides connection management
     and the automatic parameter-checking framework.
     """
+
+    def _initialize_state(self):
+        """
+        Initializes all _current_ attributes to None.
+        """
+        class_attributes = get_class_attributes_from_instance(self)
+        for key in class_attributes.keys():
+            setattr(self, f"_current_{key}", None)
+
     def __init__(self, address, check_params=False, **kwargs):
         """
         Opens the instrument and enables communication with it.
@@ -248,12 +260,10 @@ class Instrument(metaclass=AutoCheckMeta):
         """
         self.check_params = check_params
         
-        # --- NEW STATE-TRACKING LOGIC ---
         # Initialize all _current_ attributes to None
         class_attributes = get_class_attributes_from_instance(self)
         for key in class_attributes.keys():
             setattr(self, f"_current_{key}", None)
-        # --- END NEW LOGIC ---
         
         self.virtual = (address.upper() == 'VIRTUAL')
         
@@ -283,6 +293,7 @@ class Instrument(metaclass=AutoCheckMeta):
         """
         This is the parameter checking function that is called by the decorator.
         It validates function arguments against the class attributes.
+        NOTE: If a class attribute is set to None, skips validation
         
         Args:
             instance_self (Instrument): The instance of the driver class.
@@ -292,6 +303,13 @@ class Instrument(metaclass=AutoCheckMeta):
         keys_to_check = get_matching_keys(locals_dict, class_attributes)
         
         for key in keys_to_check:
+
+            class_attr_value = class_attributes.get(key)
+            if class_attr_value is None:
+                # This is the "off switch". If the class attribute is None,
+                # it means validation is handled manually. Skip all checks.
+                continue
+
             # Get the class attribute (e.g., self.sensitivity)
             attribute_value = getattr(instance_self, key)
             

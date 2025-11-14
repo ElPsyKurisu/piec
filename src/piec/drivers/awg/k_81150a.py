@@ -90,7 +90,8 @@ class Keysight81150a(Awg, Scpi):
             # This frequency REQUIRES 'HIB' (High Bandwidth) mode.
             # We must check if the current amplitude is too high for HIB mode.
             current_amp = getattr(self, "_current_amplitude", 0) # Get state
-
+            if current_amp is None:
+                current_amp = 0
             if current_amp > 5:
                 raise ValueError(f"Cannot set frequency to {frequency}Hz. Current amplitude ({current_amp}V) is too high for High-Bandwidth mode (max 5V).")
             
@@ -114,7 +115,8 @@ class Keysight81150a(Awg, Scpi):
             # This change REQUIRES 'HIV' (High Voltage) mode.
             # We must check if the current frequency is too high for HIV mode.
             current_freq = getattr(self, "_current_frequency", 0) # Get state
-            
+            if current_freq is None:
+                current_freq = 0
             # 50e6 is the max frequency for HIV mode
             if current_freq > 50e6:
                 raise ValueError(f"Cannot set amplitude to {amplitude}V. Current frequency ({current_freq}Hz) is too high for High-Voltage mode (max 50MHz).")
@@ -130,11 +132,37 @@ class Keysight81150a(Awg, Scpi):
 
     def set_offset(self, channel, offset):
         """
-        Sets the offset of the waveform to be generated on the selected channel
+        Sets the offset of the waveform to be generated on the selected channel.
+        Auto-check is OFF. This function performs its own validation against
+        the current amplitude and the instrument's absolute +/- 5V window.
         args:
             channel (int): The channel to set the offset on
             offset (float): The offset of the waveform in volts
         """
+        # 1. Get the current Vpp amplitude from the state
+        current_amp_vpp = getattr(self, "_current_amplitude")
+        if current_amp_vpp is None:
+            current_amp_vpp = 0.0
+        
+        # Calculate the peak amplitude (Vpp / 2)
+        current_amp_peak = current_amp_vpp / 2.0
+
+        # 2. Define the instrument's absolute voltage window
+        # Based on your data, this window is +/- 5V for both modes.
+        ABS_MAX_VOLTAGE = 5.0
+        ABS_MIN_VOLTAGE = -5.0
+
+        # 3. Perform the validation
+        
+        # Check if the highest point of the wave is too high
+        if (offset + current_amp_peak) > ABS_MAX_VOLTAGE:
+            raise ValueError(f"Offset {offset}V is invalid. The waveform's peak ({offset + current_amp_peak}V) would exceed the instrument's absolute +5V limit.")
+        
+        # Check if the lowest point of the wave is too low
+        if (offset - current_amp_peak) < ABS_MIN_VOLTAGE:
+            raise ValueError(f"Offset {offset}V is invalid. The waveform's trough ({offset - current_amp_peak}V) would exceed the instrument's absolute -5V limit.")
+        
+        # 4. If validation passes, send the command
         self.instrument.write(":VOLT{}:OFFS {}".format(channel, offset))
 
     def set_load_impedance(self, channel, load_impedance):
@@ -400,6 +428,20 @@ class Keysight81150a(Awg, Scpi):
             self.amplitude = (0, 5)
             self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
         self.instrument.write("OUTP{}:ROUT {}".format(channel, amplifier_type))
+
+    #ovveride SCPI reset
+    def reset(self):
+        """
+        Resets the instrument and re-syncs the driver to the
+        known manufacturer default state (HIB mode).
+        """
+        # 1. Call the parent (Scpi) reset.
+        #    This automatically sends *RST AND calls _initialize_state().
+        super().reset()
+        
+        # 2. Re-apply this instrument's *known* default state.
+        self.configure_output_amplifier(channel=1, amplifier_type='HIB')
+        self.configure_output_amplifier(channel=2, amplifier_type='HIB')
 
     #Helper Functions
 def scale_waveform_data(data: np.array, preserve_vertical_resolution: bool=False) -> np.array:
