@@ -19,8 +19,8 @@ class Keysight81150a(Awg, Scpi):
     
     channel = [1, 2]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
-    frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
-    amplitude = None  #(0,5) V_pp added functionality that switches based on amplifier mode set to None to allow for function specific control
+    frequency = None  #set in configure_output_amplifier
+    amplitude = None  #set in configure_output_amplifier
     offset = amplitude #assume same as amplitude, when amplitude switches so too does offset
     load_impedance = (0.3, 1e6)
     source_impedance = [5, 50]
@@ -36,7 +36,22 @@ class Keysight81150a(Awg, Scpi):
     trigger_mode = ["EDGE", "LEV"] #[EDGE (edge), LEV (level)]
     slew_rate = 1.0e9
     arb_data_range = (2, 524288)
+    #instrument specific attributes
+    amplifier_type = ['HIV', 'HIB'] #HIV (high voltage), HIB (high bandwidth)
 
+    def __init__(self, address, **kwargs):
+        """
+        Initializes the Keysight 81150A driver and sets
+        the default amplifier state. Required to correctly set the amplitude and frequency ranges.
+        """
+        super().__init__(address, **kwargs)
+        
+        # Set the default state (HIB mode) for both channels.
+        # This calls configure_output_amplifier, which creates the
+        # instance attributes (self.amplitude, self.frequency, etc.)
+        # and makes the object "queryable" from the start.
+        self.configure_output_amplifier(channel=1, amplifier_type='HIB')
+        self.configure_output_amplifier(channel=2, amplifier_type='HIB')
     #core output channel control functions
 
     def output(self, channel, on=True):
@@ -64,24 +79,53 @@ class Keysight81150a(Awg, Scpi):
     def set_frequency(self, channel, frequency):
         """
         Sets the frequency of the waveform to be generated on the selected channel
-        args:
-            channel (int): The channel to set the frequency on
-            frequency (float): The frequency of the waveform in Hz
+        Auto-check is OFF. This function performs its own validation.
         """
+        # 1. Manual validation for absolute limits
+        if not 1e-6 <= frequency <= 240e6:
+             raise ValueError(f"Frequency {frequency}Hz is out of the instrument's absolute range (1uHz - 240MHz)")
+
+        # 2. Smart cross-validation logic
+        if frequency > 50e6:
+            # This frequency REQUIRES 'HIB' (High Bandwidth) mode.
+            # We must check if the current amplitude is too high for HIB mode.
+            current_amp = getattr(self, "_current_amplitude", 0) # Get state
+
+            if current_amp > 5:
+                raise ValueError(f"Cannot set frequency to {frequency}Hz. Current amplitude ({current_amp}V) is too high for High-Bandwidth mode (max 5V).")
+            
+            # This is safe, so ensure we are in HIB mode
+            self.configure_output_amplifier(channel, type='HIB')
+        
+        # 3. Send the command
         self.instrument.write(":FREQ{} {}".format(channel, frequency))
 
     def set_amplitude(self, channel, amplitude):
         """
         Sets the amplitude of the waveform to be generated on the selected channel
-        args:
-            channel (int): The channel to set the amplitude on
-            amplitude (float): The amplitude of the waveform in volts (usually Vpp but use instrument default)
+        Auto-check is OFF. This function performs its own validation.
         """
-        #autoswap to high voltage mode if amplitude > 5V
+        # 1. Manual validation for absolute limits
+        if not 0.0 <= amplitude <= 10.0:
+             raise ValueError(f"Amplitude {amplitude}V is out of the instrument's absolute range (0-10 V)")
+
+        # 2. Smart cross-validation logic
         if amplitude > 5:
-            self.configure_output_amplifier(channel, type='HIV') #switch to high voltage mode
+            # This change REQUIRES 'HIV' (High Voltage) mode.
+            # We must check if the current frequency is too high for HIV mode.
+            current_freq = getattr(self, "_current_frequency", 0) # Get state
+            
+            # 50e6 is the max frequency for HIV mode
+            if current_freq > 50e6:
+                raise ValueError(f"Cannot set amplitude to {amplitude}V. Current frequency ({current_freq}Hz) is too high for High-Voltage mode (max 50MHz).")
+            
+            self.configure_output_amplifier(channel, type='HIV')
+        
         else:
-            self.configure_output_amplifier(channel, type='HIB') #switch to high bandwidth mode
+            # This amplitude is 5V or less, requires 'HIB' mode.
+            self.configure_output_amplifier(channel, type='HIB')
+
+        # 3. Send the command
         self.instrument.write(":VOLT{} {}".format(channel, amplitude))
 
     def set_offset(self, channel, offset):
@@ -339,7 +383,7 @@ class Keysight81150a(Awg, Scpi):
             self.instrument.write(":TRIG")
 
     #additional methods
-    def configure_output_amplifier(self, channel: str='1', type: str='HIV'):
+    def configure_output_amplifier(self, channel: str='1', amplifier_type: str='HIV'):
         """
         This program configures the output amplifier for either maximum bandwith or amplitude. Taken from EKPY.
         NOTE: If in HIV mode max frequnecy is 50MHz, otherwise you get the full 120MHz
@@ -347,15 +391,15 @@ class Keysight81150a(Awg, Scpi):
         args:
             self (pyvisa.resources.gpib.GPIBInstrument): Keysight 81150A
             channel (str): Desired Channel to configure accepted params are [1,2]
-            type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
+            amplifier_type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
         """
-        if type == 'HIV' or type == 'hiv':
+        if amplifier_type == 'HIV' or amplifier_type == 'hiv':
             self.amplitude = (0, 10)
             self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
-        if type == 'HIB' or type == 'hib':
+        if amplifier_type == 'HIB' or amplifier_type == 'hib':
             self.amplitude = (0, 5)
             self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
-        self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
+        self.instrument.write("OUTP{}:ROUT {}".format(channel, amplifier_type))
 
     #Helper Functions
 def scale_waveform_data(data: np.array, preserve_vertical_resolution: bool=False) -> np.array:
