@@ -95,7 +95,7 @@ class Keysight81150a(Awg, Scpi):
                 raise ValueError(f"Cannot set frequency to {frequency}Hz. Current amplitude ({current_amp}V) is too high for High-Bandwidth mode (max 5V).")
             
             # This is safe, so ensure we are in HIB mode
-            self.configure_output_amplifier(channel, type='HIB')
+            self.configure_output_amplifier(channel, amplifier_type='HIB')
         
         # 3. Send the command
         self.instrument.write(":FREQ{} {}".format(channel, frequency))
@@ -119,11 +119,11 @@ class Keysight81150a(Awg, Scpi):
             if current_freq > 50e6:
                 raise ValueError(f"Cannot set amplitude to {amplitude}V. Current frequency ({current_freq}Hz) is too high for High-Voltage mode (max 50MHz).")
             
-            self.configure_output_amplifier(channel, type='HIV')
+            self.configure_output_amplifier(channel, amplifier_type='HIV')
         
         else:
             # This amplitude is 5V or less, requires 'HIB' mode.
-            self.configure_output_amplifier(channel, type='HIB')
+            self.configure_output_amplifier(channel, amplifier_type='HIB')
 
         # 3. Send the command
         self.instrument.write(":VOLT{} {}".format(channel, amplitude))
