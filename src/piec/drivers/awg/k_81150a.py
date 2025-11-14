@@ -349,12 +349,12 @@ class Keysight81150a(Awg, Scpi):
             channel (str): Desired Channel to configure accepted params are [1,2]
             type (str): Amplifier Type args = [HIV (MAximum Amplitude), HIB (Maximum Bandwith)]
         """
-        if type == 'HIV':
+        if type == 'HIV' or type == 'hiv':
             self.amplitude = (0, 10)
-            self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
-        if type == 'HIB':
-            self.amplitude = (0, 5)
             self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
+        if type == 'HIB' or type == 'hib':
+            self.amplitude = (0, 5)
+            self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
         self.instrument.write("OUTP{}:ROUT {}".format(channel, type))
 
     #Helper Functions
