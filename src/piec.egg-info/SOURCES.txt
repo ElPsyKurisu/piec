@@ -16,6 +16,7 @@ src/piec/analysis/hysteresis.py
 src/piec/analysis/pund.py
 src/piec/analysis/utilities.py
 src/piec/drivers/__init__.py
+src/piec/drivers/digilent.py
 src/piec/drivers/instrument.py
 src/piec/drivers/instrument_old.py
 src/piec/drivers/registry_cache.json
@@ -28,6 +29,7 @@ src/piec/drivers/awg/k_81150a.py
 src/piec/drivers/awg/virtual_awg.py
 src/piec/drivers/daq/__init__.py
 src/piec/drivers/daq/daq.py
+src/piec/drivers/daq/mccdig.py
 src/piec/drivers/dmm/__init__.py
 src/piec/drivers/dmm/dmm.py
 src/piec/drivers/lockin/__init__.py
