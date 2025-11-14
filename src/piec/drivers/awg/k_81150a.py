@@ -20,7 +20,7 @@ class Keysight81150a(Awg, Scpi):
     channel = [1, 2]
     waveform = ['SIN', 'SQU', 'RAMP', 'PULS', 'NOIS', 'DC', 'USER']
     frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
-    amplitude = (0, 5) #V_pp added functionality that switches based on amplifier mode
+    amplitude = None  #(0,5) V_pp added functionality that switches based on amplifier mode set to None to allow for function specific control
     offset = amplitude #assume same as amplitude, when amplitude switches so too does offset
     load_impedance = (0.3, 1e6)
     source_impedance = [5, 50]
