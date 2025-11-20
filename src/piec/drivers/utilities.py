@@ -51,6 +51,33 @@ class PiecManager():
             print(f"Warning: Could not list open resources. {e}")
             return ()
         
+    def open_resource(self, address, baud_rate=None, **kwargs):
+        """
+        Opens a resource by address.
+
+        If the address is for an MCCULW device, it uses the ul module.
+        For standard VISA resources, it acts as a wrapper for pyvisa's open_resource,
+        allowing for an explicit baud_rate argument.
+
+        Args:
+            address (str): The resource address string.
+            baud_rate (int, optional): The baud rate for serial instruments. Defaults to None.
+            **kwargs: Other keyword arguments to pass to pyvisa.open_resource.
+        """
+        # Check if the device is an MCC/Digilent device
+        if 'MCC' in address or 'Digilent' in address:
+            # These devices are not opened via VISA, so kwargs are not used.
+            return ul.open_device(address)
+        else:
+            # This is a standard VISA resource.
+            # If the user provided a baud_rate, add it to the kwargs dictionary.
+            # This gives the explicit argument priority.
+            if baud_rate is not None:
+                kwargs['baud_rate'] = baud_rate
+            
+            # Call the original pyvisa function with the (potentially modified) kwargs.
+            return self.rm.open_resource(address, **kwargs)
+        
 
 """
 Helper Functions
