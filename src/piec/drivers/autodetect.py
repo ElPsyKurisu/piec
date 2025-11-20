@@ -92,10 +92,10 @@ def _setup_mcc_device(target_identifier=None, board_num=0):
     
     try:
         ul.create_daq_device(board_num, target_device)
-        print(f"MCC: Configured {target_device.product_name} as Board {board_num}")
+        print(f"Digilent: Configured {target_device.product_name} as Board {board_num}")
         return True
     except Exception as e:
-        print(f"MCC Config Error: {e}")
+        print(f"Digilent Config Error: {e}")
         return False
 
 def _safe_close(instrument):
