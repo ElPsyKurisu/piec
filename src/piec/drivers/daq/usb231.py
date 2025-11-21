@@ -3,7 +3,7 @@ Driver for the Measurement Computing (MCC) USB-231 Data Acquisition Device.
 Based on the Digilent/MCC Universal Library (UL).
 """
 from .daq import Daq
-from .digilent import Digilent
+from ..digilent import Digilent
 
 # --- Import MCC Universal Library Enums ---
 try:

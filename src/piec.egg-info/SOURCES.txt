@@ -31,7 +31,7 @@ src/piec/drivers/awg/k_81150a.py
 src/piec/drivers/awg/virtual_awg.py
 src/piec/drivers/daq/__init__.py
 src/piec/drivers/daq/daq.py
-src/piec/drivers/daq/mccdig.py
+src/piec/drivers/daq/usb231.py
 src/piec/drivers/dmm/__init__.py
 src/piec/drivers/dmm/dmm.py
 src/piec/drivers/lockin/__init__.py
