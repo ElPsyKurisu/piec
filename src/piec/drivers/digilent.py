@@ -107,14 +107,27 @@ class Digilent(Instrument):
     def idn(self):
         """
         Overrides the standard SCPI *IDN? query.
+        Returns: Manufacturer, Model, Serial Number, Firmware/Wrapper Version
         """
-        if self.virtual:
+        # Check if running in virtual mode (if attribute exists)
+        if hasattr(self, 'virtual') and self.virtual:
             return "Measurement_Computing,VIRTUAL_DEVICE,0000,1.0"
+
         try:
-            # MCC UL doesn't have a standard "Get Serial" command for all boards easily accessible
-            # via a single call, but getting the board name verifies communication.
-            name = self.ul.get_board_name(self.board_num)
-            return f"Measurement_Computing,{name},Unknown_SN,UL_Wrapper"
+            # Create a device info object to retrieve detailed board properties
+            dev_info = DaqDeviceInfo(self.board_num)
+            
+            manufacturer = "Measurement_Computing"
+            model = dev_info.product_name
+            # unique_id typically holds the Serial Number for USB DAQ devices
+            serial_number = dev_info.unique_id
+            
+            # Firmware version is not uniformly available across all MCC boards via a single 
+            # standard call in mcculw, so 'UL_Wrapper' remains a safe placeholder.
+            firmware = "UL_Wrapper" 
+            
+            return f"{manufacturer},{model},{serial_number},{firmware}"
+            
         except Exception as e:
             return f"Error retrieving ID: {e}"
 
