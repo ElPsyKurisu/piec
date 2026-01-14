@@ -26,6 +26,7 @@ src/piec/drivers/virtual_instrument.py
 src/piec/drivers/awg/__init__.py
 src/piec/drivers/awg/awg.py
 src/piec/drivers/awg/k_81150a.py
+src/piec/drivers/awg/sdg2000.py
 src/piec/drivers/awg/virtual_awg.py
 src/piec/drivers/daq/__init__.py
 src/piec/drivers/daq/daq.py
@@ -71,9 +72,9 @@ src/piec/drivers/z_old/lecroixsda6020/__init__.py
 src/piec/drivers/z_old/lecroixsda6020/core.py
 src/piec/drivers/z_old/sr830/__init__.py
 src/piec/drivers/z_old/sr830/core.py
-src/piec/measurement_waveforms/__init__.py
-src/piec/measurement_waveforms/amr.py
-src/piec/measurement_waveforms/discrete_waveform.py
-src/piec/measurement_waveforms/magneto_transport.py
-src/piec/simulations/__init__.py
-src/piec/simulations/fe_material.py
+src/piec/measurement/__init__.py
+src/piec/measurement/amr.py
+src/piec/measurement/discrete_waveform.py
+src/piec/measurement/magneto_transport.py
+src/piec/simulation/__init__.py
+src/piec/simulation/fe_material.py
