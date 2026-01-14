@@ -1,7 +1,7 @@
 General Discrete Waveform Measurements
 ======================================
 
-Many experiments in ``piec`` that involve applying specific voltage patterns and capturing responses are built upon the :class:`~piec.measurement_waveforms.discrete_waveform.DiscreteWaveform` base class.
+Many experiments in ``piec`` that involve applying specific voltage patterns and capturing responses are built upon the :class:`~piec.measurement.discrete_waveform.DiscreteWaveform` base class.
 
 Overview
 --------
@@ -27,4 +27,4 @@ Specific measurement types like :doc:`hysteresis` and :doc:`pund` are implemente
 
 API Reference
 -------------
-* :class:`~piec.measurement_waveforms.discrete_waveform.DiscreteWaveform`
+* :class:`~piec.measurement.discrete_waveform.DiscreteWaveform`

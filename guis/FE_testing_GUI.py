@@ -7,7 +7,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from piec.measurement_waveforms.discrete_waveform import HysteresisLoop, ThreePulsePund
+from piec.measurement.discrete_waveform import HysteresisLoop, ThreePulsePund
 from piec.analysis.utilities import standard_csv_to_metadata_and_data
 from piec.drivers.oscilloscope.k_dsox3024a import KeysightDSOX3024a
 from piec.drivers.awg.k_81150a import Keysight81150a

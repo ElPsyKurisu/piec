@@ -13,13 +13,13 @@ The shape and parameters of the hysteresis loop provide insights into the materi
 
 Using ``piec`` for Hysteresis Measurements
 -----------------------------------------
-The :class:`~piec.measurement_waveforms.discrete_waveform.HysteresisLoop` class is used to perform these measurements.
+The :class:`~piec.measurement.discrete_waveform.HysteresisLoop` class is used to perform these measurements.
 
 **Example:**
 
 .. code-block:: python
 
-   from piec.measurement_waveforms import HysteresisLoop
+   from piec.measurement import HysteresisLoop
    # Assuming awg_obj and osc_obj are pre-initialized instrument objects
    # (e.g., using drivers from piec.drivers like Keysight81150a, KeysightDSOX3024A)
    # awg_obj = Keysight81150a('GPIB0::AWG_ADDRESS::INSTR')
@@ -66,5 +66,5 @@ The ``analyze()`` method, called as part of ``run_experiment()``, uses the :func
 
 API Reference
 -------------
-* :class:`~piec.measurement_waveforms.discrete_waveform.HysteresisLoop`
+* :class:`~piec.measurement.discrete_waveform.HysteresisLoop`
 * :func:`~piec.analysis.hysteresis.process_raw_hyst`

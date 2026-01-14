@@ -5,7 +5,7 @@ This module provides the base class for virtual instruments used in simulation a
 It handles shared sample management and default material properties for ferroelectric simulations.
 """
 
-from piec.simulations.fe_material import Ferroelectric
+from piec.simulation.fe_material import Ferroelectric
 from piec.drivers.instrument import Instrument
 
 class VirtualInstrument(Instrument):

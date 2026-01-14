@@ -13,13 +13,13 @@ AMR measurements involve:
 
 Using ``piec`` for AMR Measurements
 -----------------------------------
-The :class:`~piec.measurement_waveforms.magneto_transport.AMR` class is designed for performing AMR experiments. This class typically controls a Digital Multimeter (DMM) or lock-in amplifier to measure resistance/voltage, a current source (often part of a calibrator or lock-in), a stepper motor for sample rotation, and a power supply for an electromagnet (via a calibrator providing a control voltage).
+The :class:`~piec.measurement.magneto_transport.AMR` class is designed for performing AMR experiments. This class typically controls a Digital Multimeter (DMM) or lock-in amplifier to measure resistance/voltage, a current source (often part of a calibrator or lock-in), a stepper motor for sample rotation, and a power supply for an electromagnet (via a calibrator providing a control voltage).
 
 **Example:**
 
 .. code-block:: python
 
-   from piec.measurement_waveforms.magneto_transport import AMR
+   from piec.measurement.magneto_transport import AMR
    # Assuming dmm_obj, calibrator_obj, arduino_obj (for stepper), and lockin_obj
    # are pre-initialized instrument objects.
    # e.g., dmm_obj = Keithley193A('GPIB::DMM_ADDRESS::INSTR')
@@ -73,5 +73,5 @@ The ``run_experiment()`` method in the ``AMR`` class performs the following sequ
 
 API Reference
 -------------
-* :class:`~piec.measurement_waveforms.magneto_transport.MagnetoTransport` (Base class)
-* :class:`~piec.measurement_waveforms.magneto_transport.AMR`
+* :class:`~piec.measurement.magneto_transport.MagnetoTransport` (Base class)
+* :class:`~piec.measurement.magneto_transport.AMR`

@@ -28,4 +28,4 @@ Explore the specific measurement types supported by ``piec``:
    measurements/amr
    measurements/discrete_waveforms_general
 
-The core functionalities for many waveform-based measurements can be found in the :doc:`api_reference/piec.measurement_waveforms` documentation.
+The core functionalities for many waveform-based measurements can be found in the :doc:`api_reference/piec.measurement` documentation.

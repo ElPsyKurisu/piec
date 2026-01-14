@@ -16,13 +16,13 @@ The switchable polarization is then calculated by subtracting the charge measure
 
 Using ``piec`` for Three-Pulse PUND Measurements
 -------------------------------------------------
-The :class:`~piec.measurement_waveforms.discrete_waveform.ThreePulsePund` class is used for these measurements.
+The :class:`~piec.measurement.discrete_waveform.ThreePulsePund` class is used for these measurements.
 
 **Example:**
 
 .. code-block:: python
 
-   from piec.measurement_waveforms import ThreePulsePund
+   from piec.measurement import ThreePulsePund
    # Assuming awg_obj and osc_obj are pre-initialized instrument objects
 
    pund_experiment = ThreePulsePund(
@@ -65,5 +65,5 @@ The ``analyze()`` method calls :func:`~piec.analysis.pund.process_raw_3pp` for d
 
 API Reference
 -------------
-* :class:`~piec.measurement_waveforms.discrete_waveform.ThreePulsePund`
+* :class:`~piec.measurement.discrete_waveform.ThreePulsePund`
 * :func:`~piec.analysis.pund.process_raw_3pp`
