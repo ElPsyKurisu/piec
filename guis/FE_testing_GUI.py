@@ -1,4 +1,5 @@
 import tkinter as tk
+import sys
 from tkinter import ttk
 from tkinter import filedialog
 import matplotlib
@@ -162,6 +163,13 @@ class MeasurementApp:
 
         # Run button
         ttk.Button(self.main_frame, text="Run Measurement", command=self.run_measurement, style="TButton").grid(row=3, column=0, columnspan=3, pady=10)
+
+        # Handle window close event
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def on_closing(self):
+        self.root.destroy()
+        sys.exit()
 
     def browse_directory(self):
         directory = filedialog.askdirectory()
