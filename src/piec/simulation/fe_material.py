@@ -154,7 +154,7 @@ class Ferroelectric(Material):
         #up_ramp = np.linspace(-V_applied_peak, V_applied_peak, num_steps_per_ramp)
         #V_applied_path = np.concatenate([up_ramp, down_ramp])
         P_loop = np.zeros_like(V_applied_path)
-        P_current = fsolve(equation_to_solve, x0=-0.5, args=(V_applied_path[0]))[0]
+        P_current = fsolve(equation_to_solve, x0=np.array([-0.5]), args=(float(V_applied_path[0]),))[0]
         P_loop[0] = P_current
         on_upper_branch = (P_current > 0)
         for i in range(1, len(V_applied_path)):
@@ -166,7 +166,7 @@ class Ferroelectric(Material):
                 initial_guess_P = 0.5; on_upper_branch = True
             elif not sweeping_up and on_upper_branch and V_target <= V_c_negative:
                 initial_guess_P = -0.5; on_upper_branch = False
-            P_solution = fsolve(equation_to_solve, x0=initial_guess_P, args=(V_target))
+            P_solution = fsolve(equation_to_solve, x0=np.array([initial_guess_P]), args=(float(V_target),))
             P_current = P_solution[0]
             P_loop[i] = P_current
         return P_loop

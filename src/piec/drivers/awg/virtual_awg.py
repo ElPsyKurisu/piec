@@ -46,8 +46,8 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
     trigger_slope = ['POS', 'NEG', 'EITH']
     trigger_mode = ['EDGE', 'LEV']
 
-    arb_dac_value = (0, 16383) # Range for individual DAC points in arb_data_length data list
-    arb_data_length = (2, 1000) # Points, for arbitrary waveform data len
+    arb_dac_value = (0, 16383) # Range for individual DAC points in arb_data_range data list
+    arb_data_range = (2, 1000) # Points, for arbitrary waveform data len
 
     def __init__(self, address='123'):
         """
@@ -94,6 +94,13 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         """Send a software trigger command to the AWG."""
         self.write('*TRG')
 
+    def output_trigger(self):
+        """
+        Outputs the trigger signal for the awg.
+        Equivalent to sending a manual trigger.
+        """
+        self.write(':TRIG')
+
     def write(self, command):
         """
         Simulate writing a SCPI command to the instrument.
@@ -101,7 +108,7 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         Args:
             command (str): SCPI command string to process
         """
-        if command == '*TRG':
+        if command.upper() == '*TRG' or command.upper() == ':TRIG':
             
             v = self.get_waveform(self.state['acquisition_channel'])
             
@@ -164,7 +171,6 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
             amplitude (float): Amplitude in volts
         """
         self.state['amplitude'][channel] = amplitude
-        self.state['arb_waveform'][channel]=self.state['arb_waveform'][channel]*self.state['amplitude'][channel]/2
 
     def set_offset(self, channel, offset):
         """
@@ -196,7 +202,7 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         """
         self.state['polarity'][channel] = polarity
 
-    def configure_wf(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None, user_func=None):
+    def configure_waveform(self, channel, waveform, frequency=None, amplitude=None, offset=None, load_impedance=None, polarity=None, user_func=None):
         """
         Configure the waveform settings for a channel.
 
@@ -336,45 +342,45 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         self.state['waveform'][channel] = 'USER'
         
 
-    def set_trigger_source(self, channel, source):
+    def set_trigger_source(self, channel, trigger_source):
         """
         Set the trigger source for a channel.
 
         Args:
             channel (int): Channel number (1-2)
-            source (str): Trigger source ('IMM', 'INT', 'EXT', 'MAN')
+            trigger_source (str): Trigger source ('IMM', 'INT', 'EXT', 'MAN')
         """
-        self.state['trigger_source'][channel] = source
+        self.state['trigger_source'][channel] = trigger_source
 
-    def set_trigger_level(self, channel, level):
+    def set_trigger_level(self, channel, trigger_level):
         """
         Set the trigger level for a channel.
 
         Args:
             channel (int): Channel number (1-2)
-            level (float): Trigger level voltage
+            trigger_level (float): Trigger level voltage
         """
-        self.state['trigger_level'][channel] = level
+        self.state['trigger_level'][channel] = trigger_level
 
-    def set_trigger_slope(self, channel, slope):
+    def set_trigger_slope(self, channel, trigger_slope):
         """
         Set the trigger slope for a channel.
 
         Args:
             channel (int): Channel number (1-2)
-            slope (str): Trigger slope ('POS', 'NEG', 'EITH')
+            trigger_slope (str): Trigger slope ('POS', 'NEG', 'EITH')
         """
-        self.state['trigger_slope'][channel] = slope
+        self.state['trigger_slope'][channel] = trigger_slope
 
-    def set_trigger_mode(self, channel, mode):
+    def set_trigger_mode(self, channel, trigger_mode):
         """
         Set the trigger mode for a channel.
 
         Args:
             channel (int): Channel number (1-2)
-            mode (str): Trigger mode ('EDGE' or 'LEV')
+            trigger_mode (str): Trigger mode ('EDGE' or 'LEV')
         """
-        self.state['trigger_mode'][channel] = mode
+        self.state['trigger_mode'][channel] = trigger_mode
 
     def configure_trigger(self, channel, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
         """
@@ -425,28 +431,29 @@ class VirtualAwg(VirtualInstrument, Awg, Scpi):
         amp = self.state['amplitude'][channel]
         freq = self.state['frequency'][channel]
         offset = self.state['offset'][channel]
-        t = np.linspace(0, 1, self.arb_data_length[1])
+        t = np.linspace(0, 1, self.arb_data_range[1])
         
         
-        if wf == 'SIN':
-            v = amp * np.sin(2 * np.pi * freq * t) + offset
-        elif wf == 'SQU':
-            v = amp * np.sign(np.sin(2 * np.pi * freq * t)) + offset
-        elif wf == 'RAMP':
-            v = amp * (2 * (t * freq % 1) - 1) + offset
-        elif wf == 'PULS':
+        if wf.upper() == 'SIN':
+            v = amp * np.sin(2 * np.pi * t) + offset
+        elif wf.upper() == 'SQU':
+            v = amp * np.sign(np.sin(2 * np.pi * t)) + offset
+        elif wf.upper() == 'RAMP':
+            v = amp * (2 * (t % 1) - 1) + offset
+        elif wf.upper() == 'PULS':
             duty = self.state['duty_cycle'][channel] / 100.0
-            v = amp * (np.mod(t * freq, 1) < duty) + offset
-        elif wf == 'NOIS':
-            v = amp * np.random.randn(self.arb_data_length) + offset
-        elif wf == 'DC':
-            v = np.ones(self.arb_data_length) * offset
-        elif wf == 'USER' and self.state['arb_waveform'][channel] is not None:
+            v = amp * (np.mod(t, 1) < duty) + offset
+        elif wf.upper() == 'NOIS':
+            v = amp * np.random.randn(self.arb_data_range) + offset
+        elif wf.upper() == 'DC':
+            v = np.ones(self.arb_data_range) * offset
+        elif wf.upper() == 'USER' and self.state['arb_waveform'][channel] is not None:
             
             data = self.state['arb_waveform'][channel]
-            v = np.interp(np.linspace(0, len(data)-1, self.arb_data_length[1]), np.arange(len(data)), data)
+            v = np.interp(np.linspace(0, len(data)-1, self.arb_data_range[1]), np.arange(len(data)), data)
+            v = v * amp
         else:
-            v = np.zeros(self.arb_data_length)
+            v = np.zeros(self.arb_data_range[1])
         
         return v
 
