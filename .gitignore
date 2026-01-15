@@ -1,2 +1,6 @@
-.pyc
-.ipynb
+*.pyc
+*.ipynb
+__pycache__/
+*.egg-info/
+.installed.cfg
+*.egg
