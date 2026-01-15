@@ -1,7 +1,12 @@
 {
-    "81150A": "piec.drivers.awg.k_81150a.Keysight81150a",
+    "SpecialDevice": "__main__.MySpecialDriver",
+    "81150A": "piec.drivers.example.specific_example.AnnotatedAwgDriver",
+    "SDG2042X": "piec.drivers.awg.sdg2000.SDG2000X",
+    "SDG2122X": "piec.drivers.awg.sdg2000.SDG2000X",
+    "SDG2102X": "piec.drivers.awg.sdg2000.SDG2000X",
+    "USB-231": "piec.drivers.daq.usb231.USB231",
     "33522B": "piec.drivers.example.specific_example.AnnotatedAwgDriver",
     "33622A": "piec.drivers.example.specific_example.AnnotatedAwgDriver",
-    "DSO-X 3024A": "piec.drivers.oscilloscope.k_dsox3024a.KeysightDSOX3024a",
-    "SR830": "drivers.lockin.srs830.SRS830"
+    "SR830": "piec.drivers.lockin.srs830.SRS830",
+    "DSO-X 3024A": "piec.drivers.oscilloscope.k_dsox3024a.KeysightDSOX3024a"
 }
