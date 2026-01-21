@@ -1,11 +1,5 @@
 import tkinter as tk
-import sys
 from tkinter import ttk
-from tkinter import filedialog
-import matplotlib
-matplotlib.use('TkAgg')  # Set the backend to TkAgg for interractivity
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from piec.measurement.discrete_waveform import HysteresisLoop, ThreePulsePund
@@ -14,6 +8,7 @@ from piec.drivers.oscilloscope.k_dsox3024a import KeysightDSOX3024a
 from piec.drivers.awg.k_81150a import Keysight81150a
 from piec.drivers.awg.virtual_awg import VirtualAwg
 from piec.drivers.oscilloscope.virtual_oscilloscope import VirtualScope
+from piec.measurement.gui_utils import MeasurementApp
 
 DEFAULTS = {"awg_address":"VIRTUAL",
             "osc_address":"VIRTUAL",
@@ -33,45 +28,13 @@ DEFAULTS = {"awg_address":"VIRTUAL",
             "p_u_delay": 1.0e-7,
             }
 
-try:
-    from pyvisa import ResourceManager
-    rm = ResourceManager()
-    visa_resources = rm.list_resources()
-except:
-    print('WARNING: pyvisa setup failed, check driver dependencies')
-
-class MeasurementApp:
+class FEMeasurementApp(MeasurementApp):
     def __init__(self, root):
-        self.root = root
-        self.root.title("Waveform Measurement GUI")
-        self.root.geometry("1200x700")
+        super().__init__(root, title="Waveform Measurement GUI", geometry="1200x700")
 
-        # Style configuration
-        self.style = ttk.Style()
+        visa_resources = self.get_visa_resources()
 
-        self.style.configure("TFrame", font=("Arial", 11), borderwidth=1, relief="solid", bordercolor="#7E7E7E")
-        self.style.configure("TLabel", font=("Arial", 11))
-        self.style.configure("TLabel", font=("Arial", 11))
-        self.style.configure("TCombobox", font=("Arial", 11))
-        self.style.configure("TButton", font=("Arial", 11),borderwidth=2, relief="solid", bordercolor="#7E7E7E", padding=5,)
-
-        self.style.map("TButton",
-               background=[("active", "#0078D7")],)
-
-        # Main frame
-        self.main_frame = ttk.Frame(root, style="TFrame")
-        self.main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Static inputs section
-        self.static_frame = ttk.LabelFrame(self.main_frame, text="Static Inputs", padding=10, style="TFrame")
-        self.static_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-
-        ttk.Label(self.static_frame, text="Save Directory:").grid(row=0, column=0, sticky="w")
-        self.save_dir_entry = ttk.Entry(self.static_frame, width=40)
-        self.save_dir_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.save_dir_entry.insert(0, DEFAULTS["save_dir"])
-        ttk.Button(self.static_frame, text="Browse", command=self.browse_directory, style="TButton").grid(row=0, column=2, padx=5)
-
+        # Static Inputs (Save Dir is at row 0 in base)
         ttk.Label(self.static_frame, text="AWG Address:").grid(row=1, column=0, sticky="w")
         self.awg_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
         self.awg_address_entry.grid(row=1, column=1, padx=5, pady=5)
@@ -99,7 +62,7 @@ class MeasurementApp:
         self.timeshift_entry.insert(0, DEFAULTS["time_offset"])
 
         # Add a checkbox for auto_timeshift
-        self.auto_timeshift_entry = tk.BooleanVar(value=True)  # Default state is checked
+        self.auto_timeshift_entry = tk.BooleanVar(value=False)  # Default state is checked
         self.auto_timeshift_checkbox = ttk.Checkbutton(
             self.static_frame,
             text="Automatic?",
@@ -115,29 +78,12 @@ class MeasurementApp:
         self.measurement_type.grid(row=6, column=1, padx=5, pady=5)
         self.measurement_type.bind("<<ComboboxSelected>>", self.update_dynamic_inputs)
 
-        # Dynamic inputs section
-        self.dynamic_frame = ttk.LabelFrame(self.main_frame, text=f"{str(self.measurement_type.get())} Inputs", padding=10, style="TFrame")
-        self.dynamic_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
-
+        # Dynamic inputs section (Uses inherited self.dynamic_frame)
+        
         # Placeholder for dynamic inputs
         self.dynamic_inputs = {}
 
-        # Plotting section
-        self.plot_frame = ttk.LabelFrame(self.main_frame, text="Acquired Data", padding=10, style="TFrame")
-        self.plot_frame.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="nsew")
-
-        self.fig, self.ax = plt.subplots(figsize=(6, 4), tight_layout=True)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        self.toolbar = NavigationToolbar2Tk(self.canvas, self.plot_frame)
-        self.toolbar.update()
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        # Plot configuration section
-        self.plot_config_frame = ttk.LabelFrame(self.main_frame, text="Plot Configuration", padding=10, style="TFrame")
-        self.plot_config_frame.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
-
+        # Plot configuration section (Uses inherited self.plot_config_frame)
         ttk.Label(self.plot_config_frame, text="X-axis:").grid(row=0, column=0, sticky="w")
         self.x_axis = ttk.Combobox(self.plot_config_frame, values=["time (s)", "applied voltage (V)", "current (A)", "polarization (uC/cm^2)"], state="readonly")
         self.x_axis.grid(row=0, column=1, padx=5, pady=5)
@@ -161,28 +107,12 @@ class MeasurementApp:
         )
         self.enable_feature_checkbox.grid(row=2, column=0, columnspan=2, pady=5, sticky="w")
 
-        # Run button
-        ttk.Button(self.main_frame, text="Run Measurement", command=self.run_measurement, style="TButton").grid(row=3, column=0, columnspan=3, pady=10)
-
-        # Handle window close event
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-
-    def on_closing(self):
-        self.root.destroy()
-        sys.exit()
-
-    def browse_directory(self):
-        directory = filedialog.askdirectory()
-        if directory:
-            self.save_dir_entry.delete(0, tk.END)
-            self.save_dir_entry.insert(0, directory)
-
     def update_dynamic_inputs(self, event):
         # Clear previous dynamic inputs
         for widget in self.dynamic_frame.winfo_children():
             widget.destroy()
         self.dynamic_inputs = {}
-        self.dynamic_frame.config(text=f"{str(self.measurement_type.get())} Inputs")
+        self.dynamic_frame.config(text=f"{str(self.measurement_type.get())} INPUTS")
         measurement_type = self.measurement_type.get()
         if measurement_type == "HysteresisLoop":
             self.setup_hysteresis_inputs()
@@ -195,20 +125,14 @@ class MeasurementApp:
             DEFAULTS[key] = self.dynamic_inputs[key].get()
 
     def refresh_instruments(self):
-        try:
-            print('Refreshing VISA instruments...')
-            rm = ResourceManager()
-            visa_resources = rm.list_resources()
-            
-            self.awg_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
-            self.osc_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
-            
-            self.awg_address_entry.set("")
-            self.awg_address_entry.set("VIRTUAL")
-            self.osc_address_entry.set("")
-            self.osc_address_entry.set("VIRTUAL")
-        except Exception as e:
-            print(f"Error refreshing VISA resources: {e}")
+        print('Refreshing VISA instruments...')
+        visa_resources = self.get_visa_resources()
+        
+        self.awg_address_entry["values"] = ["VIRTUAL"] + visa_resources
+        self.osc_address_entry["values"] = ["VIRTUAL"] + visa_resources
+        
+        self.awg_address_entry.set("VIRTUAL")
+        self.osc_address_entry.set("VIRTUAL")
 
     def setup_hysteresis_inputs(self):
         ttk.Label(self.dynamic_frame, text="Frequency (Hz):").grid(row=0, column=0, sticky="w")
@@ -337,5 +261,5 @@ class MeasurementApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = MeasurementApp(root)
+    app = FEMeasurementApp(root)
     root.mainloop()

@@ -1,0 +1,85 @@
+# Matplotlib style for Nature journal publications
+# Version 1.0
+# Based on Nature author guidelines as of early 2025.
+# Always double-check the latest guidelines from Nature.
+
+# --- FONTS ---
+# Nature recommends Arial or Helvetica (sans-serif).
+# Font sizes should generally be between 5-7pt within the figure.
+# Panel labels (a,b,c) should be 8pt bold (set this in your script via ax.text).
+font.family : sans-serif
+font.sans-serif : Arial, Helvetica, DejaVu Sans # Matplotlib will try these in order
+font.size : 7 # Base size for text elements (pt). Individual elements below might be smaller.
+
+text.color : black
+mathtext.default : regular # Ensure math text matches regular font style
+
+# --- AXES ---
+axes.titlesize : 7 # Size for subplot titles (within the 5-7pt range)
+axes.labelsize : 7 # Size for x and y axis labels (within the 5-7pt range)
+axes.labelcolor : black
+axes.linewidth : 0.8 # Thickness of the axes spine (0.5-1.0 pt is common)
+axes.edgecolor : black
+
+# Remove background grid, as per Nature guidelines
+axes.grid : False
+
+# --- TICKS ---
+xtick.labelsize : 6 # Tick labels slightly smaller (still within 5-7pt range)
+ytick.labelsize : 6
+xtick.color : black
+ytick.color : black
+xtick.direction : in # Ticks pointing inwards is common and clean
+ytick.direction : in
+xtick.top : True
+xtick.bottom : True
+ytick.left : True
+ytick.right : True
+xtick.major.size : 3.5 # Length of major_xticks
+ytick.major.size : 3.5
+xtick.major.width : 0.8 # Thickness of major_xticks
+ytick.major.width : 0.8
+xtick.minor.size : 2 # Length of minor_xticks
+ytick.minor.size : 2
+xtick.minor.width : 0.6 # Thickness of minor_xticks
+ytick.minor.width : 0.6
+
+# --- LINES ---
+lines.linewidth : 0.8 # Default line width (0.5-1.0 pt common for clarity)
+lines.markersize : 4 # Default marker size, adjust as needed for visibility
+
+# --- LEGEND ---
+legend.fontsize : 6 # Legend text (within 5-7pt range)
+legend.frameon : False # Nature figures often have no legend frame for a cleaner look
+legend.labelcolor : black
+legend.title_fontsize: 7 # If a legend title is used
+
+# --- FIGURE ---
+# Default figure size (single column width ~3.5in, aspect ratio for typical plots).
+# IMPORTANT: YOU SHOULD OVERRIDE THIS IN YOUR SCRIPT for single/double column figures.
+# e.g., fig = plt.figure(figsize=(3.5, 2.8)) # for single column
+# e.g., fig = plt.figure(figsize=(7.2, 4.5)) # for double column (adjust height)
+figure.figsize : 3.5, 2.8 # Default single-column width, adjust height as needed
+figure.facecolor : white # Figure background
+figure.edgecolor : white
+figure.titlesize : 7 # For suptitle, if used (rarely part of final Nature figure panel itself)
+
+# --- SAVING FIGURES ---
+# Nature requires high resolution and specific font handling for PDFs.
+savefig.dpi : 300 # Use 300 for color/images, 600 for pure line art if possible.
+savefig.format : pdf # Vector format is preferred by Nature.
+savefig.bbox : tight # Useful for tight layout, but review carefully.
+savefig.transparent : False # Usually figures have a white background.
+
+# Critical for PDF font embedding as Type 42 (TrueType) as Nature requests
+pdf.fonttype : 42
+ps.fonttype : 42 # Also for PostScript output if used
+
+# --- IMAGES ---
+image.cmap : viridis # A good default perceptually uniform colormap. Choose based on data.
+image.interpolation : nearest # common for heatmaps, 'antialiased' can be better for display
+
+# --- ERRORBARS ---
+errorbar.capsize : 2 # Size of the error bar caps
+
+### MADE WITH HELP FROM GOOGLE GEMINI LLM
