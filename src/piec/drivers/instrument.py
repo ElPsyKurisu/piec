@@ -107,7 +107,8 @@ class VirtualRMInstrument:
     def __init__(self, address, verbose:bool = False, **kwargs): # Added **kwargs and address
         self.verbose = verbose
         self.resource_name = address
-        print('INITIALIZING VIRTUAL RESOURCE MANAGER, VISA NOT CONNECTED')
+        if self.verbose:
+            print('INITIALIZING VIRTUAL RESOURCE MANAGER, VISA NOT CONNECTED')
         current_dir = os.path.dirname(__file__)
 
         json_path = os.path.join(current_dir, "virtual_scpi_queries.json")
@@ -116,7 +117,8 @@ class VirtualRMInstrument:
             with open(json_path, "r") as file:
                 self.query_dict = json.load(file)
         except FileNotFoundError:
-            print(f"Warning: 'virtual_scpi_queries.json' not found at {json_path}.")
+            if self.verbose:
+                print(f"Warning: 'virtual_scpi_queries.json' not found at {json_path}.")
             
         # Add default IDN for SR830
         if "*IDN?" not in self.query_dict:
@@ -248,17 +250,19 @@ class Instrument(metaclass=AutoCheckMeta):
         for key in class_attributes.keys():
             setattr(self, f"_current_{key}", None)
 
-    def __init__(self, address, check_params=False, **kwargs):
+    def __init__(self, address, check_params=False, verbose=False, **kwargs):
         """
         Opens the instrument and enables communication with it.
         
         Args:
             address (str): The VISA/serial address or "VIRTUAL".
             check_params (bool): Toggle for enabling/disabling auto-check.
+            verbose (bool): If True, prints detailed debug info.
             **kwargs: Additional arguments for the resource manager 
                       (e.g., baud_rate=9600).
         """
         self.check_params = check_params
+        self.verbose = verbose
         
         # Initialize all _current_ attributes to None
         class_attributes = get_class_attributes_from_instance(self)
@@ -271,7 +275,7 @@ class Instrument(metaclass=AutoCheckMeta):
         
         try:
             if self.virtual:
-                self.instrument = VirtualRMInstrument(address, verbose=True, **connection_kwargs)
+                self.instrument = VirtualRMInstrument(address, verbose=self.verbose, **connection_kwargs)
             else:
                 pm = PiecManager()
                 self.instrument = pm.open_resource(address, **connection_kwargs)

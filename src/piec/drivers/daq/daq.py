@@ -48,6 +48,13 @@ class Daq(Instrument):
         """
         Calls the set_AO_channel, set_AO_range, and set_AO_sample_rate functions to configure the Analog output channel
         """
+    def write_AO(self, channel, data):
+        """
+        Writes data to the Analog Output channel.
+        args:
+            channel (int): The channel to write to
+            data (list or ndarray): The data to write
+        """
     #NOTE: Issue with digital IO is that some are only input and some only output but most can be both.
     #digital input_only functions
     def set_DI_channel(self, channel):
@@ -74,6 +81,13 @@ class Daq(Instrument):
     def configure_DO_channel(self, channel, sample_rate):
         """
         Calls the set_DO_channel and set_DO_sample_rate functions to configure the Digital output channel
+        """
+    def write_DO(self, channel, data):
+        """
+        Writes data to the Digital Output channel.
+        args:
+            channel (int): The channel to write to
+            data (list or ndarray): The data to write
         """
     #digital input/output functions
     def set_DIO_channel(self, channel):
@@ -114,7 +128,10 @@ class Daq(Instrument):
     def output(self, channel, on=True):
         """
         Turns the output on or off for the specified channel (e.g., Analog output, Digital output
-        may require logic to determine the type of channel and output accordingly)
+        may require logic to determine the type of channel and output accordingly).
+        
+        NOTE: For many DAQs, writing data starts the generation. This function can be used as an
+        enable/disable switch if the hardware supports explicitly arming/disarming the output.
         """
     
     
