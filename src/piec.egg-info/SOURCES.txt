@@ -79,6 +79,7 @@ src/piec/drivers/z_old/sr830/core.py
 src/piec/measurement/__init__.py
 src/piec/measurement/amr.py
 src/piec/measurement/discrete_waveform.py
+src/piec/measurement/gui_utils.py
 src/piec/measurement/magneto_transport.py
 src/piec/simulation/__init__.py
 src/piec/simulation/fe_material.py
