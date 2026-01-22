@@ -354,7 +354,7 @@ class Keysight81150a(Awg, Scpi):
             channel (int): The channel to set the trigger source on
             trigger_source (str): The trigger source, e.g., 'internal', 'external', 'manual'
         """ 
-        conversion = {'IMM': "IMM", "INT": "INT2", "EXT": "EXT", "MAN": "MAN"} #convert commands to instrument specific ones
+        conversion = {'imm': "IMM", "int": "INT2", "ext": "EXT", "man": "MAN"} #convert commands to instrument specific ones
         self.instrument.write(":ARM:SOUR{} {}".format(channel, conversion[trigger_source]))
 
     def set_trigger_level(self, channel, trigger_level):
@@ -423,10 +423,10 @@ class Keysight81150a(Awg, Scpi):
         """
         if amplifier_type == 'HIV' or amplifier_type == 'hiv':
             self.amplitude = (0, 10)
-            self.frequency = {'func': {'SIN': (1e-6, 5e6), 'SQU': (1e-6, 50e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'USER': (1e-6, 50e6)}}
+            self.frequency = {'waveform': {'sin': (1e-6, 5e6), 'squ': (1e-6, 50e6), 'ramp': (1e-6, 5e6), 'puls': (1e-6, 50e6), 'pattern': (1e-6, 50e6), 'user': (1e-6, 50e6)}}
         if amplifier_type == 'HIB' or amplifier_type == 'hib':
             self.amplitude = (0, 5)
-            self.frequency = {'func': {'SIN': (1e-6, 240e6), 'SQU': (1e-6, 120e6), 'RAMP': (1e-6, 5e6), 'PULS': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'USER': (1e-6, 120e6)}}
+            self.frequency = {'waveform': {'sin': (1e-6, 240e6), 'squ': (1e-6, 120e6), 'ramp': (1e-6, 5e6), 'puls': (1e-6, 120e6), 'pattern': (1e-6, 120e6), 'user': (1e-6, 120e6)}}
         self.instrument.write("OUTP{}:ROUT {}".format(channel, amplifier_type))
 
     #ovveride SCPI reset
