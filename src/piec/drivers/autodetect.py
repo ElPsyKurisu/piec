@@ -96,14 +96,15 @@ def _resolve_type_string(name):
 
     return None
 
-def _dynamic_driver_scan():
+def _dynamic_driver_scan(verbose=False):
     """Scans drivers folder for AUTODETECT_ID."""
-    print("  -> Scanning local drivers for match...")
+    if verbose:
+        print("  -> Scanning local drivers for match...")
     drivers_path = Path(__file__).parent
     found_registry = {}
     
     for file_path in drivers_path.glob('**/*.py'):
-        if any(x in file_path.parts for x in ['__pycache__', 'z_old', 'old']):
+        if any(x in file_path.parts for x in ['__pycache__', 'z_old', 'old', 'example']):
             continue
             
         try:
@@ -127,7 +128,7 @@ def _dynamic_driver_scan():
 
     return found_registry
 
-def _setup_mcc_device(target_identifier=None, board_num=0):
+def _setup_mcc_device(target_identifier=None, board_num=0, verbose=False):
     if not MCC_AVAILABLE or ul is None: return False
     ul.ignore_instacal()
     devices = ul.get_daq_device_inventory(InterfaceType.ANY)
@@ -144,10 +145,11 @@ def _setup_mcc_device(target_identifier=None, board_num=0):
     try:
         ul.create_daq_device(board_num, target_device)
         print(f"Digilent: Configured {target_device.product_name} as Board {board_num}")
-        return True
+        return target_device.product_name
     except Exception as e:
-        print(f"Digilent Config Error: {e}")
-        return False
+        if verbose:
+            print(f"Digilent Config Error: {e}")
+        return None
 
 def _safe_close(instrument):
     """Attempts to close the instrument safely without crashing."""
@@ -164,7 +166,7 @@ def _safe_close(instrument):
         # If it fails, we just pass as requested
         pass
 
-def autodetect(address=None, **kwargs):
+def autodetect(address=None, verbose=False, required_type=None, **kwargs):
     """
     Automatically detects and connects to an instrument.
     
@@ -174,6 +176,8 @@ def autodetect(address=None, **kwargs):
             - An MCC identifier string or int (e.g., "0")
             - A Python Class (e.g., Lockin, Awg) -> performs checking scan
             - None -> defaults to scanning for MCC devices (legacy behavior)
+        verbose (bool): If True, prints detailed scanning progress. Default False.
+        required_type (type): Optional class type to filter results.
         **kwargs: Passed to the driver constructor.
     """
     # 0. Check if address is actually a Class or a known Type String
@@ -185,30 +189,39 @@ def autodetect(address=None, **kwargs):
         target_class = _resolve_type_string(address)
 
     if target_class:
-        print(f"Autodetect: Scanning for instrument of type {target_class.__name__}...")
+        if verbose:
+            print(f"Autodetect: Scanning for instrument of type {target_class.__name__}...")
         
         pm = PiecManager()
         resources = pm.list_resources()
         
         for res_address in resources:
-            print(f"  -> Checking {res_address}...")
+            if verbose:
+                print(f"  -> Checking {res_address}...")
             try:
                 # Recursively call autodetect with the specific address
                 # Capture print output? No, let it print.
-                inst = autodetect(address=res_address, **kwargs)
+                # Pass specific target class as required_type to optimize recursive scan
+                inst = autodetect(address=res_address, verbose=verbose, required_type=target_class, **kwargs)
                 
                 if inst and isinstance(inst, target_class):
-                    print(f"  -> MATCH: {res_address} is a {target_class.__name__}!")
-                    return inst
+                    if required_type and not isinstance(inst, required_type):
+                        _safe_close(inst)
+                    else:
+                        if verbose:
+                            print(f"  -> MATCH: {res_address} is a {target_class.__name__}!")
+                        return inst
                 
                 elif inst:
                     # Not the right type, close it
                     _safe_close(inst)
             except Exception as e:
-                print(f"  -> Failed to check {res_address}: {e}")
+                if verbose:
+                    print(f"  -> Failed to check {res_address}: {e}")
                 pass
         
-        print(f"No instrument of type {target_class.__name__} found.")
+        if verbose:
+            print(f"No instrument of type {target_class.__name__} found.")
         return None
 
     # 1. MCC Logic
@@ -217,8 +230,42 @@ def autodetect(address=None, **kwargs):
         # If passed a long description string from list_resources, 
         # try to extract the useful part or let _setup_mcc_device handle it.
         # _setup_mcc_device does loose matching "in dev.product_name" etc.
-        if _setup_mcc_device(address, 0):
+        
+        # Capture the product name returned by setup
+        product_name = _setup_mcc_device(address, 0, verbose=verbose)
+        
+        if product_name:
+            # OPTIMIZED LOGIC: Check registry for specific driver
+            registry = _load_registry_cache()
+            
+            # Lookup using the product name (simulating IDN)
+            match = next((v for k, v in registry.items() if k in product_name), None)
+
+            if not match:
+                new_reg = _dynamic_driver_scan(verbose=verbose)
+                registry.update(new_reg)
+                _save_registry_cache(registry)
+                match = next((v for k, v in registry.items() if k in product_name), None)
+
+            if match:
+                if verbose:
+                    print(f"  -> Loading MCC driver: {match}")
+                cls = _import_class_from_path(match)
+                
+                # OPTIMIZATION: Check type BEFORE instantiation
+                if cls and required_type and not issubclass(cls, required_type):
+                    return None
+
+                if cls: 
+                    return cls(address=0, **kwargs)
+            
+            # Fallback to generic Digilent if no specific driver found
+            # But strictly check type if required!
+            if required_type and not issubclass(Digilent, required_type):
+                 return None
+
             return Digilent(address=0, **kwargs)
+
         elif address is None:
             # Only print if this was an explicit None call, 
             # otherwise it might be a loop check
@@ -230,7 +277,8 @@ def autodetect(address=None, **kwargs):
 
     # 2. SCPI Logic
     if address and "::" in str(address):
-        print(f"Autodetect: Probing {address}...")
+        if verbose:
+            print(f"Autodetect: Probing {address}...")
         temp_inst = None
         idn = ""
         try:
@@ -238,9 +286,11 @@ def autodetect(address=None, **kwargs):
             # Using .instrument.query() as you requested
             idn = temp_inst.instrument.query("*IDN?").strip() 
             _safe_close(temp_inst) # Close safely before returning
-            print(f"  -> IDN: {idn}")
+            if verbose:
+                print(f"  -> IDN: {idn}")
         except Exception as e:
-            print(f"  -> Connection failed: {e}")
+            if verbose:
+                print(f"  -> Connection failed: {e}")
             _safe_close(temp_inst)
             return None
 
@@ -250,15 +300,25 @@ def autodetect(address=None, **kwargs):
         
         # Dynamic Fallback
         if not match:
-            new_reg = _dynamic_driver_scan()
+            new_reg = _dynamic_driver_scan(verbose=verbose)
             registry.update(new_reg)
             _save_registry_cache(registry)
             match = next((v for k, v in registry.items() if k in idn), None)
 
         if match:
-            print(f"  -> Loading driver: {match}")
+            if verbose:
+                print(f"  -> Loading driver: {match}")
             cls = _import_class_from_path(match)
+            
+            # OPTIMIZATION: Check type BEFORE instantiation
+            if cls and required_type and not issubclass(cls, required_type):
+                return None
+                
             if cls: return cls(address=address, **kwargs)
+
+        # OPTIMIZATION: Check type BEFORE instantiation of generic SCPI
+        if required_type and not issubclass(Scpi, required_type):
+             return None
 
         print("  -> Using generic SCPI driver.")
         return Scpi(address=address, **kwargs)
