@@ -39,13 +39,14 @@ class Digilent(Instrument):
     The 'address' for this class is the MCC Board Number (e.g., "0").
     """
     
-    def __init__(self, address, **kwargs):
+    def __init__(self, address, verbose=False, **kwargs):
         """
         Connects to the MCC DAQ device using its Board Number.
         
         Args:
             address (str or int): The MCC Board Number (e.g., "0" or 0)
                                 or "VIRTUAL".
+            verbose (bool): If True, prints status messages.
             **kwargs: Additional arguments for the base Instrument class.
         """
         # --- Check if the required library was imported ---
@@ -60,6 +61,7 @@ class Digilent(Instrument):
         # We check the 'address' passed by the user, not the 'self.virtual'
         # flag from the parent, which is always True.
         self.is_virtual_mode = (str(address).upper() == 'VIRTUAL')
+        self.verbose = verbose
 
         try:
             # The 'address' is the board number, not a VISA string
@@ -75,7 +77,7 @@ class Digilent(Instrument):
         
         # We call super().__init__ with "VIRTUAL" to bypass PiecManager
         # but still get the auto-check framework. This is internal.
-        super().__init__(address="VIRTUAL", **kwargs)
+        super().__init__(address="VIRTUAL", verbose=verbose, **kwargs)
         
         # Store the (real) UL object and enums
         self.board = ul
@@ -84,13 +86,14 @@ class Digilent(Instrument):
         
         # --- FIX: Check our stored 'is_virtual_mode' flag ---
         if self.is_virtual_mode:
-            print(f"Digilent: VIRTUAL mode for board {self.board_num}.")
+            print(f"Digilent: VIRTUAL mode for board {self.board_num} (Digilent does not support VISA).")
             self.dev_name = "VIRTUAL_DEVICE"
         else:
             # This is a real connection attempt
-            print(f"Digilent: Connecting to board {self.board_num}...")
+            if self.verbose:
+                print(f"Digilent: Connecting to board {self.board_num}...")
             try:
-                # Check if board exists and get its name
+                # Check if board exists and get its name (this acts as a connection check)
                 self.dev_name = self.board.get_board_name(self.board_num)
                 print(f"Digilent: Connected to {self.dev_name} on board {self.board_num}.")
             except ULError as e:
@@ -123,11 +126,13 @@ class Digilent(Instrument):
         (Note: Not supported by all boards, e.g., USB-231)
         """
         if self.is_virtual_mode:
-            print(f"Digilent: (Virtual) Flashing LED on board {self.board_num}...")
+            if self.verbose:
+                print(f"Digilent: (Virtual) Flashing LED on board {self.board_num}...")
             return
             
         try:
-            print(f"Digilent: Flashing LED on board {self.board_num}...")
+            if self.verbose:
+                print(f"Digilent: Flashing LED on board {self.board_num}...")
             self.board.flash_led(self.board_num)
         except self.ul_error as e:
             # We will just print the error, as this is a non-critical function
@@ -159,11 +164,13 @@ class Digilent(Instrument):
         Releases the DAQ device from the Universal Library.
         """
         if self.is_virtual_mode:
-            print(f"Digilent: (Virtual) Releasing board {self.board_num}...")
+            if self.verbose:
+                print(f"Digilent: (Virtual) Releasing board {self.board_num}...")
             return
 
         try:
-            print(f"Digilent: Releasing board {self.board_num}...")
+            if self.verbose:
+                print(f"Digilent: Releasing board {self.board_num}...")
             self.board.release_daq_device(self.board_num)
         except self.ul_error as e:
             print(f"Digilent: Error releasing device. Error: {e}")

@@ -144,7 +144,8 @@ def _setup_mcc_device(target_identifier=None, board_num=0, verbose=False):
     
     try:
         ul.create_daq_device(board_num, target_device)
-        print(f"Digilent: Configured {target_device.product_name} as Board {board_num}")
+        if verbose:
+            print(f"Digilent: Configured {target_device.product_name} as Board {board_num}")
         return target_device.product_name
     except Exception as e:
         if verbose:
@@ -257,14 +258,14 @@ def autodetect(address=None, verbose=False, required_type=None, **kwargs):
                     return None
 
                 if cls: 
-                    return cls(address=0, **kwargs)
+                    return cls(address=0, verbose=verbose, **kwargs)
             
             # Fallback to generic Digilent if no specific driver found
             # But strictly check type if required!
             if required_type and not issubclass(Digilent, required_type):
                  return None
 
-            return Digilent(address=0, **kwargs)
+            return Digilent(address=0, verbose=verbose, **kwargs)
 
         elif address is None:
             # Only print if this was an explicit None call, 
@@ -314,14 +315,16 @@ def autodetect(address=None, verbose=False, required_type=None, **kwargs):
             if cls and required_type and not issubclass(cls, required_type):
                 return None
                 
-            if cls: return cls(address=address, **kwargs)
+            if cls:
+                print(f"Autodetect: Loaded {match} for instrument at {address}")
+                return cls(address=address, verbose=verbose, **kwargs)
 
         # OPTIMIZATION: Check type BEFORE instantiation of generic SCPI
         if required_type and not issubclass(Scpi, required_type):
              return None
 
-        print("  -> Using generic SCPI driver.")
-        return Scpi(address=address, **kwargs)
+        print(f"Autodetect: connected to generic SCPI instrument at {address}")
+        return Scpi(address=address, verbose=verbose, **kwargs)
     
     return None
 
