@@ -51,16 +51,14 @@ class Digilent(Instrument):
         """
         # --- Check if the required library was imported ---
         if not mcc_ul_imported or ul is None:
-            raise ImportError(
-                "The 'mcculw' library is not installed. "
-                "This driver cannot function without it. "
-                "Please install it (e.g., 'pip install mcculw')."
-            )
-
-        # --- FIX: Store the user's intended mode ---
-        # We check the 'address' passed by the user, not the 'self.virtual'
-        # flag from the parent, which is always True.
-        self.is_virtual_mode = (str(address).upper() == 'VIRTUAL')
+            print("Warning: 'mcculw' library not found. Falling back to VIRTUAL mode for Digilent driver.")
+            # Force virtual mode to prevent crashes
+            self.is_virtual_mode = True
+        else:
+            # --- FIX: Store the user's intended mode ---
+            # We check the 'address' passed by the user, not the 'self.virtual'
+            # flag from the parent, which is always True.
+            self.is_virtual_mode = (str(address).upper() == 'VIRTUAL')
         self.verbose = verbose
 
         try:

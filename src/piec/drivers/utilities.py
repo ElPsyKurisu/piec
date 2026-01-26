@@ -3,9 +3,13 @@ try:
     from mcculw import ul
     from mcculw.enums import InterfaceType
 except (FileNotFoundError, ImportError):
-    print('Warning, if using digilent please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
+    print('Warning: if using digilent please check the readme file and install the required dependencies (UL) or try running pip install mcculw')
+    ul = None
+    InterfaceType = None
 except Exception as e:
     print(f"Warning: Failed to import mcculw. MCC devices will not be available. Error: {e}")
+    ul = None
+    InterfaceType = None
 
 import pyvisa # Keep this for _probe_scpi
 import inspect
@@ -55,6 +59,8 @@ class PiecManager():
         """
         # Check if the device is an MCC/Digilent device
         if 'MCC' in address or 'Digilent' in address:
+            if ul is None:
+                raise ImportError("Cannot open MCC device: 'mcculw' library is not installed.")
             # These devices are not opened via VISA, so kwargs are not used.
             return ul.open_device(address)
         else:
@@ -72,6 +78,9 @@ Helper Functions
 """
 def list_mcc_resources():
     """Lists all connected MCC DAQ devices."""
+    if ul is None:
+        return []
+
     try:
         ul.ignore_instacal()
         devices = ul.get_daq_device_inventory(InterfaceType.ANY)
@@ -82,6 +91,6 @@ def list_mcc_resources():
                 device_string = f"{device.product_name} ({device.unique_id}) - Device ADDRESS = {device.product_id}"
                 formatted_list.append(device_string)
         return formatted_list
-    except NameError:
-        # mcculw failed to import
+    except Exception as e:
+        # Catch any other UL errors
         return []
