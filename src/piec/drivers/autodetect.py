@@ -7,10 +7,9 @@ from .utilities import PiecManager
 from .scpi import Scpi
 
 # Check for Digilent Library
-try:
-    from .digilent import Digilent
-except:
-    Digilent = None
+
+from .digilent import Digilent
+
 
 # Check for MCC Library
 try:
