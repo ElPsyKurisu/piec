@@ -5,14 +5,19 @@ import inspect
 from pathlib import Path
 from .utilities import PiecManager
 from .scpi import Scpi
-from .digilent import Digilent
+
+# Check for Digilent Library
+try:
+    from .digilent import Digilent
+except:
+    Digilent = None
 
 # Check for MCC Library
 try:
     from mcculw import ul
     from mcculw.enums import InterfaceType
     MCC_AVAILABLE = True
-except ImportError:
+except:
     MCC_AVAILABLE = False
     ul = None
 
