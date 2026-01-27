@@ -8,10 +8,70 @@ matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.pyplot as plt
 
+plot_layout_params = {
+            "font.size": 15,
+            "axes.labelsize": 15,
+            "axes.titlesize": 15,
+            "xtick.labelsize": 15,
+            "ytick.labelsize": 15,
+            "axes.linewidth": 1.5,
+            "lines.linewidth": 2.0,
+            "xtick.major.width": 1.5,
+            "ytick.major.width": 1.5,
+            "xtick.minor.width": 1.5,
+            "ytick.minor.width": 1.5,
+            "xtick.major.size": 5,
+            "ytick.major.size": 5,
+            "xtick.minor.size": 3,
+            "ytick.minor.size": 3,
+            "figure.autolayout": True, # Decrease white margins
+            "figure.figsize": (6, 4) # Slightly taller default
+        }
+
+class ConsoleRedirector:
+    def __init__(self, text_widget, tag="stdout"):
+        self.text_widget = text_widget
+        self.tag = tag
+
+    def write(self, string):
+        try:
+            self.text_widget.configure(state='normal')
+            self.text_widget.insert(tk.END, string, (self.tag,))
+            self.text_widget.see(tk.END)
+            self.text_widget.configure(state='disabled')
+        except Exception:
+            pass # Handle case where widget is destroyed
+
+    def flush(self):
+        pass
+
 class MeasurementApp:
-    def __init__(self, root, title="Measurement GUI", geometry="1200x700"):
+    def __init__(self, root, title="Measurement GUI", geometry="1200x700", icon_path=None):
         self.root = root
+        self.root.title(title)
         self.root.geometry(geometry)
+        
+        # icon import
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            default_icon = os.path.join(current_dir, 'GUI_icon.png')
+            if os.path.exists(default_icon):
+                icon_path = default_icon
+        except Exception:
+            pass
+
+        if icon_path:
+             if os.path.exists(icon_path):
+                 try:
+                     icon = tk.PhotoImage(file=icon_path)
+                     self.root.iconphoto(False, icon)
+                 except Exception:
+                     try:
+                         self.root.iconbitmap(icon_path)
+                     except Exception as e:
+                         print(f"WARNING: Failed to load icon: {e}")
+             else:
+                 print(f"WARNING: Icon file not found at {icon_path}")
         
         self.setup_styles()
         self.root.configure(background="#1E1E1E")
@@ -24,6 +84,15 @@ class MeasurementApp:
         
         # Handle window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Console Redirection
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+        
+        self.console = ConsoleRedirector(self.log_text, "stdout")
+        sys.stdout = self.console
+        sys.stderr = self.console # Optional: redirect stderr too, maybe with different tag if extended
+
 
     def setup_layout(self):
         # 2-Column Layout
@@ -39,8 +108,10 @@ class MeasurementApp:
         self.right_panel = ttk.Frame(self.main_frame, style="TFrame")
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         self.right_panel.columnconfigure(0, weight=1)
-        self.right_panel.rowconfigure(0, weight=0) # Plot fixed height (controlled by figsize)
+        self.right_panel.columnconfigure(0, weight=1)
+        self.right_panel.rowconfigure(0, weight=3) # Plot expands
         self.right_panel.rowconfigure(1, weight=0) # Button fixed
+        self.right_panel.rowconfigure(2, weight=1) # Log console expands less than plot
 
         # --- Left Panel Contents ---
         
@@ -72,8 +143,30 @@ class MeasurementApp:
         # Subclasses must implement run_measurement
         ttk.Button(self.right_panel, text="RUN MEASUREMENT", command=self.run_measurement, style="TButton").grid(row=1, column=0, pady=10)
 
+        # 3. Log Console
+        self.setup_log_console(self.right_panel)
+
+
+
     def run_measurement(self):
         print("WARNING: run_measurement not implemented in subclass")
+
+    def setup_log_console(self, parent):
+        self.log_frame = ttk.Frame(parent, style="Card.TFrame")
+        self.log_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 0))
+        
+        # Text widget for logs
+        self.log_text = tk.Text(self.log_frame, height=8, width=50, state='disabled', wrap='word',
+                                background="#2B2B2B", foreground="#E0E0E0", 
+                                insertbackground="#E0E0E0", borderwidth=0, relief="flat",
+                                font=("Consolas", 10))
+        
+        # Scrollbar
+        self.scrollbar = ttk.Scrollbar(self.log_frame, orient="vertical", command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=self.scrollbar.set)
+        
+        self.scrollbar.pack(side="right", fill="y")
+        self.log_text.pack(side="left", fill="both", expand=True)
 
     def setup_plot(self, parent):
         # Locate and use natty_style.mplstyle
@@ -91,11 +184,14 @@ class MeasurementApp:
         except Exception as e:
             print(f"WARNING: Failed to load natty_style: {e}")
 
+        # Override style for GUI visibility (Scale up for screen)
+        plt.rcParams.update(plot_layout_params)
+
         # Plotting section - Using Card style
         self.plot_frame = ttk.LabelFrame(parent, text="ACQUIRED DATA", padding=5, style="Card.TLabelframe")
         self.plot_frame.grid(row=0, column=0, sticky="nsew") 
         
-        self.fig, self.ax = plt.subplots(figsize=(6, 3.5)) 
+        self.fig, self.ax = plt.subplots() 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -138,6 +234,11 @@ class MeasurementApp:
                              borderwidth=0, 
                              relief="flat")
         
+        self.style.configure("Card.TFrame", 
+                             background=bg_card,
+                             borderwidth=0, 
+                             relief="flat")
+        
         self.style.configure("Card.TLabelframe.Label",
                              background=bg_card,
                              foreground=fg_text,
@@ -172,7 +273,10 @@ class MeasurementApp:
                              foreground=fg_text,
                              insertcolor=fg_text,
                              borderwidth=0,
-                             relief="flat")
+                             relief="flat",
+                             lightcolor=bg_field,
+                             darkcolor=bg_field,
+                             bordercolor=bg_field)
                              
         # TCombobox
         self.style.configure("TCombobox", 
@@ -181,7 +285,10 @@ class MeasurementApp:
                              foreground=fg_text,
                              arrowcolor=fg_text,
                              borderwidth=0,
-                             relief="flat")
+                             relief="flat",
+                             lightcolor=bg_field,
+                             darkcolor=bg_field,
+                             bordercolor=bg_field)
         
         self.style.map("TCombobox", 
                        fieldbackground=[('readonly', bg_field)],
@@ -201,7 +308,23 @@ class MeasurementApp:
                        indicatorcolor=[('selected', fg_text), ('active', '#4A4A4A')],
                        background=[('active', bg_card)])
 
+        # TScrollbar
+        self.style.configure("Vertical.TScrollbar",
+                             gripcount=0,
+                             background=bg_field,
+                             darkcolor=bg_field,
+                             lightcolor=bg_field,
+                             troughcolor=bg_card,
+                             bordercolor=bg_card,
+                             arrowcolor=fg_text,
+                             relief="flat")
+                             
+        self.style.map("Vertical.TScrollbar",
+                       background=[('active', '#4A4A4A'), ('pressed', '#555555')])
+
     def on_closing(self):
+        sys.stdout = self.original_stdout
+        sys.stderr = self.original_stderr
         self.root.destroy()
         sys.exit()
 

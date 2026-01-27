@@ -30,11 +30,12 @@ DEFAULTS = {"awg_address":"VIRTUAL",
 
 class FEMeasurementApp(MeasurementApp):
     def __init__(self, root):
-        super().__init__(root, title="Waveform Measurement GUI", geometry="1200x700")
+        super().__init__(root, title="Ferroelectric Measurement GUI", geometry="1200x700")
 
         visa_resources = self.get_visa_resources()
 
         # Static Inputs (Save Dir is at row 0 in base)
+        self.save_dir_entry.insert(0, DEFAULTS["save_dir"])
         ttk.Label(self.static_frame, text="AWG Address:").grid(row=1, column=0, sticky="w")
         self.awg_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
         self.awg_address_entry.grid(row=1, column=1, padx=5, pady=5)
