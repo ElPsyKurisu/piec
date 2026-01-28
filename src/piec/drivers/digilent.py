@@ -19,7 +19,7 @@ try:
     from mcculw.enums import BoardInfo, ErrorCode
     from mcculw.ul import ULError
     mcc_ul_imported = True
-except ImportError:
+except:
     print("Warning: 'mcculw' library not found.")
     print("The Digilent/MCC driver cannot be used without this library.")
     ul = None
