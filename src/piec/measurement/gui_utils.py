@@ -39,6 +39,7 @@ class ConsoleRedirector:
             self.text_widget.insert(tk.END, string, (self.tag,))
             self.text_widget.see(tk.END)
             self.text_widget.configure(state='disabled')
+            self.text_widget.update_idletasks() # Force redraw immediately
         except Exception:
             pass # Handle case where widget is destroyed
 

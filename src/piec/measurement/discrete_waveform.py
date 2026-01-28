@@ -87,13 +87,11 @@ class DiscreteWaveform:
         """
         Configure basic AWG settings for waveform generation.
         
-        Sets up impedance matching (50Ω), and bus triggering.
+        Sets up impedance matching (50Ω), and manual triggering.
         Should be called before any waveform-specific configuration.
         """
-        # Removed self.awg.initialize() - Handled by base class
         self.awg.initialize()
         self.awg.set_load_impedance(channel=int(self.voltage_channel), load_impedance=50)
-        # Set trigger to BUS to allow software triggering via *TRG
         self.awg.set_trigger_source(channel=int(self.voltage_channel), trigger_source='MAN')
 
     def configure_oscilloscope(self, channel = 1):
@@ -107,7 +105,6 @@ class DiscreteWaveform:
             :channel: Oscilloscope channel to configure (default 1)
         """
         self.osc.initialize()
-        # Removed self.osc.initialize() - Handled by base class
         self.osc.configure_horizontal(tdiv=self.length/8, x_position=5*(self.length/10))
         self.osc.set_vertical_scale(channel=channel, vdiv=float(self.v_div))
         self.osc.set_trigger_source(trigger_source='EXT')
@@ -190,13 +187,21 @@ class DiscreteWaveform:
         6. Perform analysis
         7. Update history with metadata
         """
+        print(f"Running experiment for {self.mtype} measurement...")
         self.configure_oscilloscope()
+        print("Oscilloscope configured.")
         self.initialize_awg()
+        print("AWG initialized.")
         self.configure_awg()
+        print("AWG configured.")
         self.apply_and_capture_waveform()
+        print("Waveform applied and captured.")
         self.save_waveform()
+        print("Waveform saved.")
         self.analyze()
+        print("Analysis complete.")
         self._update_history()
+        print("Experiment complete.")
 
 ### SPECIFIC WAVEFORM MEASURMENT CLASSES ###
 

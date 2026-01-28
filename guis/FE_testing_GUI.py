@@ -31,6 +31,7 @@ DEFAULTS = {"awg_address":"VIRTUAL",
 class FEMeasurementApp(MeasurementApp):
     def __init__(self, root):
         super().__init__(root, title="Ferroelectric Measurement GUI", geometry="1200x700")
+        print("Welcome to the FE testing GUI! Please select a measurement type and choose your awg and osc addresses.")
 
         visa_resources = self.get_visa_resources()
 
@@ -193,6 +194,11 @@ class FEMeasurementApp(MeasurementApp):
         self.dynamic_inputs["offset"].insert(0, DEFAULTS["offset"])
 
     def run_measurement(self):
+        if not self.measurement_type.get():
+            print("No measurement type selected.")
+            return
+
+        print(f"Running {self.measurement_type.get()} measurement...")
         # get static inputs for passthrough to measurment object
         awg_address = self.awg_address_entry.get()
         osc_address = self.osc_address_entry.get()
