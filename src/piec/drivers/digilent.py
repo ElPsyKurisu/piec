@@ -20,7 +20,7 @@ try:
     from mcculw.ul import ULError
     from mcculw.device_info import DaqDeviceInfo
     mcc_ul_imported = True
-except ImportError:
+except:
     print("Warning: 'mcculw' library not found.")
     print("The Digilent/MCC driver cannot be used without this library.")
     ul = None

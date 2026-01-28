@@ -331,5 +331,3 @@ def autodetect(address=None, verbose=False, required_type=None, **kwargs):
         return Scpi(address=address, verbose=verbose, **kwargs)
     
     return None
-
-connect_instrument = autodetect

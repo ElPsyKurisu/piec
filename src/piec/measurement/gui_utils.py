@@ -39,6 +39,7 @@ class ConsoleRedirector:
             self.text_widget.insert(tk.END, string, (self.tag,))
             self.text_widget.see(tk.END)
             self.text_widget.configure(state='disabled')
+            self.text_widget.update_idletasks() # Force redraw immediately
         except Exception:
             pass # Handle case where widget is destroyed
 
@@ -75,6 +76,12 @@ class MeasurementApp:
         
         self.setup_styles()
         self.root.configure(background="#1E1E1E")
+        
+        # Keyboard Shortcuts
+        self.keyboard_shortcuts = {
+            "<Control-Return>": lambda event: self.run_measurement()
+        }
+        self.setup_shortcuts()
         
         # Main frame - Shared by all GUIs
         self.main_frame = ttk.Frame(root, style="TFrame")
@@ -147,6 +154,11 @@ class MeasurementApp:
         self.setup_log_console(self.right_panel)
 
 
+
+    def setup_shortcuts(self):
+        """Binds keys in self.keyboard_shortcuts to the root window"""
+        for key, callback in self.keyboard_shortcuts.items():
+            self.root.bind(key, callback)
 
     def run_measurement(self):
         print("WARNING: run_measurement not implemented in subclass")
