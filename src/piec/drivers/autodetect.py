@@ -5,14 +5,18 @@ import inspect
 from pathlib import Path
 from .utilities import PiecManager
 from .scpi import Scpi
+
+# Check for Digilent Library
+
 from .digilent import Digilent
+
 
 # Check for MCC Library
 try:
     from mcculw import ul
     from mcculw.enums import InterfaceType
     MCC_AVAILABLE = True
-except ImportError:
+except:
     MCC_AVAILABLE = False
     ul = None
 
@@ -327,5 +331,3 @@ def autodetect(address=None, verbose=False, required_type=None, **kwargs):
         return Scpi(address=address, verbose=verbose, **kwargs)
     
     return None
-
-connect_instrument = autodetect

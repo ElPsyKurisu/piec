@@ -18,14 +18,16 @@ try:
     from mcculw import ul
     from mcculw.enums import BoardInfo, ErrorCode
     from mcculw.ul import ULError
+    from mcculw.device_info import DaqDeviceInfo
     mcc_ul_imported = True
-except ImportError:
+except:
     print("Warning: 'mcculw' library not found.")
     print("The Digilent/MCC driver cannot be used without this library.")
     ul = None
     BoardInfo = None
     ErrorCode = None
     ULError = None
+    DaqDeviceInfo = None
     mcc_ul_imported = False
 
 
@@ -77,10 +79,20 @@ class Digilent(Instrument):
         # but still get the auto-check framework. This is internal.
         super().__init__(address="VIRTUAL", verbose=verbose, **kwargs)
         
+        # Restore the correct virtual status based on user input, 
+        # since we forced "VIRTUAL" to Instrument to bypass VISA logic.
+        self.virtual = self.is_virtual_mode
+        
+        
         # Store the (real) UL object and enums
         self.board = ul
+        self.ul = ul  # Alias for child classes (e.g. USB231)
         self.ul_error = ULError
         self.error_codes = ErrorCode
+        
+        # Default capabilities
+        self.ao_info = None
+        self.max_rate = 5000 # Default safe rate for USB-231 (5kS/s)
         
         # --- FIX: Check our stored 'is_virtual_mode' flag ---
         if self.is_virtual_mode:
@@ -94,6 +106,17 @@ class Digilent(Instrument):
                 # Check if board exists and get its name (this acts as a connection check)
                 self.dev_name = self.board.get_board_name(self.board_num)
                 print(f"Digilent: Connected to {self.dev_name} on board {self.board_num}.")
+                
+                # Fetch Device Info
+                if DaqDeviceInfo:
+                    try:
+                        dev_info = DaqDeviceInfo(self.board_num)
+                        if dev_info.supports_analog_output:
+                            self.ao_info = dev_info.get_ao_info()
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"Digilent: Could not fetch AO info: {e}")
+
             except ULError as e:
                 raise ConnectionError(f"Failed to connect to MCC board {self.board_num}. Error: {e}")
 
@@ -172,3 +195,92 @@ class Digilent(Instrument):
             self.board.release_daq_device(self.board_num)
         except self.ul_error as e:
             print(f"Digilent: Error releasing device. Error: {e}")
+
+    # --- Hardware Background Scan (New) ---
+
+    def write_waveform_scan(self, channel, data, sample_rate):
+        """
+        Calculates and outputs a waveform using hardware background scan.
+        Requires 'mcculw' and a supported board.
+        
+        args:
+            channel (int): Output channel.
+            data (list/array): Waveform points.
+            sample_rate (int): Output rate in Hz.
+        """
+        if self.is_virtual_mode:
+            print(f"Digilent [Virt]: Started background scan on Ch {channel} at {sample_rate} Hz")
+            return
+
+        try:
+            from ctypes import cast, POINTER, c_double
+            from mcculw.enums import ScanOptions, FunctionType, ULRange
+        except ImportError:
+            print("Digilent: Cannot perform scan. ctypes or enums missing.")
+            return
+
+        # Stop previous scan
+        self.stop_output()
+
+        num_points = len(data)
+        
+        # Allocate Windows memory buffer (requires mcculw.ul)
+        memhandle = self.board.scaled_win_buf_alloc(num_points)
+        self._active_memhandle = memhandle # Keep reference
+        
+        # Copy data to buffer
+        data_array = cast(memhandle, POINTER(c_double))
+        for i in range(num_points):
+            data_array[i] = float(data[i])
+
+        # Configure Options
+        options = ScanOptions.BACKGROUND | ScanOptions.CONTINUOUS | ScanOptions.SCALEDATA
+        
+        # Determine Range
+        current_range = ULRange.BIP10VOLTS # Default fallback
+        if self.ao_info and self.ao_info.supported_ranges:
+            current_range = self.ao_info.supported_ranges[0]
+            
+        # Debug Clipping
+        if len(data) > 0:
+            max_val = max(abs(x) for x in data)
+            # Only print info if verbose, but ALWAYS print warning if clipping
+            if self.verbose:
+                print(f"Digilent: Scan Range={current_range}, Max Voltage={max_val:.3f}")
+            
+            if max_val > 10.0:
+                print(f"WARNING: Waveform Amplitude {max_val:.2f}V exceeds +/- 10V! Clipping will occur.")
+
+        try:
+            # Start Scan
+            # Note: channel argument is start_chan, end_chan
+            self.board.a_out_scan(self.board_num, channel, channel, 
+                                  num_points, sample_rate, current_range, 
+                                  memhandle, options)
+            print(f"Digilent: Started background scan on Ch {channel}")
+        except Exception as e:
+            print(f"Digilent: Error starting scan: {e}")
+            # Clean up memory if failed
+            self.stop_output()
+            raise
+
+    def stop_output(self):
+        """
+        Stops any active background scan and frees memory.
+        """
+        if self.is_virtual_mode:
+            return
+
+        try:
+            from mcculw.enums import FunctionType
+            self.board.stop_background(self.board_num, FunctionType.AOFUNCTION)
+        except Exception:
+            pass # Ignore if no scan running
+
+        # Free memory
+        if hasattr(self, '_active_memhandle') and self._active_memhandle:
+            try:
+                self.board.win_buf_free(self._active_memhandle)
+            except Exception:
+                pass
+            self._active_memhandle = None

@@ -28,13 +28,22 @@ DEFAULTS = {"awg_address":"VIRTUAL",
             "p_u_delay": 1.0e-7,
             }
 
+
+
 class FEMeasurementApp(MeasurementApp):
     def __init__(self, root):
-        super().__init__(root, title="Waveform Measurement GUI", geometry="1200x700")
+        super().__init__(root, title="Ferroelectric Measurement GUI", geometry="1200x700")
+        print("Welcome to the FE testing GUI! Please select a measurement type and choose your awg and osc addresses.")
+        print("Ctrl+Enter: Run Measurement")
+        print("Ctrl+1: Hysteresis Loop")
+        print("Ctrl+2: Three Pulse Pund")
+        print("Ctrl+r: Change V/div")
+        print("Ctrl+t: Change Time Offset")
 
         visa_resources = self.get_visa_resources()
 
         # Static Inputs (Save Dir is at row 0 in base)
+        self.save_dir_entry.insert(0, DEFAULTS["save_dir"])
         ttk.Label(self.static_frame, text="AWG Address:").grid(row=1, column=0, sticky="w")
         self.awg_address_entry = ttk.Combobox(self.static_frame, values=["VIRTUAL"]+list(visa_resources), state="readonly")
         self.awg_address_entry.grid(row=1, column=1, padx=5, pady=5)
@@ -106,6 +115,21 @@ class FEMeasurementApp(MeasurementApp):
             offvalue=False
         )
         self.enable_feature_checkbox.grid(row=2, column=0, columnspan=2, pady=5, sticky="w")
+
+        # Update shortcuts
+        self.keyboard_shortcuts.update({
+            "<Control-Key-1>": lambda event: self.select_measurement("HysteresisLoop", event),
+            "<Control-Key-2>": lambda event: self.select_measurement("ThreePulsePund", event),
+            "<Control-r>": lambda event: self.vdiv_entry.focus_set(),
+            "<Control-t>": lambda event: self.timeshift_entry.focus_set()
+        })
+        self.setup_shortcuts()
+
+    def select_measurement(self, meas_type, event=None):
+        print(f"Selected measurement type: {meas_type}")
+
+        self.measurement_type.set(meas_type)
+        self.update_dynamic_inputs(None)
 
     def update_dynamic_inputs(self, event):
         # Clear previous dynamic inputs
@@ -192,6 +216,11 @@ class FEMeasurementApp(MeasurementApp):
         self.dynamic_inputs["offset"].insert(0, DEFAULTS["offset"])
 
     def run_measurement(self):
+        if not self.measurement_type.get():
+            print("No measurement type selected.")
+            return
+
+        print(f"Running {self.measurement_type.get()} measurement...")
         # get static inputs for passthrough to measurment object
         awg_address = self.awg_address_entry.get()
         osc_address = self.osc_address_entry.get()

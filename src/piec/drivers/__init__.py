@@ -1,1 +1,0 @@
-# Make the autodetect function available at the package level
