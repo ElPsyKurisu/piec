@@ -48,12 +48,12 @@ class EDC522(Sourcemeter):
         '5': (0.1111110, 1e7, 'CURR'),  # 100 mA Range
     }
 
-    def __init__(self, address):
+    def __init__(self, address, **kwargs):
         """
         Initializes the EDC522 instrument driver.
         Sets the instrument to a safe default state (crowbar output).
         """
-        super().__init__(address)
+        super().__init__(address, **kwargs)
         # Initialize internal state variables
         self._source_function = 'VOLT'
         self._range_char = '1'  # Default to 10V range

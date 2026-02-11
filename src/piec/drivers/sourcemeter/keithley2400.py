@@ -9,6 +9,7 @@ from ..scpi import Scpi
 
 class Keithley2400(Sourcemeter, Scpi):
     # Class attributes defining the "contract" for any implementing class.
+    AUTODETECT_ID = "MODEL 2400"  # Identifier string for the instrument
     # All sourcemeters must support these basic functions and modes.
     channel = [1]
     source_func = ['VOLT', 'CURR']
@@ -19,13 +20,6 @@ class Keithley2400(Sourcemeter, Scpi):
     voltage_compliance = (-210, 210)
     current_compliance = (-1.05, 1.05)
  
-    def __init__(self, address, **kwargs):
-        """
-        Args:
-            address (str): VISA resource address or 'VIRTUAL' for testing
-            **kwargs: Additional arguments passed to Instrument base class
-        """
-        super().__init__(address, **kwargs)
 
     # --- Core Instrument State Control ---
 

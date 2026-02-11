@@ -20,8 +20,6 @@ class Sourcemeter(Instrument):
     """
     Here we define the MINIMUM required methods for a sourcemeter.
     """
-    def __init__(self, address):
-        super().__init__(address)
 
     # --- Core Instrument State Control ---
 
