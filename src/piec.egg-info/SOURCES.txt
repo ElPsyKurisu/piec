@@ -19,7 +19,6 @@ src/piec/drivers/__init__.py
 src/piec/drivers/autodetect.py
 src/piec/drivers/digilent.py
 src/piec/drivers/instrument.py
-src/piec/drivers/registry_cache.json
 src/piec/drivers/scpi.py
 src/piec/drivers/utilities.py
 src/piec/drivers/virtual_instrument.py
@@ -52,7 +51,9 @@ src/piec/drivers/rf_source/rf_source.py
 src/piec/drivers/sourcemeter/__init__.py
 src/piec/drivers/sourcemeter/edc522.py
 src/piec/drivers/sourcemeter/keithley193a.py
+src/piec/drivers/sourcemeter/keithley2400.py
 src/piec/drivers/sourcemeter/sourcemeter.py
+src/piec/drivers/sourcemeter/virtual_keithley2400.py
 src/piec/drivers/stepper_motor/__init__.py
 src/piec/drivers/stepper_motor/arduino_stepper.py
 src/piec/drivers/stepper_motor/stepper_motor.py
@@ -80,6 +81,7 @@ src/piec/measurement/__init__.py
 src/piec/measurement/amr.py
 src/piec/measurement/discrete_waveform.py
 src/piec/measurement/gui_utils.py
+src/piec/measurement/iv_sweep.py
 src/piec/measurement/magneto_transport.py
 src/piec/simulation/__init__.py
 src/piec/simulation/fe_material.py
