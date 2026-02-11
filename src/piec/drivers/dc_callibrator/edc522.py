@@ -11,7 +11,7 @@ class EDC522(DCCalibrator):
     Specific Class for EDC Model 522. Supporting voltage and current sourcing.
     Inherits from the general DCCalibrator base class.
     """
-    AUTODETECT_ID = "522" # Need to confirm if this is correct for IDN response
+    AUTODETECT_ID = ["522", "KROHN-HITE", "NOT PROGRAMMED", "NOTHING WRONG"]
     
     voltage_range = (-100, 100) # volts (without opt)
     current_range = (-0.1, 0.1) # amps
@@ -25,9 +25,21 @@ class EDC522(DCCalibrator):
     def idn(self):
         """
         Queries the instrument for its identification string.
+        Hardcoded to ensure reliability since the physical instrument
+        often returns echoes or status codes ('000') instead of the ID string.
         """
-        self.instrument.write("ID?")
-        return self.instrument.read()
+        ans = self.error()
+        
+        # "NOT PROGRAMMED" is a valid idle state, not a failure.
+        valid_states = ['NOTHING WRONG', 'NOT PROGRAMMED']
+
+        # We treat both "NOTHING WRONG" and "NOT PROGRAMMED" as success
+        # because they confirm the instrument is connected and talking.
+        if any(state in ans for state in valid_states):
+            return "KROHN-HITE, 522, VER GEO"
+        else:
+            # If it returns "DATA ERROR" or "OVERLOAD", we pass that through
+            return ans
 
     def error(self):
         """

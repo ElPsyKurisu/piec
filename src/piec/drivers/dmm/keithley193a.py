@@ -13,6 +13,7 @@ class Keithley193a(DMM):
     
     This instrument uses a non-SCPI command set (Device Dependent Commands).
     """
+    AUTODETECT_ID = ["Keithley 193A", "NDCV"]
     
     def __init__(self, address, **kwargs):
         """

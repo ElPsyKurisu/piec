@@ -70,7 +70,35 @@ class AMRApp(MeasurementApp):
         self.lockin_address_entry.grid(row=4, column=1, padx=5, pady=5)
         self.lockin_address_entry.set(DEFAULTS["lockin_address"])
 
-        ttk.Button(self.static_frame, text="Refresh", command=self.refresh_instruments, style="TButton").grid(row=1, column=2, rowspan=2, padx=5)
+        ttk.Button(self.static_frame, text="Refresh", command=self.refresh_instruments, style="TButton").grid(row=1, column=2, padx=5)
+        ttk.Button(self.static_frame, text="Autodetect", command=self.autodetect_instruments, style="TButton").grid(row=2, column=2, padx=5)
+        ttk.Button(self.static_frame, text="Test Stepper", command=self.test_stepper, style="TButton").grid(row=3, column=2, padx=5)
+
+    def test_stepper(self):
+        addr = self.stepper_address_entry.get()
+        if not addr:
+            print("ERROR: No address selected for Stepper.")
+            return
+
+        print(f"Testing Stepper at {addr}...")
+        from piec.drivers.autodetect import _safe_close
+        
+        try:
+            # Create the specific Geos_Stepper instance
+            # This handles virtual mode automatically if addr is "VIRTUAL"
+            inst = Geos_Stepper(address=addr)
+            
+            # Use the instrument's own idn method which sends '0,0' for Geos hardware
+            res = inst.idn()
+            
+            if "Not connected" not in res:
+                print(f"SUCCESS: {res}")
+            else:
+                print(f"FAILURE: Stepper at {addr} returned '{res}'")
+            
+            _safe_close(inst)
+        except Exception as e:
+            print(f"ERROR: Stepper test failed: {e}")
 
         # Dynamic Inputs - AMR parameters
         self.dynamic_frame.config(text="AMR MEASUREMENT INPUTS")
@@ -136,10 +164,52 @@ class AMRApp(MeasurementApp):
     def refresh_instruments(self):
         print("Refreshing VISA instruments...")
         visa_resources = self.get_visa_resources()
-        self.dmm_address_entry["values"] = ["VIRTUAL"] + visa_resources
-        self.calibrator_address_entry["values"] = ["VIRTUAL"] + visa_resources
-        self.stepper_address_entry["values"] = ["VIRTUAL"] + visa_resources
-        self.lockin_address_entry["values"] = ["VIRTUAL"] + visa_resources
+        self.dmm_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
+        self.calibrator_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
+        self.stepper_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
+        self.lockin_address_entry["values"] = ["VIRTUAL"] + list(visa_resources)
+
+    def autodetect_instruments(self):
+        print("Autodetecting instruments... this may take a moment.")
+        from piec.drivers.autodetect import autodetect, _safe_close
+        from piec.drivers.dmm.dmm import DMM
+        from piec.drivers.dc_callibrator.dc_callibrator import DCCalibrator
+        from piec.drivers.stepper_motor.stepper_motor import Stepper
+        from piec.drivers.lockin.lockin import Lockin
+
+        # DMM
+        inst = autodetect(address="dmm", verbose=True, required_type=DMM)
+        if inst:
+            addr = inst.instrument.resource_name if hasattr(inst, 'instrument') else "VIRTUAL"
+            self.dmm_address_entry.set(addr)
+            _safe_close(inst)
+            print(f"Detected DMM at {addr}")
+
+        # Calibrator
+        inst = autodetect(address="dc_callibrator", verbose=True, required_type=DCCalibrator)
+        if inst:
+            addr = inst.instrument.resource_name if hasattr(inst, 'instrument') else "VIRTUAL"
+            self.calibrator_address_entry.set(addr)
+            _safe_close(inst)
+            print(f"Detected Calibrator at {addr}")
+
+        # Stepper
+        inst = autodetect(address="stepper_motor", verbose=True, required_type=Stepper)
+        if inst:
+            addr = inst.instrument.resource_name if hasattr(inst, 'instrument') else "VIRTUAL"
+            self.stepper_address_entry.set(addr)
+            _safe_close(inst)
+            print(f"Detected Stepper at {addr}")
+
+        # Lockin
+        inst = autodetect(address="lockin", verbose=True, required_type=Lockin)
+        if inst:
+            addr = inst.instrument.resource_name if hasattr(inst, 'instrument') else "VIRTUAL"
+            self.lockin_address_entry.set(addr)
+            _safe_close(inst)
+            print(f"Detected Lockin at {addr}")
+
+        print("Autodetect complete.")
 
     def run_measurement(self):
         if self.is_measuring:
