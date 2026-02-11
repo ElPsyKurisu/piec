@@ -74,32 +74,11 @@ class AMRApp(MeasurementApp):
         ttk.Button(self.static_frame, text="Autodetect", command=self.autodetect_instruments, style="TButton").grid(row=2, column=2, padx=5)
         ttk.Button(self.static_frame, text="Test Stepper", command=self.test_stepper, style="TButton").grid(row=3, column=2, padx=5)
 
-    def test_stepper(self):
-        addr = self.stepper_address_entry.get()
-        if not addr:
-            print("ERROR: No address selected for Stepper.")
-            return
+        # Initialize dynamic inputs and plot config
+        self.setup_dynamic_inputs()
 
-        print(f"Testing Stepper at {addr}...")
-        from piec.drivers.autodetect import _safe_close
-        
-        try:
-            # Create the specific Geos_Stepper instance
-            # This handles virtual mode automatically if addr is "VIRTUAL"
-            inst = Geos_Stepper(address=addr)
-            
-            # Use the instrument's own idn method which sends '0,0' for Geos hardware
-            res = inst.idn()
-            
-            if "Not connected" not in res:
-                print(f"SUCCESS: {res}")
-            else:
-                print(f"FAILURE: Stepper at {addr} returned '{res}'")
-            
-            _safe_close(inst)
-        except Exception as e:
-            print(f"ERROR: Stepper test failed: {e}")
-
+    def setup_dynamic_inputs(self):
+        """Initializes the measurement parameters and plot configuration."""
         # Dynamic Inputs - AMR parameters
         self.dynamic_frame.config(text="AMR MEASUREMENT INPUTS")
         self.dynamic_inputs = {}
@@ -160,6 +139,33 @@ class AMRApp(MeasurementApp):
         self.y_axis.grid(row=1, column=1, padx=5, pady=5)
         self.y_axis.set("X")
         self.y_axis.bind("<<ComboboxSelected>>", self.plot_data)
+
+    def test_stepper(self):
+        addr = self.stepper_address_entry.get()
+        if not addr:
+            print("ERROR: No address selected for Stepper.")
+            return
+
+        print(f"Testing Stepper at {addr}...")
+        from piec.drivers.autodetect import _safe_close
+        
+        try:
+            # Create the specific Geos_Stepper instance
+            # This handles virtual mode automatically if addr is "VIRTUAL"
+            inst = Geos_Stepper(address=addr)
+            
+            # Use the instrument's own idn method which sends '0,0' for Geos hardware
+            res = inst.idn()
+            
+            if "Not connected" not in res:
+                print(f"SUCCESS: {res}")
+            else:
+                print(f"FAILURE: Stepper at {addr} returned '{res}'")
+            
+            _safe_close(inst)
+        except Exception as e:
+            print(f"ERROR: Stepper test failed: {e}")
+
 
     def refresh_instruments(self):
         print("Refreshing VISA instruments...")
