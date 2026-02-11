@@ -4,10 +4,10 @@ Keithley 2400 Series SourceMeter implementation.
 This module implements the Sourcemeter interface for the Keithley 2400
 SourceMeter instrument using SCPI commands.
 """
-from ..instrument import Instrument
+from .sourcemeter import Sourcemeter
 from ..scpi import Scpi
 
-class Keithley2400(Instrument, Scpi):
+class Keithley2400(Sourcemeter, Scpi):
     # Class attributes defining the "contract" for any implementing class.
     # All sourcemeters must support these basic functions and modes.
     channel = [1]
