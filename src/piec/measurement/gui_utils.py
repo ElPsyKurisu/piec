@@ -148,7 +148,8 @@ class MeasurementApp:
         
         # 2. Run Button
         # Subclasses must implement run_measurement
-        ttk.Button(self.right_panel, text="RUN MEASUREMENT", command=self.run_measurement, style="TButton").grid(row=1, column=0, pady=10)
+        self.run_button = ttk.Button(self.right_panel, text="RUN MEASUREMENT", command=self.run_measurement, style="TButton")
+        self.run_button.grid(row=1, column=0, pady=10)
 
         # 3. Log Console
         self.setup_log_console(self.right_panel)

@@ -6,21 +6,26 @@ It handles shared sample management and default material properties for ferroele
 """
 
 from piec.simulation.fe_material import Ferroelectric
+from piec.simulation.magnetic_material import MagneticSample
 from piec.drivers.instrument import Instrument
 
 class VirtualInstrument(Instrument):
     """
     Base class for all virtual instruments that share a common sample instance.
     
-    This class manages a shared ferroelectric sample across all virtual instruments,
-    ensuring consistent material properties and state during simulations.
+    This class manages a shared ferroelectric sample and a shared magnetic sample
+    across all virtual instruments, ensuring consistent material properties 
+    and state during simulations.
     
     Attributes:
-        _shared_sample (Ferroelectric): Class-level shared sample instance
-        sample (Ferroelectric): Instance-level reference to shared sample
+        _shared_fe_sample (Ferroelectric): Class-level shared ferroelectric sample instance
+        _shared_mag_sample (MagneticSample): Class-level shared magnetic sample instance
+        sample (Ferroelectric): Instance-level reference to shared FE sample
+        mag_sample (MagneticSample): Instance-level reference to shared magnetic sample
     """
 
-    _shared_sample = None
+    _shared_fe_sample = None
+    _shared_mag_sample = None
 
     def __init__(self, *args, **kwargs):
         """
@@ -33,8 +38,8 @@ class VirtualInstrument(Instrument):
             *args: Variable length argument list
             **kwargs: Arbitrary keyword arguments
         """
-        if VirtualInstrument._shared_sample is None:
-            default_material = {
+        if VirtualInstrument._shared_fe_sample is None:
+            default_fe_material = {
                 'ferroelectric': { #PZT
                     'a0': 824800,  # J m / (C^2 K)
                     'b': -838800000,  # J m^5 / C^4 (Negative for first-order transition)
@@ -57,9 +62,14 @@ class VirtualInstrument(Instrument):
                     'area': (20e-6)**2  # meters^2
                 }
             }
-            VirtualInstrument._shared_sample = Ferroelectric(material_dict=default_material)
-            VirtualInstrument._shared_sample.name = "virtual_sample"
-        self.sample = VirtualInstrument._shared_sample
+            VirtualInstrument._shared_fe_sample = Ferroelectric(material_dict=default_fe_material)
+            VirtualInstrument._shared_fe_sample.name = "virtual_fe_sample"
+        
+        if VirtualInstrument._shared_mag_sample is None:
+            VirtualInstrument._shared_mag_sample = MagneticSample()
+            
+        self.sample = VirtualInstrument._shared_fe_sample
+        self.mag_sample = VirtualInstrument._shared_mag_sample
 
     @classmethod
     def set_virtual_sample(cls, sample):
