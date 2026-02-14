@@ -100,12 +100,17 @@ class MeasurementApp:
         sys.stdout = self.console
         sys.stderr = self.console # Optional: redirect stderr too, maybe with different tag if extended
 
+        # Load settings after a short delay to ensure widgets are ready
+        self._load_settings_id = self.root.after(200, self.load_settings)
+
 
     def setup_layout(self):
         # 2-Column Layout
         self.main_frame.columnconfigure(0, weight=0) # Inputs (fixed width-ish, let widgets decide)
         self.main_frame.columnconfigure(1, weight=1) # Plot (expand)
         self.main_frame.rowconfigure(0, weight=1)
+
+
 
         # Left Panel (Inputs) - Using SideBar style
         self.left_panel = ttk.Frame(self.main_frame, style="SideBar.TFrame")
@@ -336,10 +341,158 @@ class MeasurementApp:
                        background=[('active', '#4A4A4A'), ('pressed', '#555555')])
 
     def on_closing(self):
+        # Cancel pending load_settings if any
+        if hasattr(self, '_load_settings_id'):
+            self.root.after_cancel(self._load_settings_id)
+
+        # Prompt to save settings
+        if tk.messagebox.askyesno("Save Settings", "Do you want to save the current GUI settings?"):
+            self.save_settings()
+            
         sys.stdout = self.original_stdout
         sys.stderr = self.original_stderr
         self.root.destroy()
         sys.exit()
+
+    def get_settings_file_path(self):
+        """Returns the path to the settings file based on the class name."""
+        try:
+            # Use the directory of the script being run
+            script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            class_name = self.__class__.__name__
+            return os.path.join(script_dir, f".{class_name}_settings.json")
+        except Exception:
+            return None
+
+    def save_settings(self):
+        """Saves current widget values to a JSON file."""
+        settings = {}
+        
+        # Helper to extract values from a labelled frame
+        def extract_frame_settings(frame):
+            frame_data = {}
+            # Iterate through children
+            children = frame.winfo_children()
+            
+            # We assume a pattern of Label -> Widget for most inputs
+            # Or Checkbutton with text
+            
+            for i, widget in enumerate(children):
+                key = None
+                value = None
+                
+                # Case 1: Widget is a Label, next might be the input
+                if isinstance(widget, ttk.Label):
+                    text = widget.cget("text")
+                    # Look ahead for the input widget
+                    if i + 1 < len(children):
+                        next_widget = children[i+1]
+                        if isinstance(next_widget, (ttk.Entry, ttk.Combobox)):
+                             key = text.rstrip(":")
+                             value = next_widget.get()
+                
+                # Case 2: Widget is a Checkbutton
+                elif isinstance(widget, ttk.Checkbutton):
+                    key = widget.cget("text")
+                    # Values for checkbuttons are often linked to variables
+                    # We can try to access the variable if attached, or use .state()
+                    # But reliable way for ttk.Checkbutton often involves the associated variable.
+                    # Since we don't have easy access to the var map here, we might need a specific attribute
+                    # or try to interpret state.
+                    # Best effort: use the variable name if available
+                    try:
+                        var_name = widget.cget("variable")
+                        if var_name:
+                            # access the globaltk variable... messy.
+                            # Better approach for this codebase: 
+                            # Most checkbuttons here seem to use a BooleanVar stored in self.
+                            # We will skip complex checkbutton saving for this generic implementation 
+                            # unless we can easily map them.
+                            # Actually, we can try invoking? No that changes state.
+                            # Let's rely on the variable if we can find it in the instance.
+                            pass
+                    except:
+                        pass
+
+                if key and value is not None:
+                     frame_data[key] = value
+            return frame_data
+
+        # Better approach: Iterate over known input attributes if possible?
+        # No, we want this to be generic. 
+        # Let's try to identify widgets by grid position or Label association more robustly?
+        # For now, the Label -> Widget assumptions holds for most of this codebase's GUIs.
+        
+        settings["static"] = extract_frame_settings(self.static_frame)
+        settings["dynamic"] = extract_frame_settings(self.dynamic_frame) # This might be tricky as dynamic frames are cleared
+        settings["plot"] = extract_frame_settings(self.plot_config_frame)
+        
+        # Save to file
+        filepath = self.get_settings_file_path()
+        if filepath:
+            try:
+                import json
+                with open(filepath, 'w') as f:
+                    json.dump(settings, f, indent=4)
+                print(f"Settings saved to {filepath}")
+            except Exception as e:
+                print(f"Failed to save settings: {e}")
+
+    def load_settings(self):
+        """Loads settings from JSON and populates widgets."""
+        try:
+            if not self.root.winfo_exists(): 
+                return
+        except Exception:
+            return
+
+        filepath = self.get_settings_file_path()
+        if not filepath or not os.path.exists(filepath):
+            return
+            
+        try:
+            import json
+            with open(filepath, 'r') as f:
+                settings = json.load(f)
+        except Exception as e:
+            print(f"Failed to load settings: {e}")
+            return
+
+        # Helper to apply settings
+        def apply_settings(frame, data):
+            if not data: return
+            children = frame.winfo_children()
+            
+            for i, widget in enumerate(children):
+                if isinstance(widget, ttk.Label):
+                    text = widget.cget("text").rstrip(":")
+                    if text in data:
+                        val = data[text]
+                        # Find the input widget (next one)
+                        if i + 1 < len(children):
+                             next_widget = children[i+1]
+                             if isinstance(next_widget, ttk.Entry):
+                                 next_widget.delete(0, tk.END)
+                                 next_widget.insert(0, val)
+                             elif isinstance(next_widget, ttk.Combobox):
+                                 next_widget.set(val)
+                                 # Trigger event in case it drives other things
+                                 next_widget.event_generate("<<ComboboxSelected>>")
+                                 self.root.update() # Force process events immediately
+        
+        # Order matters! Static first to trigger dynamic updates
+        if "static" in settings:
+            apply_settings(self.static_frame, settings["static"])
+            
+        if "dynamic" in settings:
+            # Dynamic inputs might have been recreated by the static settings (e.g. Measurement Type)
+            # So we re-apply to the new widgets
+            apply_settings(self.dynamic_frame, settings["dynamic"])
+            
+        if "plot" in settings:
+            apply_settings(self.plot_config_frame, settings["plot"])
+            
+        print(f"Settings loaded from {filepath}")
 
     def browse_directory(self, entry_widget):
         directory = filedialog.askdirectory()
