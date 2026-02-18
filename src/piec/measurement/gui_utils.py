@@ -366,6 +366,7 @@ class MeasurementApp:
 
     def save_settings(self):
         """Saves current widget values to a JSON file."""
+        import json
         settings = {}
         
         # Helper to extract values from a labelled frame
@@ -418,20 +419,38 @@ class MeasurementApp:
                      frame_data[key] = value
             return frame_data
 
-        # Better approach: Iterate over known input attributes if possible?
-        # No, we want this to be generic. 
-        # Let's try to identify widgets by grid position or Label association more robustly?
-        # For now, the Label -> Widget assumptions holds for most of this codebase's GUIs.
-        
         settings["static"] = extract_frame_settings(self.static_frame)
-        settings["dynamic"] = extract_frame_settings(self.dynamic_frame) # This might be tricky as dynamic frames are cleared
         settings["plot"] = extract_frame_settings(self.plot_config_frame)
         
-        # Save to file
+        # Dynamic inputs: key by the dynamic frame's current title so that
+        # GUIs with multiple measurement types (e.g. FE_testing_GUI) can
+        # save/restore each type independently.
+        dynamic_title = self.dynamic_frame.cget("text").strip()
+        current_dynamic = extract_frame_settings(self.dynamic_frame)
+        
+        # Load any previously saved dynamic entries so we don't lose data
+        # for other measurement types that aren't currently displayed.
         filepath = self.get_settings_file_path()
+        existing_dynamic = {}
+        if filepath and os.path.exists(filepath):
+            try:
+                with open(filepath, 'r') as f:
+                    old_settings = json.load(f)
+                old_dynamic = old_settings.get("dynamic", {})
+                # Only merge if old format is already keyed by title (dict of dicts)
+                if old_dynamic and isinstance(next(iter(old_dynamic.values()), None), dict):
+                    existing_dynamic = old_dynamic
+            except Exception:
+                pass
+        
+        # Merge: update the entry for the current title, keep others
+        if dynamic_title and current_dynamic:
+            existing_dynamic[dynamic_title] = current_dynamic
+        settings["dynamic"] = existing_dynamic
+        
+        # Save to file
         if filepath:
             try:
-                import json
                 with open(filepath, 'w') as f:
                     json.dump(settings, f, indent=4)
                 print(f"Settings saved to {filepath}")
@@ -485,9 +504,16 @@ class MeasurementApp:
             apply_settings(self.static_frame, settings["static"])
             
         if "dynamic" in settings:
-            # Dynamic inputs might have been recreated by the static settings (e.g. Measurement Type)
-            # So we re-apply to the new widgets
-            apply_settings(self.dynamic_frame, settings["dynamic"])
+            saved_dynamic = settings["dynamic"]
+            # Determine the dynamic frame's current title (set by static combobox events)
+            dynamic_title = self.dynamic_frame.cget("text").strip()
+            
+            if dynamic_title and dynamic_title in saved_dynamic:
+                # New format: dynamic data is keyed by frame title
+                apply_settings(self.dynamic_frame, saved_dynamic[dynamic_title])
+            elif saved_dynamic and not isinstance(next(iter(saved_dynamic.values()), None), dict):
+                # Backward compatibility: old flat-dict format
+                apply_settings(self.dynamic_frame, saved_dynamic)
             
         if "plot" in settings:
             apply_settings(self.plot_config_frame, settings["plot"])
