@@ -176,23 +176,26 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         self.instrument.write(f":TRIGger:SWEep {trigger_sweep}")
 
 
-    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
+    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None, trigger_sweep=None):
         """
-        Combines all the trigger commands into one, calls set_trigger_source, set_trigger_level, set_trigger_slope, and set_trigger_mode
+        Combines all the trigger commands into one, calls set_trigger_source, set_trigger_level, set_trigger_slope, set_trigger_mode, and set_trigger_sweep
         args:
             trigger_source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
             trigger_level (float): The trigger level in volts
-            trigger_slope (str): The trigger slope, e.g. 'rising', 'falling'
-            trigger_mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
+            trigger_slope (str): The trigger slope, e.g. 'POS', 'NEG'
+            trigger_mode (str): The trigger mode, e.g. 'EDGE'
+            trigger_sweep (str): The trigger sweep mode, e.g. 'AUTO', 'NORM'
         """
         if trigger_source:
             self.set_trigger_source(trigger_source)
-        if trigger_level:
+        if trigger_level is not None:
             self.set_trigger_level(trigger_level)
         if trigger_slope:
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+        if trigger_sweep:
+            self.set_trigger_sweep(trigger_sweep)
 
     def manual_trigger(self):
         """Sends a manual force trigger event to the oscilloscope."""

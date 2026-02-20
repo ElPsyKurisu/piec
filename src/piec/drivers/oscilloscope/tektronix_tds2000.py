@@ -106,21 +106,22 @@ class TektronixTDS2000(Oscilloscope, Scpi):
         self.instrument.write(f"TRIGger:MAIn:EDGE:SLOpe {slope}")
 
     def set_trigger_mode(self, trigger_mode):
-        self.instrument.write(f"TRIGger:MAIn:MODE {trigger_mode}")
+        self.instrument.write(f"TRIGger:MAIn:TYPe {trigger_mode}")
     
     def set_trigger_sweep(self, trigger_sweep):
-        # Logic to map sweep to mode if needed, or just strict mapping
-        pass
+        self.instrument.write(f"TRIGger:MAIn:MODE {trigger_sweep}")
 
-    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
+    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None, trigger_sweep=None):
         if trigger_source:
             self.set_trigger_source(trigger_source)
-        if trigger_level:
+        if trigger_level is not None:
             self.set_trigger_level(trigger_level)
         if trigger_slope:
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+        if trigger_sweep:
+            self.set_trigger_sweep(trigger_sweep)
 
     def manual_trigger(self):
         """Sends a manual force trigger event to the oscilloscope."""

@@ -104,15 +104,17 @@ class AgilentDSOX5000(Oscilloscope, Scpi):
     def set_trigger_sweep(self, trigger_sweep):
         self.instrument.write(f":TRIGger:SWEep {trigger_sweep}")
 
-    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
+    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None, trigger_sweep=None):
         if trigger_source:
             self.set_trigger_source(trigger_source)
-        if trigger_level:
+        if trigger_level is not None:
             self.set_trigger_level(trigger_level)
         if trigger_slope:
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+        if trigger_sweep:
+            self.set_trigger_sweep(trigger_sweep)
 
     def manual_trigger(self):
         """Sends a manual force trigger event to the oscilloscope."""

@@ -106,17 +106,13 @@ class TDS6604(Oscilloscope, Scpi):
 
     def set_trigger_mode(self, trigger_mode):
         """Changes the mode from auto, norm, manual, single, etc"""
-        valid_modes = ['AUTO', 'NORMAL']
-        if trigger_mode.upper() in valid_modes:
-            self.instrument.write(f"TRIGger:A:MODe {trigger_mode.upper()}")
-        else:
-            self.instrument.write(f"TRIGger:A:TYPe {trigger_mode.upper()}")
+        self.instrument.write(f"TRIGger:A:TYPe {trigger_mode.upper()}")
 
     def set_trigger_sweep(self, trigger_sweep):
         """Changes the trigger sweep settings of the oscilloscope"""
-        self.set_trigger_mode(trigger_sweep)
+        self.instrument.write(f"TRIGger:A:MODe {trigger_sweep.upper()}")
 
-    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None):
+    def configure_trigger(self, trigger_source=None, trigger_level=None, trigger_slope=None, trigger_mode=None, trigger_sweep=None):
         """Combines all the trigger commands into one"""
         if trigger_source:
             self.set_trigger_source(trigger_source)
@@ -126,6 +122,8 @@ class TDS6604(Oscilloscope, Scpi):
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+        if trigger_sweep:
+            self.set_trigger_sweep(trigger_sweep)
 
     def manual_trigger(self):
         """Sends a manual force trigger event to the oscilloscope."""
