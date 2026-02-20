@@ -200,6 +200,16 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
     def manual_trigger(self):
         """Sends a manual force trigger event to the oscilloscope."""
         self.instrument.write(":TRIGger:FORCe")
+        
+        # Check the instrument's error using the inherited Scpi command
+        error_response = self.error()
+        try:
+            if int(error_response) != 0:
+                print(f"Error during manual trigger (ESR: {error_response.strip()}). Changing trigger sweep to NORM.")
+                self.set_trigger_sweep("NORM")
+                self.clear() # Clear the error queue
+        except ValueError:
+            pass
 
     def toggle_acquisition(self, run=True):
         """
