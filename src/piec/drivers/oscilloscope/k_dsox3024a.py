@@ -27,7 +27,7 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
     tdiv = (0.000000002, 50.0)
     x_range = (0.00000002, 500.0)
     x_position = (-500.0, 500.0)
-    trigger_source = ["CHAN1", "CHAN2", "CHAN3", "CHAN4", "EXT", "LINE", "WGEN"]
+    trigger_source = [1, 2, 3, 4, "EXT", "LINE", "WGEN"]
     trigger_level = (-6.0, 6.0)
     trigger_slope = ["POS", "NEG", "EITH", "ALT"]
     trigger_mode = ["EDGE"]
@@ -98,7 +98,7 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
             channel_impedance (str): The impedance setting, e.g. '1M', '50'
         """
         IMPEDANCE_MAP = {'50': 'FIFT','1M': 'ONEM'}
-        self.instrument.write("CHAN{}:IMP {}".format(channel, IMPEDANCE_MAP[channel_impedance]))
+        self.instrument.write("CHAN{}:IMP {}".format(channel, IMPEDANCE_MAP.get(str(channel_impedance), 'ONEM')))
 
     def set_horizontal_scale(self, tdiv=None, x_range=None):
         """
@@ -137,9 +137,11 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
         """
         Decides what the scope should trigger on
         args:
-            trigger_source (str): The trigger source, e.g. 'CH1', 'CH2', 'EXT', 'INT'
+            trigger_source (str or int): The trigger source, e.g. 1, 2, 'EXT', 'INT'
         """
-        self.instrument.write(f":TRIGger:EDGE:SOURce {trigger_source}")
+        mapping = {1: 'CHAN1', 2: 'CHAN2', 3: 'CHAN3', 4: 'CHAN4', '1': 'CHAN1', '2': 'CHAN2', '3': 'CHAN3', '4': 'CHAN4'}
+        src = mapping.get(trigger_source, trigger_source)
+        self.instrument.write(f":TRIGger:EDGE:SOURce {src}")
 
     def set_trigger_level(self, trigger_level):
         """
@@ -191,6 +193,10 @@ class KeysightDSOX3024a(Oscilloscope, Scpi):
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+
+    def manual_trigger(self):
+        """Sends a manual force trigger event to the oscilloscope."""
+        self.instrument.write(":TRIGger:FORCe")
 
     def toggle_acquisition(self, run=True):
         """

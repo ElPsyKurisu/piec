@@ -55,46 +55,69 @@ class Agilent33500(Scpi, Awg):
     
 
 
-    def __init__(self, resource_name, **kwargs):
-        super().__init__(resource_name, **kwargs)
+
 
     def output(self, channel=1, on=True):
         state = "ON" if on else "OFF"
         self.instrument.write(f"OUTP{channel} {state}")
 
-    def set_waveform(self, channel=1, waveform="SIN"):
+    def set_waveform(self, channel=1, waveform=None):
+        if waveform is None:
+             raise ValueError("waveform must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC {waveform}")
 
-    def set_frequency(self, channel=1, frequency=1000):
+    def set_frequency(self, channel=1, frequency=None):
+        if frequency is None:
+             raise ValueError("frequency must be provided")
         self.instrument.write(f"SOUR{channel}:FREQ {frequency}")
 
-    def set_amplitude(self, channel=1, amplitude=1.0):
+    def set_amplitude(self, channel=1, amplitude=None):
+        if amplitude is None:
+             raise ValueError("amplitude must be provided")
         self.instrument.write(f"SOUR{channel}:VOLT {amplitude}")
 
-    def set_offset(self, channel=1, offset=0.0):
+    def set_offset(self, channel=1, offset=None):
+        if offset is None:
+             raise ValueError("offset must be provided")
         self.instrument.write(f"SOUR{channel}:VOLT:OFFS {offset}")
 
-    def set_phase(self, channel=1, phase=0.0):
+    def set_phase(self, channel=1, phase=None):
+        if phase is None:
+             raise ValueError("phase must be provided")
         self.instrument.write(f"SOUR{channel}:PHAS {phase}")
 
-    def set_square_duty_cycle(self, channel=1, duty_cycle=50.0):
+    def set_square_duty_cycle(self, channel=1, duty_cycle=None):
+        if duty_cycle is None:
+             raise ValueError("duty_cycle must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC:SQU:DCYC {duty_cycle}")
 
-    def set_ramp_symmetry(self, channel=1, symmetry=100.0):
+    def set_ramp_symmetry(self, channel=1, symmetry=None):
+        if symmetry is None:
+             raise ValueError("symmetry must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC:RAMP:SYMM {symmetry}")
 
-    def set_pulse_width(self, channel=1, width=1e-3):
+    def set_pulse_width(self, channel=1, width=None):
+        if width is None:
+             raise ValueError("width must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC:PULS:WIDT {width}")
 
-    def set_pulse_edge_time(self, channel=1, edge_time=8.4e-9):
+    def set_pulse_edge_time(self, channel=1, edge_time=None):
+        if edge_time is None:
+             raise ValueError("edge_time must be provided")
         # 33500 supports separate rise/fall, but we define a common interface here first
         self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN {edge_time}")
 
-    def set_pulse_rise_time(self, channel=1, rise_time=8.4e-9):
+    def set_pulse_rise_time(self, channel=1, rise_time=None):
+        if rise_time is None:
+             raise ValueError("rise_time must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:LEAD {rise_time}")
 
-    def set_pulse_fall_time(self, channel=1, fall_time=8.4e-9):
+    def set_pulse_fall_time(self, channel=1, fall_time=None):
+        if fall_time is None:
+             raise ValueError("fall_time must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC:PULS:TRAN:TRA {fall_time}")
         
-    def set_pulse_duty_cycle(self, channel=1, duty_cycle=50.0):
+    def set_pulse_duty_cycle(self, channel=1, duty_cycle=None):
+        if duty_cycle is None:
+             raise ValueError("duty_cycle must be provided")
         self.instrument.write(f"SOUR{channel}:FUNC:PULS:DCYC {duty_cycle}")

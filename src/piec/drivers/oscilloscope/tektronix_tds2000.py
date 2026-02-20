@@ -31,7 +31,7 @@ class TektronixTDS2000(Oscilloscope, Scpi):
     x_range = None
     x_position = None
     
-    trigger_source = ["CH1", "CH2", "CH3", "CH4", "EXT", "EXT5", "LINE"]
+    trigger_source = [1, 2, 3, 4, "EXT", "EXT5", "LINE"]
     trigger_level = (-10.0, 10.0)
     trigger_slope = ["RISE", "FALL"]
     trigger_mode = ["AUTO", "NORM"]
@@ -42,8 +42,7 @@ class TektronixTDS2000(Oscilloscope, Scpi):
     
 
 
-    def __init__(self, resource_name, **kwargs):
-        super().__init__(resource_name, **kwargs)
+
 
     def autoscale(self):
         self.instrument.write("AUTOSet EXECute")
@@ -93,7 +92,9 @@ class TektronixTDS2000(Oscilloscope, Scpi):
             self.set_horizontal_position(x_position)
 
     def set_trigger_source(self, trigger_source):
-        self.instrument.write(f"TRIGger:MAIn:EDGE:SOURce {trigger_source}")
+        mapping = {1: 'CH1', 2: 'CH2', 3: 'CH3', 4: 'CH4', '1': 'CH1', '2': 'CH2', '3': 'CH3', '4': 'CH4'}
+        src = mapping.get(trigger_source, trigger_source)
+        self.instrument.write(f"TRIGger:MAIn:EDGE:SOURce {src}")
 
     def set_trigger_level(self, trigger_level):
         self.instrument.write(f"TRIGger:MAIn:LEVel {trigger_level}")
@@ -120,6 +121,10 @@ class TektronixTDS2000(Oscilloscope, Scpi):
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+
+    def manual_trigger(self):
+        """Sends a manual force trigger event to the oscilloscope."""
+        self.instrument.write("TRIGger FORCe")
 
     def toggle_acquisition(self, run=True):
         if run:

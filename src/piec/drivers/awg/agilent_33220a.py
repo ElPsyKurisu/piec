@@ -59,8 +59,7 @@ class Agilent33220A(Scpi, Awg):
     
 
 
-    def __init__(self, resource_name, **kwargs):
-        super().__init__(resource_name, **kwargs)
+
 
     def output(self, channel=1, on=True):
         """
@@ -69,72 +68,96 @@ class Agilent33220A(Scpi, Awg):
         state = "ON" if on else "OFF"
         self.instrument.write(f"OUTP {state}")
 
-    def set_waveform(self, channel=1, waveform="SIN"):
+    def set_waveform(self, channel=1, waveform=None):
         """
         Set the waveform shape.
         """
+        if waveform is None:
+             raise ValueError("waveform must be provided")
         self.instrument.write(f"FUNC {waveform}")
 
-    def set_frequency(self, channel=1, frequency=1000):
+    def set_frequency(self, channel=1, frequency=None):
         """
         Set the frequency in Hz.
         """
+        if frequency is None:
+             raise ValueError("frequency must be provided")
         self.instrument.write(f"FREQ {frequency}")
 
-    def set_amplitude(self, channel=1, amplitude=1.0):
+    def set_amplitude(self, channel=1, amplitude=None):
         """
         Set the amplitude in Vpp.
         """
+        if amplitude is None:
+             raise ValueError("amplitude must be provided")
         self.instrument.write(f"VOLT {amplitude}")
 
-    def set_offset(self, channel=1, offset=0.0):
+    def set_offset(self, channel=1, offset=None):
         """
         Set the DC offset in Volts.
         """
+        if offset is None:
+             raise ValueError("offset must be provided")
         self.instrument.write(f"VOLT:OFFS {offset}")
 
-    def set_phase(self, channel=1, phase=0.0):
+    def set_phase(self, channel=1, phase=None):
         """
         Set the phase in degrees.
         """
+        if phase is None:
+             raise ValueError("phase must be provided")
         self.instrument.write(f"PHAS {phase}")
 
-    def set_square_duty_cycle(self, channel=1, duty_cycle=50.0):
+    def set_square_duty_cycle(self, channel=1, duty_cycle=None):
         """
         Set the duty cycle for square waves in percent.
         """
+        if duty_cycle is None:
+             raise ValueError("duty_cycle must be provided")
         self.instrument.write(f"FUNC:SQU:DCYC {duty_cycle}")
 
-    def set_ramp_symmetry(self, channel=1, symmetry=100.0):
+    def set_ramp_symmetry(self, channel=1, symmetry=None):
         """
         Set the symmetry for ramp waves in percent.
         """
+        if symmetry is None:
+             raise ValueError("symmetry must be provided")
         self.instrument.write(f"FUNC:RAMP:SYMM {symmetry}")
 
-    def set_pulse_width(self, channel=1, width=1e-3):
+    def set_pulse_width(self, channel=1, width=None):
         """
         Set the pulse width in seconds.
         """
+        if width is None:
+             raise ValueError("width must be provided")
         self.instrument.write(f"FUNC:PULS:WIDT {width}")
 
-    def set_pulse_edge_time(self, channel=1, edge_time=5e-9):
+    def set_pulse_edge_time(self, channel=1, edge_time=None):
         """
         Set the edge time (both rise and fall) in seconds.
         The 33220A has a single command for edge transition time.
         """
+        if edge_time is None:
+             raise ValueError("edge_time must be provided")
         self.instrument.write(f"FUNC:PULS:TRAN {edge_time}")
     
     # Mapping base AWG methods to specific implementation
-    def set_pulse_rise_time(self, channel=1, rise_time=5e-9):
+    def set_pulse_rise_time(self, channel=1, rise_time=None):
+        if rise_time is None:
+             raise ValueError("rise_time must be provided")
         self.set_pulse_edge_time(channel, rise_time)
 
-    def set_pulse_fall_time(self, channel=1, fall_time=5e-9):
+    def set_pulse_fall_time(self, channel=1, fall_time=None):
+        if fall_time is None:
+             raise ValueError("fall_time must be provided")
         self.set_pulse_edge_time(channel, fall_time)
         
-    def set_pulse_duty_cycle(self, channel=1, duty_cycle=50.0):
+    def set_pulse_duty_cycle(self, channel=1, duty_cycle=None):
         """
         Set pulse duty cycle. The 33220A uses pulse width primarily, 
         but we can calculate width if needed or use DCYC if supported.
         33220A Manual: FUNC:PULS:DCYC
         """
+        if duty_cycle is None:
+             raise ValueError("duty_cycle must be provided")
         self.instrument.write(f"FUNC:PULS:DCYC {duty_cycle}")

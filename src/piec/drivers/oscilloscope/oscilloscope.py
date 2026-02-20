@@ -158,6 +158,11 @@ class Oscilloscope(Instrument):
             trigger_mode (str): The trigger mode, e.g. 'auto', 'normal', 'single'
         """
 
+    def manual_trigger(self):
+        """
+        Sends a manual force trigger event to the oscilloscope.
+        """
+
     #Time to control acquisition process
 
     def toggle_acquisition(self, run=True):
@@ -206,7 +211,7 @@ class Oscilloscope(Instrument):
             acquisition_points (int): The number of data points to capture
         """
     
-    #Time to get the data out NOTE: We already have from the measurer class the quick_read which technically goes under here
+    #Time to get the data out
     def quick_read(self):
         """
         Quick read function that returns the default data in a numpy array. Typically this should be used to get a snapshot of the current waveform (e.g. the current display).

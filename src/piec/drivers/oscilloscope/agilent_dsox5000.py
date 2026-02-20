@@ -31,7 +31,7 @@ class AgilentDSOX5000(Oscilloscope, Scpi):
     x_range = (10e-9, 500.0)
     x_position = (-500.0, 500.0)
     
-    trigger_source = ["CHAN1", "CHAN2", "CHAN3", "CHAN4", "EXT", "LINE", "WGEN"]
+    trigger_source = [1, 2, 3, 4, "EXT", "LINE", "WGEN"]
     trigger_level = (-6.0, 6.0) # Varies by scale
     trigger_slope = ["POS", "NEG", "EITH", "ALT"]
     trigger_mode = ["EDGE", "GLIT", "PATT", "TV", "DWE"] # Simplified to EDGE mainly
@@ -43,8 +43,7 @@ class AgilentDSOX5000(Oscilloscope, Scpi):
     
 
 
-    def __init__(self, resource_name, **kwargs):
-        super().__init__(resource_name, **kwargs)
+
 
     # Reusing methods from KeysightDSOX3024a as the command set is identical for InfiniVision X-Series
     
@@ -89,7 +88,9 @@ class AgilentDSOX5000(Oscilloscope, Scpi):
             self.set_horizontal_position(x_position)
 
     def set_trigger_source(self, trigger_source):
-        self.instrument.write(f":TRIGger:EDGE:SOURce {trigger_source}")
+        mapping = {1: 'CHAN1', 2: 'CHAN2', 3: 'CHAN3', 4: 'CHAN4', '1': 'CHAN1', '2': 'CHAN2', '3': 'CHAN3', '4': 'CHAN4'}
+        src = mapping.get(trigger_source, trigger_source)
+        self.instrument.write(f":TRIGger:EDGE:SOURce {src}")
 
     def set_trigger_level(self, trigger_level):
         self.instrument.write(f":TRIGger:EDGE:LEVel {trigger_level}")
@@ -112,6 +113,10 @@ class AgilentDSOX5000(Oscilloscope, Scpi):
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_mode(trigger_mode)
+
+    def manual_trigger(self):
+        """Sends a manual force trigger event to the oscilloscope."""
+        self.instrument.write(":TRIGger:FORCe")
 
     def toggle_acquisition(self, run=True):
         if run:

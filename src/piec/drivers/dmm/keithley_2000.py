@@ -21,8 +21,7 @@ class Keithley2000(DMM, Scpi):
     
 
 
-    def __init__(self, resource_name, **kwargs):
-        super().__init__(resource_name, **kwargs)
+
 
     def set_sense_function(self, sense_func, coupling="DC", sense_mode="2W"):
         """

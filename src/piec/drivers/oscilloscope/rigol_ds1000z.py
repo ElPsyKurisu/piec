@@ -31,7 +31,7 @@ class RigolDS1000Z(Oscilloscope, Scpi):
     x_range = None
     x_position = (-500.0, 500.0)
     
-    trigger_source = ["CHAN1", "CHAN2", "CHAN3", "CHAN4", "EXT", "LINE", "AC"]
+    trigger_source = [1, 2, 3, 4, "EXT", "LINE", "AC"]
     trigger_level = (-100.0, 100.0)
     trigger_slope = ["POS", "NEG", "RFAL"]
     trigger_mode = ["AUTO", "NORM", "SING"]
@@ -42,8 +42,7 @@ class RigolDS1000Z(Oscilloscope, Scpi):
     
 
 
-    def __init__(self, resource_name, **kwargs):
-        super().__init__(resource_name, **kwargs)
+
 
     def autoscale(self):
         self.instrument.write(":AUToscale")
@@ -81,7 +80,9 @@ class RigolDS1000Z(Oscilloscope, Scpi):
             self.set_horizontal_position(x_position)
 
     def set_trigger_source(self, trigger_source):
-        self.instrument.write(f":TRIGger:EDGE:SOURce {trigger_source}")
+        mapping = {1: 'CHAN1', 2: 'CHAN2', 3: 'CHAN3', 4: 'CHAN4', '1': 'CHAN1', '2': 'CHAN2', '3': 'CHAN3', '4': 'CHAN4'}
+        src = mapping.get(trigger_source, trigger_source)
+        self.instrument.write(f":TRIGger:EDGE:SOURce {src}")
 
     def set_trigger_level(self, trigger_level):
         self.instrument.write(f":TRIGger:EDGE:LEVel {trigger_level}")
@@ -104,6 +105,10 @@ class RigolDS1000Z(Oscilloscope, Scpi):
             self.set_trigger_slope(trigger_slope)
         if trigger_mode:
             self.set_trigger_sweep(trigger_mode) # Rigol uses sweep for mode
+
+    def manual_trigger(self):
+        """Sends a manual force trigger event to the oscilloscope."""
+        self.instrument.write(":TFORce")
 
     def toggle_acquisition(self, run=True):
         if run:
