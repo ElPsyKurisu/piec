@@ -27,7 +27,7 @@ class NewInstrumentModel(Awg, Scpi):
 ```
 
 ## 3. Autodetection (`AUTODETECT_ID`)
-Every driver MUST define a class-level string attribute named `AUTODETECT_ID`. This is a unique substring expected to be returned by the instrument when queried with the standard SCPI `*IDN?` command.
+Every driver MUST (if possible) define a class-level string attribute named `AUTODETECT_ID`. This is a unique substring expected to be returned by the instrument when queried with an .idn() command.
 
 ```python
     AUTODETECT_ID = "MODEL_1234"
