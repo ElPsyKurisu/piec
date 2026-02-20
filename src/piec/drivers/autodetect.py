@@ -102,7 +102,8 @@ def _dynamic_driver_scan(verbose=False):
             # Reconstruct the module path relative to 'piec'
             parts = list(file_path.parts)
             if 'piec' in parts:
-                piec_idx = parts.index('piec')
+                # Use the last occurrence of 'piec' to avoid matching a parent repo folder
+                piec_idx = len(parts) - 1 - parts[::-1].index('piec')
                 module_parts = parts[piec_idx:]
                 module_str = ".".join(module_parts).replace(".py", "")
                 
