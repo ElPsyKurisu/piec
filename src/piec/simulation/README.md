@@ -17,7 +17,7 @@ The core logic is implemented in `fe_material.py` and includes:
 
 ## Usage
 
-Classes can be imported directly from the module. The primary method for interaction is typically `voltage_response` or `apply_waveform`.
+Classes can be imported directly from the module. The primary methods for interaction are typically `voltage_response`, `current_response`, or `apply_waveform`. Instrument drivers provide the applied signal; these material objects provide the simulated device response.
 
 ### Example: Simulating a Resistor
 
@@ -34,6 +34,9 @@ v = np.sin(2 * np.pi * 1000 * t)
 
 # Calculate response
 i_response, t_out = r.voltage_response(v, t)
+
+# Or calculate the voltage produced by a sourced current.
+v_response, t_out = r.current_response(i_response, t)
 ```
 
 ### Example: Simulating a Ferroelectric Capacitor
