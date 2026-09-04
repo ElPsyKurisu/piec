@@ -1,0 +1,6 @@
+source_output,field,output_unit,field_unit,name
+-5,-500,V,Oe,illustrative only - not a hardware calibration
+-1,-100,V,Oe,illustrative only - not a hardware calibration
+0,0,V,Oe,illustrative only - not a hardware calibration
+1,100,V,Oe,illustrative only - not a hardware calibration
+5,500,V,Oe,illustrative only - not a hardware calibration

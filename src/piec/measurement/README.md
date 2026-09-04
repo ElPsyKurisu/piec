@@ -2,13 +2,17 @@
 
 This directory contains classes for managing discrete waveform generation, measurement coordination, and data capture. It abstracts the complexity of synchronizing Arbitrary Waveform Generators (AWG), Oscilloscopes, Lock-in Amplifiers, and other instruments into reusable experiments.
 
+See [`MEASUREMENT_DEVELOPER_GUIDE.md`](MEASUREMENT_DEVELOPER_GUIDE.md) for the required lifecycle, metadata, safety, GUI, virtual-operation, and testing conventions for new measurements.
+
 ## Directory Structure
 
 - **`discrete_waveform.py`**: Contains the `DiscreteWaveform` base class and specific implementations:
     -   `HysteresisLoop`: For ferroelectric hysteresis measurements using triangular waveforms.
     -   `ThreePulsePund`: For PUND (Positive-Up-Negative-Down) switching measurements.
 - **`magneto_transport.py`**: Contains `MagnetoTransport` and `AMR` (Anisotropic Magnetoresistance) classes for controlling magnets, stepper motors, and lock-in amplifiers.
-- **`amr.py`**: (Currently empty/placeholder).
+- **`amr.py`**: Provides the dedicated public import path for the AMR classes.
+- **`moke.py`**: A standalone, point-by-point sourcemeter/DMM MOKE measurement
+  with an injected direct-output field calibration and live cycle data.
 
 ## Usage
 
@@ -52,7 +56,4 @@ from piec.measurement.magneto_transport import AMR
 
 ## Creating New Experiments
 
-To create a new waveform measurement:
-1.  Inherit from `DiscreteWaveform`.
-2.  Define `configure_awg()` to setup the specific pulse/shape.
-3.  Define `analyze()` to process the captured data.
+Follow [`MEASUREMENT_DEVELOPER_GUIDE.md`](MEASUREMENT_DEVELOPER_GUIDE.md). Inherit from `DiscreteWaveform` only when its AWG/oscilloscope workflow actually fits the new experiment.

@@ -33,6 +33,7 @@ that enables scientists to quickly test and build new experimental setups.
    measurements/amr
    measurements/ferroelectric
    measurements/iv_sweep
+   measurements/moke
 
 .. toctree::
    :maxdepth: 2
