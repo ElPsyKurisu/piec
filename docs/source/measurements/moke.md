@@ -5,9 +5,23 @@ and one DMM to read the detector's voltage output. It follows the standalone
 `IVSweep` lifecycle. There is no AWG/scope dependency, required gaussmeter,
 separate virtual measurement, or amplifier gain inside the measurement.
 
-This first implementation is a software-paced, point-by-point measurement.
-Hardware-timed acquisition, a GUI, and automatic gaussmeter calibration
-collection are later steps, not implemented features.
+This implementation is a software-paced, point-by-point measurement. The
+repository includes a `MeasurementApp` GUI and a sequential notebook under
+`Measurements/MOKE`. Hardware-timed acquisition and automatic gaussmeter
+calibration collection remain later steps.
+
+## Runnable interfaces
+
+`Measurements/MOKE/MOKE_GUI.py` provides instrument selection, in-plane or
+out-of-plane geometry metadata, calibration loading, loop settings, safe stop,
+and live raw/last-cycle/cycle-average plots. Its virtual path uses the ordinary
+measurement with `VirtualSourcemeter`, `VirtualDMM`, and the separate
+`HystereticMagneticMaterial`; it does not define a virtual measurement class.
+
+`Measurements/MOKE/MOKE_testing.ipynb` runs that same virtual setup one step at
+a time and includes commented templates for physical instruments and an
+optional gaussmeter readout. The adjacent `moke_measurement.md` is the concise
+operator guide.
 
 ## Calibration is a measurement input
 

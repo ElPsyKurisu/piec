@@ -1,5 +1,6 @@
 import sys
 import os
+import queue
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog
@@ -32,19 +33,43 @@ class ConsoleRedirector:
     def __init__(self, text_widget, tag="stdout"):
         self.text_widget = text_widget
         self.tag = tag
+        self._pending = queue.Queue()
+        self._after_id = self.text_widget.after(50, self._drain)
 
     def write(self, string):
+        if string:
+            self._pending.put(string)
+
+    def _drain(self):
         try:
-            self.text_widget.configure(state='normal')
-            self.text_widget.insert(tk.END, string, (self.tag,))
-            self.text_widget.see(tk.END)
-            self.text_widget.configure(state='disabled')
-            self.text_widget.update_idletasks() # Force redraw immediately
+            strings = []
+            while True:
+                strings.append(self._pending.get_nowait())
+        except queue.Empty:
+            pass
+
+        try:
+            if strings:
+                string = "".join(strings)
+                self.text_widget.configure(state='normal')
+                self.text_widget.insert(tk.END, string, (self.tag,))
+                self.text_widget.see(tk.END)
+                self.text_widget.configure(state='disabled')
+                self.text_widget.update_idletasks()
+            self._after_id = self.text_widget.after(50, self._drain)
         except Exception:
             pass # Handle case where widget is destroyed
 
     def flush(self):
         pass
+
+    def close(self):
+        if self._after_id is not None:
+            try:
+                self.text_widget.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
 
 class MeasurementApp:
     def __init__(self, root, title="Measurement GUI", geometry="1200x700", icon_path=None):
@@ -343,12 +368,16 @@ class MeasurementApp:
     def on_closing(self):
         # Cancel pending load_settings if any
         if hasattr(self, '_load_settings_id'):
-            self.root.after_cancel(self._load_settings_id)
+            try:
+                self.root.after_cancel(self._load_settings_id)
+            except Exception:
+                pass
 
         # Prompt to save settings
         if tk.messagebox.askyesno("Save Settings", "Do you want to save the current GUI settings?"):
             self.save_settings()
             
+        self.console.close()
         sys.stdout = self.original_stdout
         sys.stderr = self.original_stderr
         self.root.destroy()
