@@ -1,5 +1,29 @@
 {
   "schema_version": "2.0.0",
+  "amr_fixture_contract": {
+    "scientific_golden": "tests/fixtures/measurement_compatibility/amr_golden.csv",
+    "oracle": "X = (100 ohm + 2 ohm * cos(angle)^2) * 1e-6 A; Y = 0.1 * X. At 180 degrees X is 102 uV and Y is 10.2 uV.",
+    "legacy_observation": "tests/fixtures/measurement_compatibility/amr_legacy_observed.csv",
+    "reference_commit": "9d9760242f44a79401626964f0122cc91b149c18",
+    "observation_note": "Existing capture steps to 225 degrees while labeling the final row 180 degrees. This file documents AMR-ANGLE-001, not a scientific result to preserve.",
+    "signal_absolute_tolerance_V": 1e-10,
+    "known_defects": [
+      {
+        "id": "AMR-ANGLE-001",
+        "repair_checkpoint": "24b",
+        "behavior": "Final capture repeats a motor step already performed by the loop, so actual position and saved angle disagree.",
+        "test": "test_amr_endpoint_matches_commanded_angle_and_scientific_golden",
+        "resolution": "Remove the extra movement, verify position and X/Y at all requested angles, remove the strict xfail, and replace the legacy-observation regression with the scientific golden."
+      },
+      {
+        "id": "AMR-FIELD-001",
+        "repair_checkpoint": "23a",
+        "behavior": "Placeholder convert_field_to_voltage multiplies by 0.1, conflicting with the default 10000 Oe/V calibration. 100 Oe requires 0.01 V, not 10 V.",
+        "test": "test_convert_field_to_voltage_matches_documented_calibration",
+        "resolution": "Repair or retire the placeholder during field-adapter work; enforce field/calibration conversion and replace the strict xfail with passing adapter tests."
+      }
+    ]
+  },
   "contract_amendment": {
     "scope": "all_measurement_families",
     "authority": "MEASUREMENT_STANDARDIZATION_PLAN.md sections 2, 3, 7 and checkpoint 2R",
@@ -1618,6 +1642,129 @@
         "field": "field",
         "X": "x",
         "Y": "y"
+      },
+      "consumer_inventory": {
+        "consumers": [
+          {
+            "file": "Measurements/AMR/amr_GUI.py",
+            "category": "gui",
+            "imported_symbols": [
+              "AMR"
+            ],
+            "import_module": "piec.measurement.amr",
+            "instantiation_args": [
+              "dmm",
+              "calibrator",
+              "arduino",
+              "lockin",
+              "field",
+              "angle_step",
+              "total_angle",
+              "amplitude",
+              "frequency",
+              "measure_time",
+              "sensitivity",
+              "save_dir"
+            ],
+            "execution_call": "experiment.run_experiment(configure_lockin=initialize_lockin)",
+            "execution_context": "threading.Thread(target=experiment.run_experiment, kwargs={'configure_lockin': initialize_lockin}, daemon=True)",
+            "controls": {
+              "pause": "experiment.pause_requested = True / False",
+              "stop": "experiment.abort_requested = True"
+            },
+            "data_consumption": "standard_csv_to_metadata_and_data(experiment.filename)",
+            "plotted_columns": [
+              "angle",
+              "field",
+              "X",
+              "Y"
+            ]
+          },
+          {
+            "file": "Measurements/AMR/AMR_testing.ipynb",
+            "category": "notebook",
+            "imported_symbols": [
+              "AMR",
+              "standard_csv_to_metadata_and_data"
+            ],
+            "import_module": "piec.measurement.amr",
+            "instantiation_kwargs": [
+              "dmm",
+              "calibrator",
+              "arduino",
+              "lockin",
+              "field",
+              "angle_step",
+              "total_angle",
+              "amplitude",
+              "frequency",
+              "measure_time",
+              "sensitivity",
+              "save_dir",
+              "live_plot"
+            ],
+            "execution_call": "experiment.run_experiment()",
+            "data_consumption": "standard_csv_to_metadata_and_data(experiment.filename)",
+            "plotted_columns": [
+              "angle",
+              "X",
+              "Y"
+            ]
+          },
+          {
+            "file": "Measurements/AMR/amr_measurement.md",
+            "category": "documentation",
+            "theory": "R(theta) = R_perp + (R_par - R_perp) * cos^2(theta) = R_avg + delta_R * cos(2*theta)",
+            "hardware_feedback_loop": "Calibrator outputs voltage -> Custom Magnet -> Hall Sensor -> DMM reads voltage -> verified within 10% tolerance",
+            "classes_documented": [
+              "MagnetoTransport",
+              "AMR"
+            ]
+          },
+          {
+            "file": "src/piec/measurement/amr.py",
+            "category": "module_reexport",
+            "reexported_symbols": [
+              "MagnetoTransport",
+              "AMR",
+              "convert_angle_to_steps",
+              "convert_steps_to_angle",
+              "convert_field_to_voltage"
+            ],
+            "source_module": "piec.measurement.magneto_transport"
+          }
+        ],
+        "physical_quantities": {
+          "angle": {
+            "unit": "deg",
+            "description": "Sample rotation angle relative to magnetic field direction",
+            "role": "Rotator (stepper motor via arduino)",
+            "conversion": "convert_angle_to_steps(angle, steps_per_revolution=200) -> 1.8 deg/step"
+          },
+          "field": {
+            "unit": "Oe",
+            "description": "Applied magnetic field strength in Oersted",
+            "role": "FieldSource (DC calibrator) and FieldReader (DMM / Hall sensor)",
+            "calibration_factor": "10000.0 Oe/V via voltage_callibration",
+            "command": "voltage = field / voltage_callibration; calibrator.set_output(voltage)",
+            "readback": "actual_field = dmm.get_voltage() * voltage_callibration; verified within 10% tolerance",
+            "safe_shutdown": "calibrator.set_output(0) in shut_off()"
+          },
+          "x": {
+            "legacy_column": "X",
+            "unit": "V",
+            "description": "Lock-in amplifier in-phase response voltage",
+            "role": "SignalReader (Lock-in)",
+            "physical_relation": "Proportional to sample resistance R(theta) following cos^2(theta) AMR behavior"
+          },
+          "y": {
+            "legacy_column": "Y",
+            "unit": "V",
+            "description": "Lock-in amplifier quadrature response voltage",
+            "role": "SignalReader (Lock-in)",
+            "physical_relation": "Out-of-phase lock-in response"
+          }
+        }
       }
     },
     "AMR": {
@@ -1985,6 +2132,129 @@
         "field": "field",
         "X": "x",
         "Y": "y"
+      },
+      "consumer_inventory": {
+        "consumers": [
+          {
+            "file": "Measurements/AMR/amr_GUI.py",
+            "category": "gui",
+            "imported_symbols": [
+              "AMR"
+            ],
+            "import_module": "piec.measurement.amr",
+            "instantiation_args": [
+              "dmm",
+              "calibrator",
+              "arduino",
+              "lockin",
+              "field",
+              "angle_step",
+              "total_angle",
+              "amplitude",
+              "frequency",
+              "measure_time",
+              "sensitivity",
+              "save_dir"
+            ],
+            "execution_call": "experiment.run_experiment(configure_lockin=initialize_lockin)",
+            "execution_context": "threading.Thread(target=experiment.run_experiment, kwargs={'configure_lockin': initialize_lockin}, daemon=True)",
+            "controls": {
+              "pause": "experiment.pause_requested = True / False",
+              "stop": "experiment.abort_requested = True"
+            },
+            "data_consumption": "standard_csv_to_metadata_and_data(experiment.filename)",
+            "plotted_columns": [
+              "angle",
+              "field",
+              "X",
+              "Y"
+            ]
+          },
+          {
+            "file": "Measurements/AMR/AMR_testing.ipynb",
+            "category": "notebook",
+            "imported_symbols": [
+              "AMR",
+              "standard_csv_to_metadata_and_data"
+            ],
+            "import_module": "piec.measurement.amr",
+            "instantiation_kwargs": [
+              "dmm",
+              "calibrator",
+              "arduino",
+              "lockin",
+              "field",
+              "angle_step",
+              "total_angle",
+              "amplitude",
+              "frequency",
+              "measure_time",
+              "sensitivity",
+              "save_dir",
+              "live_plot"
+            ],
+            "execution_call": "experiment.run_experiment()",
+            "data_consumption": "standard_csv_to_metadata_and_data(experiment.filename)",
+            "plotted_columns": [
+              "angle",
+              "X",
+              "Y"
+            ]
+          },
+          {
+            "file": "Measurements/AMR/amr_measurement.md",
+            "category": "documentation",
+            "theory": "R(theta) = R_perp + (R_par - R_perp) * cos^2(theta) = R_avg + delta_R * cos(2*theta)",
+            "hardware_feedback_loop": "Calibrator outputs voltage -> Custom Magnet -> Hall Sensor -> DMM reads voltage -> verified within 10% tolerance",
+            "classes_documented": [
+              "MagnetoTransport",
+              "AMR"
+            ]
+          },
+          {
+            "file": "src/piec/measurement/amr.py",
+            "category": "module_reexport",
+            "reexported_symbols": [
+              "MagnetoTransport",
+              "AMR",
+              "convert_angle_to_steps",
+              "convert_steps_to_angle",
+              "convert_field_to_voltage"
+            ],
+            "source_module": "piec.measurement.magneto_transport"
+          }
+        ],
+        "physical_quantities": {
+          "angle": {
+            "unit": "deg",
+            "description": "Sample rotation angle relative to magnetic field direction",
+            "role": "Rotator (stepper motor via arduino)",
+            "conversion": "convert_angle_to_steps(angle, steps_per_revolution=200) -> 1.8 deg/step"
+          },
+          "field": {
+            "unit": "Oe",
+            "description": "Applied magnetic field strength in Oersted",
+            "role": "FieldSource (DC calibrator) and FieldReader (DMM / Hall sensor)",
+            "calibration_factor": "10000.0 Oe/V via voltage_callibration",
+            "command": "voltage = field / voltage_callibration; calibrator.set_output(voltage)",
+            "readback": "actual_field = dmm.get_voltage() * voltage_callibration; verified within 10% tolerance",
+            "safe_shutdown": "calibrator.set_output(0) in shut_off()"
+          },
+          "x": {
+            "legacy_column": "X",
+            "unit": "V",
+            "description": "Lock-in amplifier in-phase response voltage",
+            "role": "SignalReader (Lock-in)",
+            "physical_relation": "Proportional to sample resistance R(theta) following cos^2(theta) AMR behavior"
+          },
+          "y": {
+            "legacy_column": "Y",
+            "unit": "V",
+            "description": "Lock-in amplifier quadrature response voltage",
+            "role": "SignalReader (Lock-in)",
+            "physical_relation": "Out-of-phase lock-in response"
+          }
+        }
       }
     },
     "MokeMeasurement": {

@@ -37,10 +37,12 @@ Suggested implementation prompt:
 | 2R | Complete | Reference/target separation, migration-aware interface checks and strict scientific comparison are implemented. Isolated staged tree: 375 passed in 27.12s; full working tree including pending MOKE/2b work: 390 passed in 26.82s on Python 3.13.2. No production measurement changes belong in the 2R commit; CI Python 3.9/3.11 remains unverified locally. |
 | 2b | Completed | Reconciled IV/MOKE deterministic scientific fixtures (`iv_sweep_golden.csv`, `moke_calibrated_golden.csv`, `moke_measured_golden.csv`) and 14 regression tests in `test_measurement_iv_moke_compatibility.py` verifying exact CSV layout, metadata, units, golden regression, and old-to-new column numerical equivalence. All 390 tests pass. |
 | 2c | Completed | Added FE and PUND deterministic scientific fixtures (`discrete_waveform_golden.csv`, `hysteresis_loop_golden.csv`, `three_pulse_pund_golden.csv`) and 21 regression tests in `test_measurement_fe_pund_compatibility.py` verifying exact CSV layout, metadata, units, golden regression, polarization calculations, auto_timeshift, plot artifacts, and old-to-new column numerical equivalence (including raw view). Fixed read-only array in `pund.py`. All 411 tests pass in 24.27s on Python 3.13.2. |
-| 2d | Next; not started | AMR scientific fixtures and consumer inventory. |
+| 2c | FE/PUND numerical fixtures | Polarization, alignment and plotted traces have deterministic reference values/tolerances |
+| 2d | Completed | AMR scientific golden and separately labeled legacy observation, consumer inventory, and regression tests. Signal tolerance is 1e-10 V; flat X/Y are rejected. Known defects AMR-FIELD-001 (23a) and AMR-ANGLE-001 (24b) have strict expected-failure tests, not frozen scientific expectations. AMR suite: 25 passed, 2 xfailed; full suite: 436 passed, 2 xfailed in 23.25s on Python 3.13.2. CI environments remain unverified locally. |
 
 | M1 | Cancelled by all-family standardization | Schema, API and consumer changes now belong in each family slice (13, 14, 20, 24), not a separate MOKE exception. |
-| 3 onward | Not started | After 2d, continue driver prerequisites, engine, and family slices. |
+| 3 | Next; not started | AWG output_trigger indentation repair. |
+| 4 onward | Not started | Continue driver prerequisites, engine, and family slices. |
 
 
 2R handoff: `assert_family_interface` selects reference or target structural checks using `migrated_families`; mark a family migrated only with its own execution/schema/safety tests. `assert_numerical_data_matches_reference` requires all expected columns (use `view="raw"` for raw FE), accepts reference or target names, and compares waveform time including negative pre-trigger values. Only MOKE's manifest-declared elapsed clocks may vary. `assert_golden_csv_matches` compares time by default; MOKE callers explicitly pass `time_columns=("time", "field_time")` for elapsed clocks. Keep waveform timing numerical. The uncommitted 2b MOKE golden calls have been adjusted to this explicit policy.
@@ -572,7 +574,9 @@ Use `src/piec/measurement/base.py`, `contracts.py`, `runner.py`, `persistence.py
 | 2R | Revise manifest/harness into separate reference observations and target contracts for every family | All target column/unit maps recorded; old-interface checks explicitly transitional; numerical evidence retained; no production migration |
 | 2b | IV/MOKE deterministic scientific fixtures | Values, calibration and field-mode expectations from references; target-format requirements recorded without claiming old code implements them |
 | 2c | FE/PUND numerical fixtures | Polarization, alignment and plotted traces have deterministic reference values/tolerances |
-| 2d | AMR scientific fixtures and consumer inventory | Angle/field/X/Y units, calibration and consumer calls documented |
+| 2c | Completed | Added FE and PUND deterministic scientific fixtures (`discrete_waveform_golden.csv`, `hysteresis_loop_golden.csv`, `three_pulse_pund_golden.csv`) and 21 regression tests in `test_measurement_fe_pund_compatibility.py` verifying exact CSV layout, metadata, units, golden regression, polarization calculations, auto_timeshift, plot artifacts, and old-to-new column numerical equivalence (including raw view). Fixed read-only array in `pund.py`. All 411 tests pass in 24.27s on Python 3.13.2. |
+| 2c | FE/PUND numerical fixtures | Polarization, alignment and plotted traces have deterministic reference values/tolerances |
+| 2d | Completed | AMR scientific golden and separately labeled legacy observation, consumer inventory, and regression tests. Signal tolerance is 1e-10 V; flat X/Y are rejected. Known defects AMR-FIELD-001 (23a) and AMR-ANGLE-001 (24b) have strict expected-failure tests, not frozen scientific expectations. AMR suite: 25 passed, 2 xfailed; full suite: 436 passed, 2 xfailed in 23.25s on Python 3.13.2. CI environments remain unverified locally. |
 | 3 | AWG output_trigger indentation repair | Focused base-driver contract test |
 | 4 | AWG trigger_source conditional repair | Focused tests and affected-driver audit |
 | 5 | VirtualSourcemeter channel contract alignment | Applicable methods including disable accept the channel keyword |
@@ -601,8 +605,9 @@ Use `src/piec/measurement/base.py`, `contracts.py`, `runner.py`, `persistence.py
 | 21 | FE GUI interaction/ownership hardening | Main-thread Tk/plots, virtual selection, settings, Stop/close and save policies |
 | 22 | FE physical record | Low-amplitude known-impedance AWG/scope result or PENDING |
 | 23 | AMR setup-role adapters | Units, limits, calibration direction, capabilities and isolated role tests |
+| 23a | Repair/retire placeholder field conversion (AMR-FIELD-001) | Default 10000 Oe/V gives 100 Oe -> 0.01 V; replace the strict expected failure with passing field-adapter tests |
 | 24a | MagnetoTransport lifecycle and consumers | Standard API/options/controls and owner-scoped helpers |
-| 24b | AMR acquisition/schema/persistence and consumers | Scientific goldens, Stop during dwell/motion, engine-owned partials and safe final outputs |
+| 24b | AMR acquisition/schema/persistence and consumers | Repair AMR-ANGLE-001 (extra endpoint motor step); physical positions and signals match every requested angle; replace the strict expected failure and faulty-observation regression with scientific goldens; Stop during dwell/motion, engine-owned partials and safe final outputs |
 | 24c | AMR notebook/GUI presentation integration | No acquisition-owned plotting; target metadata labels and offline examples |
 | 25 | AMR GUI interaction/ownership hardening | Pause/Stop/close/terminal behavior through common runner |
 | 26 | AMR physical record | Separate role tests then low-field integrated result or PENDING |
