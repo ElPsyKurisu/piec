@@ -1,6 +1,6 @@
 # PIEC Measurement and Simulation Standardization Plan
 
-Status: proposed design for review; implementation has not started.
+Status: approved contract; implementation started.
 
 ## Implementation handoff: read this first
 
@@ -25,8 +25,9 @@ Suggested implementation prompt:
 
 | Checkpoint | Status | Validation / remaining gates |
 |---|---|---|
-| Plan review | Revised, uncommitted | Source review on 2026-09-08; both baseline commits exist. Local pytest launch denied access to `.venv\\Scripts\\python.exe`; current test count unverified. |
-| 1 onward | Not started | Record each completed checkpoint here; Git history supplies commit hashes. |
+| Plan review | Approved | Source review confirmed baseline commits `9d9760242f44a79401626964f0122cc91b149c18` and `d1bac1ccf37e6578586336278c1ea36cf39b472` exist. Human review confirmed no unresolved contradictory requirements. Baseline test suite verified: 276 passed in 30.21s (`.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider` on Python 3.13.2). |
+| 1 | Completed | Contract finalized and approved. Commit scope: `MEASUREMENT_STANDARDIZATION_PLAN.md` only. |
+| 2 onward | Not started | Record each completed checkpoint here; Git history supplies commit hashes. Next: Checkpoint 2 (characterize legacy public behavior), split into 2a–2d. |
 
 This document is the implementation contract for standardizing PIEC measurements. If a later implementation choice conflicts with this plan, the implementation must stop and the plan must be amended in a separate documentation commit before code continues.
 
@@ -59,7 +60,7 @@ Characterization is pinned to immutable commits, not a moving branch name:
 | Measurements present on `master` | `9d9760242f44a79401626964f0122cc91b149c18` |
 | First complete MOKE implementation on this feature branch | `d1bac1ccf37e6578586336278c1ea36cf39b472` |
 
-An earlier review reported 276 passing tests. This is a historical claim, not a verified gate: the 2026-09-08 review could not launch the local virtual-environment interpreter (access denied). Re-run and record the actual count/environment before implementation. Even a passing suite does not validate the proposed architecture because the shared base has not yet been implemented.
+An earlier review reported 276 passing tests. On 2026-09-08, this gate was verified locally: `.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider` passed all 276 tests in 30.21s on Python 3.13.2. Even a passing suite does not validate the proposed architecture because the shared base has not yet been implemented.
 
 ### 2.2 Compatibility manifest
 
