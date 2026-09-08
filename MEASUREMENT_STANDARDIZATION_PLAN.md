@@ -4,7 +4,13 @@ Status: approved contract; implementation started.
 
 ## Implementation handoff: read this first
 
-Implement **one numbered checkpoint from section 12 per task**. The architecture sections are requirements for those checkpoints, not permission to implement the whole document at once. Begin with checkpoint 1; do not start production changes during plan review.
+**Authoritative user decision (2026-09-08): all measurement families adopt the new standard.** Backward compatibility with old measurement APIs, columns, metadata, filenames, plotting helpers, and file readers is not required. Replace old implementations where necessary; update repository consumers in the same family checkpoint. This supersedes the earlier MOKE-only exception and all earlier instructions to freeze IV/FE/AMR behavior. Preserve scientific meaning, numerical results, calibration, and safety, not obsolete interfaces. Do not delete user data or rewrite saved experimental files.
+
+**Next action:** commit this contract amendment separately, then implement checkpoint **2R** (revise the test/manifest contract) before resuming 2b–2d. The previous inserted M1 checkpoint is cancelled: schema and lifecycle changes now land together in each family's vertical slice, with its consumers updated. Existing staged work is reference material to reconcile, not permission to freeze old schemas.
+
+If M1 implementation was already started before this amendment arrived, retain useful target-schema work and reconcile it in 2R; do not revert it merely to satisfy the revised ordering. Record what actually landed and the remaining lifecycle/consumer work in checkpoint 14. Concurrent edits are not automatically reviewed by this documentation amendment.
+
+Implement **one numbered checkpoint from section 12 per task**. The architecture sections are requirements for those checkpoints, not permission to implement the whole document at once. Resume from the progress log; the next checkpoint under this amendment is 2R.
 
 For each checkpoint:
 
@@ -12,7 +18,7 @@ For each checkpoint:
 2. State the checkpoint number, files in scope, and acceptance tests. Read the relevant existing code and characterization fixtures before editing.
 3. Implement only that checkpoint and its tests. Do not introduce dependencies on later checkpoints. Framework checkpoints use fake hooks/in-memory persistence until the real adapter exists.
 4. Run focused acceptance tests and the full available suite. Report exact commands and results. A missing interpreter, skipped platform test, or unavailable hardware is a blocked/unverified gate, never a pass.
-5. Review the diff for compatibility and unrelated edits. Update the progress log with results and remaining gates. Stage explicit paths, never `git add .`.
+5. Review the diff for target-contract compliance, numerical regressions and unrelated edits. Update the progress log with results and remaining gates. Stage explicit paths, never `git add .`.
 6. When checks pass, create the checkpoint commit if committing has been authorized. Otherwise stop with the exact diff ready to commit. Report commit hash (or uncommitted status), tests, remaining gates, and the next checkpoint. **Stop here; wait for the next task before continuing.** Do not squash checkpoints together.
 
 If a numbered checkpoint is too large for one reviewable change, divide it into lettered commits using the split rules in section 12. Each lettered commit is also a stopping point. If a contract contradiction requires a design decision, describe it and amend the plan in a documentation checkpoint before dependent implementation.
@@ -27,170 +33,75 @@ Suggested implementation prompt:
 |---|---|---|
 | Plan review | Approved | Source review confirmed baseline commits `9d9760242f44a79401626964f0122cc91b149c18` and `d1bac1ccf37e6578586336278c1ea36cf39b4722` exist. Human review confirmed no unresolved contradictory requirements. Baseline test suite verified: 276 passed in 30.21s (`.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider` on Python 3.13.2). |
 | 1 | Completed | Contract finalized and approved. Commit `1e49f43`. |
-| 2a | Implemented and reviewed; uncommitted | Added compatibility manifest and harness. Review fixes: CI fetches baseline history, signature checks permit explicitly approved optional keyword-only additions without rewriting legacy signatures, and MOKE filename grammar preserves its trailing underscore. Verified on Python 3.13.2: focused suite 65 passed; full suite 341 passed in 20.22s (`.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider -q`). CI and Python 3.9/3.11 runs remain unverified locally. |
-| 2b onward | Not started | Record each completed checkpoint here; Git history supplies commit hashes. Next: Checkpoint 2b (IV + MOKE characterization fixtures). |
+| 2a | Completed | Added compatibility manifest and harness. Commit `69548ab`. |
+| 2R | Reviewed implementation awaiting its separate test commit | Reference/target separation, migration-aware interface checks and strict scientific comparison are implemented. Isolated staged tree: 375 passed in 27.12s; full working tree including pending MOKE/2b work: 390 passed in 26.82s on Python 3.13.2. No production measurement changes belong in the 2R commit; CI Python 3.9/3.11 remains unverified locally. |
+| 2b | Next; uncommitted | Reconcile IV/MOKE deterministic scientific fixtures against the revised manifest and numerical matching helpers. |
+
+| M1 | Cancelled by all-family standardization | Schema, API and consumer changes now belong in each family slice (13, 14, 20, 24), not a separate MOKE exception. |
+| 2c onward | Not started | After 2R and reconciled 2b, continue FE/PUND and AMR reference fixtures, then engine and family slices. |
 
 This document is the implementation contract for standardizing PIEC measurements. If a later implementation choice conflicts with this plan, the implementation must stop and the plan must be amended in a separate documentation commit before code continues.
 
 ## 1. Purpose and non-negotiable constraints
 
-The goal is one recognizable measurement framework for DC I-V, MOKE, ferroelectric waveform measurements, and AMR/magneto-transport, while preserving the working public surface of each measurement.
+Standardize IV, MOKE, discrete waveform/FE/PUND, and AMR through the same lifecycle, public execution interface, unit metadata, persistence, snapshots, and GUI ownership rules.
 
-The following constraints apply to every stage:
+- Work incrementally, one reviewed commit checkpoint at a time. Replace old code when needed; do not implement all families in one commit.
+- No measurement compatibility shims, old-format converters, duplicate old/new runners, or deprecation cycle are required. Keep useful names where convenient; update every repository consumer affected by a change.
+- Constructor instruments may be positional; measurement settings and run options are keyword-only. Constructors perform no hardware I/O, output-directory creation, or hook calls.
+- Measurements own procedures; Level 2 drivers own instrument contracts; setup adapters own wiring/calibration/safe policies; physics models own simulated samples; GUIs own presentation.
+- One execution owner writes hardware. Safing de-energizes/halts but never closes instrument connections.
+- Plain data column names and an explicit per-column units mapping apply to every family. Retain the one-row metadata/blank-line/data CSV structure as the chosen new format, not as a backward-compatibility requirement.
+- Preserve numerical scientific results, calibration direction and units, acquisition meaning, and raw data recovery. Scientific algorithm changes need separate reference datasets and commits.
+- Keep Python 3.9 support. Do not depend on ExceptionGroup.
+- Generic DAQ behavior and unrelated driver APIs are outside scope except separately demonstrated contract defects. Do not put MOKE-specific behavior in generic virtual drivers. Use one physical/virtual MokeMeasurement through injection.
+- Software safing is best effort under live Python, working communications, and finite driver timeouts; it does not replace a physical interlock.
 
-- Migration is incremental. There is no repository-wide rewrite.
-- Existing class names, import paths, positional argument meanings, public compatibility methods, data columns, metadata/data CSV layout, and analysis results remain compatible unless an exception is explicitly approved and tested.
-- New constructor and run options are keyword-only. Existing positional arguments never acquire a new meaning.
-- Constructors perform no instrument I/O, including `idn()` calls.
-- A measurement coordinates a procedure; an instrument driver implements its Level 2 instrument contract; a setup adapter owns lab-specific wiring, calibration, and safe-state policy; a physics model owns simulated sample behavior; a GUI owns presentation only.
-- A measurement safe-state operation de-energizes or halts the configured setup but never disconnects instruments.
-- The normal worker is the sole writer to instruments during an active run. GUI callbacks never compete with it.
-- Generic DAQ and virtual-DAQ behavior is outside this migration unless an independently demonstrated DAQ contract defect requires a separate change. MOKE behavior never belongs in `VirtualDaq`.
-- There is one physical `MokeMeasurement`; virtual operation is achieved by injecting virtual instruments and a simulated material/bench.
-- Python 3.9 remains supported. The design does not rely on `ExceptionGroup` or other newer-only behavior.
-- Software safing is best effort and conditional on a live Python process, a functioning communication path, and drivers that enforce finite I/O timeouts. It is not a substitute for a physical interlock or emergency disconnect.
+## 2. Reference observations versus the target contract
 
-## 2. Immutable baselines and compatibility contract
+### 2.1 Scientific references
 
-### 2.1 Baseline commits
+Use immutable sources to establish numerical expectations: `9d9760242f44a79401626964f0122cc91b149c18` for existing families and `d1bac1ccf37e6578586336278c1ea36cf39b4722` as a MOKE prototype reference. These are observations, not frozen interfaces. MOKE has never been released. Historical test counts in the progress log do not verify this revised target.
 
-Characterization is pinned to immutable commits, not a moving branch name:
+### 2.2 Manifest and tests (checkpoint 2R)
 
-| Scope | Baseline commit |
-|---|---|
-| Measurements present on `master` | `9d9760242f44a79401626964f0122cc91b149c18` |
-| First complete MOKE implementation on this feature branch | `d1bac1ccf37e6578586336278c1ea36cf39b4722` |
+The current `tests/fixtures/measurement_compatibility/manifest.json` and helpers may keep their paths initially to avoid incidental churn, but must become a target-standardization contract:
 
-An earlier review reported 276 passing tests. On 2026-09-08, this gate was verified locally: `.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider` passed all 276 tests in 30.21s on Python 3.13.2. Even a passing suite does not validate the proposed architecture because the shared base has not yet been implemented.
+- Separate `reference_observations` (old signatures, names, side effects, fixture provenance) from `target_contract` (new API, schemas, unit maps and ownership). Old fields are not mandatory compatibility assertions.
+- Add each family's explicit old-to-new column mapping for comparing numerical arrays in tests. This is a test aid, not a runtime legacy-file converter.
+- Replace exact old-signature/default/return/re-export tests with tests for section 3's shared interface as each family migrates. All full runners return a DataFrame. Do not retain IV/FE/AMR None returns or the positional AMR configuration flag.
+- Preserve meaningful golden numerical data and tolerances. New output goldens assert target plain headers, unit JSON, metadata shape, plot artifacts and selected field. Constructor-I/O, unsafe-output omissions, old filenames, and obsolete spellings are not invariants.
+- Record scientific parameter units, schema order/dtypes, waveform alignment, calibration and plotting quantities. Validate every unit entry, including unitless fields; do not hide errors by broadly dropping metadata.
+- Maintain an explicit migrated-family list. Tests for old families can remain temporarily while they still use old code; update them in that family's migration commit. Never claim an unmigrated family passes the new contract. No blanket skips/xfails: narrow expected failures require a demonstrated pre-existing defect and a repair checkpoint.
+- Inventory all repository GUIs, notebooks, analysis functions, exports, examples and docs so none retain obsolete calls/column lookups after a family migrates.
 
-### 2.2 Compatibility manifest
+### 2.3 Scope boundaries
 
-Before production code changes, create a machine-readable manifest and characterization tests. For every public measurement, record:
+Authorization to replace measurements does not authorize deleting saved datasets, changing scientific algorithms, or refactoring unrelated drivers. No runtime support for old measurement files is required. Keep numerical evidence from old files as test fixtures where useful. The package's generic virtual-driver compatibility fallback remains outside this measurement API decision until its own simulation checkpoints.
 
-- module and re-export paths;
-- exact class name;
-- constructor parameter order, names, defaults, and accepted legacy spelling;
-- `run_experiment()` calls that existing notebooks and GUIs make;
-- other public methods, their signatures, return behavior, and side effects;
-- public attributes consumed by GUIs, notebooks, and analysis;
-- snapshot types, properties, and column order;
-- raw and processed data columns, order, and dtypes;
-- metadata fields and the one-row metadata/blank-line/data CSV structure;
-- filename grammar and associated plot artifacts;
-- pause, abort, repeat-run, and virtual-instrument behavior.
+## 3. Target architecture and common API
 
-Minimum public surfaces to characterize are:
+The path is GUI/notebook -> MeasurementRunner (for background work) -> concrete measurement inheriting BaseMeasurement -> setup adapters -> Level 2 drivers. Simulation swaps the setup/instrument/physics wiring, not the measurement science.
 
-| Family | Required compatibility coverage |
-|---|---|
-| `IVSweep` | Constructor; `configure_sourcemeter`, `sweep`, `save_data`, `run_experiment`; `data`, `metadata`, `filename` |
-| `DiscreteWaveform` | Constructor; `initialize_awg`, `configure_oscilloscope`, `configure_awg`, `apply_and_capture_waveform`, `save_waveform`, `analyze`, `run_experiment`; `history`, `notes`, `filename` |
-| `HysteresisLoop` | Constructor options including plotting and time shifting; processed CSV; `_PV.png`, `_IV.png`, and `_trace.png` artifacts |
-| `ThreePulsePund` | Constructor and pulse parameters; processed PUND columns; `_dPvst.png` and `_trace.png` artifacts |
-| `MagnetoTransport` / `AMR` | Legacy `arduino` and misspelled `voltage_callibration`; `initialize`, `set_field`, `configure_lockin`, `capture_data`, `capture_data_point`, `save_data_point`, `shut_off`, and `run_experiment(configure_lockin=True)`; pause/abort behavior |
-| `MokeMeasurement` | Constructor including the `safe_shutdown=` callback; configuration and setpoint helpers; `shut_off`; `run_experiment(on_update=None, save=True)`; dynamic unit columns |
-| `MokeSnapshot` | `.raw`, `.last_cycle`, `.cycle_average`, `.completed_cycles`, and `.field_column` |
-| `piec.measurement.amr` | Re-exports of `MagnetoTransport`, `AMR`, `convert_angle_to_steps`, `convert_steps_to_angle`, and `convert_field_to_voltage` |
+### 3.1 One public lifecycle
 
-Compatibility tests use `inspect.signature`, unchanged call examples copied from repository notebooks and GUIs, golden CSV fixtures, numerical tolerances, and expected plot artifacts. Merely satisfying a `Protocol` is insufficient.
+BaseMeasurement owns these public wrappers; concrete classes implement protected hooks, not alternative runners:
 
-### 2.3 What is and is not frozen
+- `run_experiment(*, on_update=None, save=True, save_partial=None, options=None)` returns the final or partial DataFrame for every family; errors follow section 5.
+- `configure_instruments()`, `capture_data(*, on_update=None)`, `session(*, save=False, save_partial=None, options=None)`, `safe_shutdown()`, `request_stop()`, and `snapshot()` have the same ownership rules across families.
+- `request_pause(paused=True)` is a capability-gated cooperative control. AMR supports it; unsupported families reject before changing state. No public mutable abort/pause booleans.
+- Read-only `run_state`, `safety_status`, `last_run_record`, and `run_records` expose lifecycle results. `raw_data` retains full raw acquisition after completion; `data` is the analyzed result, or raw partial data on abort/failure. Snapshots contain bounded copies.
+- `filename` names only a successfully published completed CSV, `partial_filename` names incomplete output, and `column_units` maps the columns of `data` to units. Keep separate raw/view mappings when processed or snapshot columns differ.
 
-The migration preserves call compatibility, not every unsafe implementation detail.
+Use the same immutable validated RunRequest for synchronous and runner execution. Copy/validate options before reservation; reject unknown options before I/O. An AMR-specific choice such as skipping lock-in configuration is `options={"configure_lockin": False}`, never an extra positional runner argument. Freeze options so later caller mutation cannot alter the run. UI callbacks never issue hardware commands.
 
-- Existing positional calls keep their meaning.
-- Existing defaults stay the same unless retaining one would energize hardware unexpectedly; such a safety correction requires its own commit and release note.
-- Common optional keywords such as `on_update`, `save`, and `save_partial` may be appended without invalidating old calls.
-- Legacy measurement-specific `run_experiment` arguments remain accepted. In particular, AMR's first positional `configure_lockin` argument must never be reinterpreted as a callback.
-- Old public methods remain thin compatibility adapters when internal hooks change.
-- Existing column names and order remain exact during migration.
-- Existing filename grammar remains the default. The persistence layer makes publication safe without silently changing users' naming scheme.
-- Unsafe omissions such as failure to disable an output are explicitly not frozen.
-- Intentional API or schema breaks require a new API/schema version, a converter or adapter, a migration note, and separate approval. No such removal is planned in this stack.
+All constructors use explicit instruments/setup dependencies with keyword-only settings; standardize `stepper` and `voltage_calibration` in place of `arduino` and `voltage_callibration`. Retain descriptive class names where useful without requiring aliases. Keep helpers only when they serve an actual procedure; hardware helpers require the command owner and may not bypass the base. Use `shutdown_handler` for an injected MOKE callback so it cannot shadow `safe_shutdown()`.
 
-The following are explicit proposed compatibility exceptions; checkpoint 1 freezes them and checkpoint 2 records before/after expectations. Do not demand that golden fixtures reproduce the unsafe behavior:
+Use static final annotations and tests to prohibit migrated subclasses overriding base-owned wrappers. In-memory base initialization must not call overridable hooks; live identities are collected during protected configuration.
 
-- Instrument identity metadata is populated at configuration rather than construction. Constructors also stop creating output directories or reserving filenames (AMR currently calls `create_measurement_filename`).
-- AMR's incremental writes move from a completed-looking CSV to a run-owned partial artifact. `filename` becomes available only after final publication; `partial_filename` exposes incomplete persistence. Document this attribute-timing change.
-- Energizing standalone setters require an owner session; out-of-session calls raise before I/O with a migration example. In particular, AMR `initialize()`/`set_field()` and MOKE `set_output()`/`set_field()` cannot leave energized hardware outside a cleanup boundary.
-- Existing `run_experiment()` return values remain unchanged: IV, FE, and AMR return `None`; MOKE returns its DataFrame. The common execution API returns data; legacy adapters explicitly translate that result. Preserve standalone helper returns too.
-- Existing metadata keys/values remain where meaningful, with identity timing as above; new schema/run fields are additive. Golden comparisons normalize timestamps, run IDs, filenames, and instrument representations explicitly, without ignoring data or scientific parameters.
+### 3.2 Run records and runner
 
-## 3. Target architecture
-
-### 3.1 Layers and ownership
-
-The standardized path is:
-
-```text
-GUI / notebook / automation runner
-              |
-       MeasurementRunner
-              |
-   concrete measurement adapter
-              |
-       BaseMeasurement
-              |
- setup-role adapters and calibrations
-              |
-      Level 2 instrument drivers
-```
-
-Simulation replaces only the bottom two layers with a `VirtualBench`, virtual instruments, and injected physics models. It does not replace the measurement.
-
-### 3.2 Common consumer contract
-
-The GUI-facing protocol contains only operations that every migrated measurement can support:
-
-- reserve a run synchronously;
-- execute a previously reserved run with common run options;
-- request cooperative stop;
-- read `run_state`, `safety_status`, and a bounded snapshot;
-- inspect the immutable last-run record.
-
-`MeasurementRunner` owns the reservation-plus-thread-start sequence for GUIs. It does not contain measurement science or issue instrument commands.
-
-Before reservation, the caller builds an immutable run request containing the common callback/save policy plus any validated measurement-specific compatibility option. Both synchronous legacy adapters and the GUI runner execute that same request, so AMR's `configure_lockin` option cannot leak through mutable instance state or change meaning between the two paths.
-
-### 3.3 Base lifecycle versus legacy public methods
-
-One inherited lifecycle implementation must coexist with unlike legacy signatures. Therefore:
-
-- `BaseMeasurement` is the sole implementation of reservation, execution ordering, cancellation, safing, finalization, event delivery, and persistence dispatch.
-- A concrete `run_experiment()` may remain as a thin signature-preserving adapter. It translates legacy arguments into common run options and immediately delegates to the base lifecycle; it may not reproduce lifecycle logic.
-- Every migrated `run_experiment()` accepts the common optional keywords, while AMR also preserves `configure_lockin=True` in its original positional slot.
-- `configure_instruments()`, `capture_data()`, `session()`, `safe_shutdown()`, and `request_stop()` are base-owned public wrappers after migration.
-- Concrete measurements implement protected hooks: configuration, capture, analysis, metadata construction, bounded snapshot views, and setup-specific shutdown actions.
-- Measurement-specific compatibility helpers such as `sweep()`, `apply_and_capture_waveform()`, `configure_sourcemeter()`, and `shut_off()` delegate to those wrappers or hooks without opening a second lifecycle path.
-- Migrated subclasses are checked to ensure they do not override base-owned wrappers. Static `final` annotations and contract tests are required; a runtime subclass ban is deferred until external subclass compatibility is understood.
-
-Keep MOKE's existing `capture_data(on_update=None)` positional call valid in the base-owned capture wrapper. Do not make its callback keyword-only retroactively. New capture options are keyword-only. Constructor `safe_shutdown=` remains accepted but the old callback-valued attribute is replaced by the lifecycle method; record this intentional attribute change in the manifest.
-
-This resolves the signature conflict without weakening the single lifecycle owner.
-
-### 3.4 Constructor and metadata rule
-
-The base constructor initializes universal in-memory state only. Concrete constructors bind instruments and validate static parameters. They must not call overridable hooks or touch hardware.
-
-Instrument identities and other live facts are collected during configuration, when the run is already inside a safety boundary. Static metadata can be prepared after all subclass fields exist.
-
-### 3.5 Run record versus legacy history
-
-Do not silently repurpose existing `history` attributes. Add an immutable common `RunRecord` and `run_records`; maintain legacy `history` behavior where consumers depend on its current contents.
-
-A run record contains at least:
-
-- full run ID and reservation generation;
-- start/end timestamps;
-- final state and outcome;
-- save policy and final/partial artifact paths;
-- last snapshot sequence;
-- safety report;
-- primary error phase, type, and message;
-- cleanup, persistence, callback, and history-reporting errors;
-- the exact schema name/version used.
-
-Exception objects and tracebacks remain in memory only. Persisted metadata contains safe scalar summaries.
+MeasurementRunner reserves synchronously and starts one non-daemon worker; it owns no science or instrument writes. RunRecord is immutable and includes UUID/generation, start/end times, terminal outcome, save policy/artifacts, snapshot sequence, safety report, primary error phase/type/message, secondary cleanup/persistence/reporting errors and schema/version. Keep exception objects/tracebacks in memory only; persist scalar summaries. Replace heterogeneous history behavior with `run_records` and update consumers.
 
 ## 4. Run lifecycle and concurrency contract
 
@@ -269,7 +180,7 @@ A synchronous `run_experiment()` performs the same reserve-then-execute sequence
 
 The stop event is cleared only by a successful new reservation. The state lock is never held across instrument I/O, callbacks, waits, analysis, or disk access.
 
-Preserve `abort_requested` as a compatibility property: assigning `True` requests stop; assigning `False` cannot clear an active run's stop event. Preserve AMR `pause_requested` through a thread-safe property/event and add `request_pause(paused=True)`. Pause retains the configured field as legacy behavior, takes effect at a documented acquisition boundary, and uses cancellable waits; Stop always wakes a paused worker. Reset pause on reservation. Test the unchanged assignments used by `Measurements/AMR/amr_GUI.py`.
+Use `request_stop()` and `request_pause()` rather than mutable control attributes. Pause retains the configured field, acts at a documented safe acquisition boundary, and waits cancellably. Stop wakes a paused worker; reservation resets pause. Update the AMR GUI controls in its migration checkpoint.
 
 Reservation also rejects while an idle `safe_shutdown()` owns the command lease. Acquire/release that lease under the same lock as run reservation, without holding the lock across I/O. Otherwise a new run can race with idle shutdown. Reject duplicate execution of the same token, not just stale generations. Reset current-run data, errors, and filenames at reservation so Stop-before-start cannot return a previous run's data; prior results remain in prior run records.
 
@@ -309,10 +220,10 @@ Piecewise notebook use is supported without creating multiple cleanup owners:
 - A successful configuration hook must leave outputs disabled and motion stopped.
 - Standalone `configure_instruments()` uses a transient operation scope. On partial configuration failure it attempts safing before re-raising; on success its disabled-output postcondition is verified where the adapter supports readback.
 - Standalone `capture_data()` uses a transient capture scope and always attempts safing. Inside a run/session it delegates without a second cleanup.
-- Each standalone scope reserves and finalizes its own generation, emits one terminal event, and preserves the method's legacy semantics: it does not implicitly analyze or save.
+- Each standalone scope reserves and finalizes its own generation, emits one terminal event, and does not implicitly analyze or save.
 - Direct calls to raw instrument objects are outside this guarantee and must be documented as such.
 
-AMR is an explicit exception to the standalone no-save sentence above: legacy `capture_data()` performs incremental persistence. Its wrapper requests partial checkpoints by default and publishes the final CSV only after clean capture and safing, with no implicit analysis. `save_data_point()` inside that scope writes the current run's partial checkpoint; it never publishes completion. Full runs honor their explicit `save`/`save_partial` policy. A manual single-point workflow uses `with measurement.session(save=True):` and the point helper under that owner. Checkpoint 24 must test these call paths and document the filename-timing exception.
+All families, including AMR, use the same standalone no-save rule. Optional incremental persistence belongs to the engine and follows the run's save policy, writing partial artifacts only. Single-point hardware helpers are owner-scoped; manual workflows use a session. Remove AMR's measurement-owned per-point file publication.
 
 Configuration-only scopes transition from `CONFIGURING` through `SAFING` to `COMPLETED`; capture-only scopes also pass through `CONFIGURING` for prerequisite validation without silently repeating legacy configuration. The successful standalone configuration path uses the same cleanup boundary. Retain validated settings for subsequent capture (including MOKE's configured readiness), while marking outputs disabled. Owner tracking covers every public hardware helper, not just the four base wrappers.
 
@@ -320,7 +231,7 @@ Configuration-only scopes transition from `CONFIGURING` through `SAFING` to `COM
 
 Default `save_partial` follows `save`: no files are written when `save=False` unless the caller explicitly requests partial persistence.
 
-The matrix describes the common execution result. Legacy `run_experiment()` adapters retain the return mapping in section 2.3. Every partial-save entry, including shutdown and final-publication failures, is conditional on `save_partial` and available raw rows. `save=False` also suppresses plot-file writes even when legacy `save_plots=True`; it does not suppress in-memory scientific analysis.
+The matrix describes the common execution result. Every full runner returns a DataFrame as specified in section 3. Every partial-save entry, including shutdown and final-publication failures, is conditional on `save_partial` and available raw rows. `save=False` also suppresses plot-file writes even when `save_plots=True`; it does not suppress in-memory scientific analysis.
 
 | Event | Analysis | Artifact policy | Final state | Caller receives |
 |---|---|---|---|---|
@@ -353,9 +264,7 @@ A safe policy declares ordered required actions such as bounded ramp to the setu
 - motor halt is used only when the driver/adapter advertises it;
 - repeated shutdown attempts do not create an unsafe action, though repeated communication failures are still reported.
 
-The legacy MOKE constructor's `safe_shutdown=` callback remains accepted and is stored as a shutdown handler rather than shadowing the lifecycle method. A normal return means that callback reported success; an exception means safety is unconfirmed. The default MOKE policy explicitly ramps the source to electrical zero and disables its output.
-
-Legacy `shut_off()` remains available. While a run is active it requests cooperative stop; while idle it invokes the safe-state wrapper directly. It never starts a competing hardware-writer thread.
+MOKE's injected `shutdown_handler` belongs to the setup shutdown policy. Normal return reports success; an exception leaves safety unconfirmed. The default policy ramps to electrical zero and disables output. GUI Stop calls `request_stop()`; idle manual safing calls `safe_shutdown()`. Remove redundant `shut_off()` compatibility paths.
 
 A non-owner call to public `safe_shutdown()` during an active run must not write hardware. It latches cooperative Stop and raises a `RuntimeError` stating that shutdown is deferred to the execution owner; it never reports the hardware as safe. The execution owner performs and reports the actual shutdown. When no run is active, the caller may execute `safe_shutdown()` synchronously as the temporary command owner.
 
@@ -409,7 +318,7 @@ A common snapshot contains:
 
 A frozen dataclass alone does not make DataFrames immutable, so every exposed view is a copy. Acquisition stores rows efficiently and must not rebuild/copy the full DataFrame for every point. Full data is materialized only at bounded checkpoints, cycle boundaries, or completion as appropriate.
 
-MOKE preserves its existing snapshot properties as aliases/views while also exposing the generic mapping.
+MOKE supplies bounded raw/last-cycle/average views through the common snapshot mapping; optional convenient properties use the same standardized columns.
 
 MOKE `.raw` is already the bounded `raw_window_points` window, not the full dataset. Preserve that meaning and the existing last-cycle/average shapes. Copy views under a short snapshot-publication lock; do not iterate buffers while another thread mutates them. Terminal snapshots remain bounded; full raw data is available separately after completion.
 
@@ -440,47 +349,39 @@ Rules:
 - exceeding the expected stop deadline displays the setup's physical-interlock procedure but never launches a second writer;
 - GUI Stop is labeled/described as cooperative software stop, not a physical emergency stop.
 
-FE `show_plots` and AMR `live_plot`/`plot_results` remain accepted compatibility options. Synchronous main-thread notebook calls may render through presentation helpers. Runner execution must never invoke interactive pyplot, Tk, `show()`, or canvas updates; deliver plot data to the UI instead. Saved plot artifacts use noninteractive figures and retain legacy names. Test both execution paths; do not silently drop notebook plotting.
+All families use presentation helpers for interactive plots. Synchronous main-thread notebooks may render; runner workers never invoke Tk, interactive pyplot, show(), or canvas updates. Deliver plot data to the UI. Saved artifacts use noninteractive figures. Update notebook plotting calls and file-artifact tests together; preserve plotted physical quantities and numerical traces.
 
-## 7. Versioned data and units contract
+## 7. Standard schemas and units for every measurement
 
-### 7.1 Schema metadata
+### 7.1 Metadata and display
 
-Every saved run adds scalar metadata fields:
+Every saved file has one metadata row, a blank separator, and the data table. Required scalar metadata: `measurement_schema`, `measurement_schema_version`, `run_id`, `outcome`, `partial`, `save_requested`, and `column_units_json`, plus scientific parameters, calibration, instrument identities and acquisition settings.
 
-- `measurement_schema`;
-- `measurement_schema_version`;
-- `run_id`;
-- `outcome` (`completed`, `aborted`, or `failed`);
-- `partial`;
-- `save_requested`;
-- canonical `column_units_json`.
+Column names never contain units. `column_units_json` is sorted compact JSON containing every saved column exactly once. Values are canonical unit strings, or JSON null for unitless indices/categories. Resolve runtime units before serializing; never save placeholders. `json.loads()` must recover the exact mapping. Raw, processed, and snapshot views each have units for their own columns. Axis labels combine the quantity and metadata unit; consumers must not parse units from headers or assume all fields share one unit.
 
-The units value is a JSON string with sorted keys and compact separators. It contains every data column exactly once; values are canonical unit strings, with JSON `null` for categorical/index columns that have no physical unit. `json.loads()` must reproduce the exact mapping after a CSV round trip. A Python dictionary stored directly in a DataFrame cell, `DataFrame.attrs`, or a docstring alone is not a persistence contract.
+This defines each family's first standardized schema, version 1; set distinct names `iv_sweep`, `moke`, `discrete_waveform`, `hysteresis`, `three_pulse_pund`, and `amr`. These names distinguish the new standard from old unversioned formats. No runtime converters are required. Future standardized schema changes require an explicit version decision.
 
-For flat CSV data, new measurements follow the repository's existing self-describing `quantity (unit)` convention unless a future file-format version explicitly changes it. Existing names are not normalized to snake case during this migration.
+### 7.2 Exact target columns
 
-Commanded, calibrated, and measured quantities remain separate columns. In particular, a calibrated field inferred from source output is not renamed as a measured gaussmeter field.
+| Family/view | Ordered columns | Units |
+|---|---|---|
+| IV | `voltage`, `current` | V, A |
+| AMR | `angle`, `field`, `x`, `y` | deg; setup-declared field unit; signal-reader-declared X/Y units |
+| MOKE raw/final | `time`, `cycle`, `point`, `direction`, `source_output`, `field_calibrated`, `detector_voltage` | s; null; null; null; calibration output unit; calibration field unit; V |
+| MOKE optional suffix | `field_measured`, `field_time` | calibration field unit; s |
+| Discrete waveform / FE raw | `time`, `voltage` | s, V |
+| Hysteresis processed | raw columns then `current`, `polarization`, `applied_voltage` | A, uC/cm^2, V |
+| Three-pulse PUND processed | raw columns then `current`, `polarization`, `polarization_p_hat`, `polarization_p_star`, `polarization_p_hat_r`, `polarization_p_star_r`, `delta_polarization`, `applied_voltage` | A; uC/cm^2 for each polarization; V |
 
-### 7.2 Exact legacy column contracts
+PUND mappings are literal: `P^` -> `polarization_p_hat`, `P*` -> `polarization_p_star`, `P^r` -> `polarization_p_hat_r`, `P*r` -> `polarization_p_star_r`, `dP` -> `delta_polarization`. Preserve the existing mathematical definitions, order and values; do not infer a new scientific meaning from these identifiers. WaveformReader's normalized result must use `time` and `voltage` too.
 
-| Family | Columns preserved in order |
-|---|---|
-| `IVSweep` | `voltage (V)`, `current (A)` |
-| `AMR` | `angle`, `field`, `X`, `Y` |
-| MOKE raw/final | `time (s)`, `cycle`, `point`, `direction`, dynamic `source_output ({output_unit})`, dynamic `field_calibrated ({field_unit})`, `detector_voltage (V)`, then optional `field_measured ({field_unit})`, `field_time (s)` |
-| Hysteresis raw | `time (s)`, `voltage (V)` |
-| Hysteresis processed | Raw columns plus `current (A)`, `polarization (uC/cm^2)`, `applied voltage (V)` |
-| Three-pulse PUND raw | `time (s)`, `voltage (V)` |
-| Three-pulse PUND processed | Raw columns plus `current (A)`, `polarization (uC/cm^2)`, `P^ (uC/cm^2)`, `P* (uC/cm^2)`, `P^r (uC/cm^2)`, `P*r (uC/cm^2)`, `dP (uC/cm^2)`, `applied voltage (V)` |
+AMR's `field` remains the requested calibrated field; do not relabel it measured field. Its reader must declare X/Y physical units explicitly (V only for voltage readings). MOKE keeps calibrated and measured field distinct. Calibration units may vary without changing names; never relabel numerical values without conversion.
 
-The Phase 0 manifest settles exact dtypes and snapshot-view ordering from the pinned baselines. A renamed/removed column or changed physical meaning requires a new schema version and converter.
+MOKE snapshot/average columns use these same identifiers. `cycles_averaged` is unitless. `field_column` selects `field_measured` or `field_calibrated` according to field-selection mode. Full raw data remains recoverable independently from processed data; analysis receives a copy or unpublished staging representation. File-oriented FE analysis becomes in-memory functions with explicit data and metadata inputs; old path wrappers are not required.
 
-### 7.3 Raw versus processed data
+### 7.3 Golden fixtures
 
-Raw acquisition records are preserved independently from analysis output. Analysis receives an in-memory copy or an unpublished staging representation. A partially mutated analysis result can never replace the recoverable raw data.
-
-For FE/PUND, file-oriented analysis is converted to pure DataFrame functions before the measurement migration. Legacy path-based functions remain as wrappers and must produce numerically equivalent results.
+Keep deterministic numerical goldens for all families. Compare reference arrays through explicit test-only column mappings and documented tolerances. New output fixtures use the target headers, schema/version and units. Never regenerate numerical goldens merely to hide a changed result. Update producer, analyzer, GUI, notebooks and tests together in a family's vertical slice; do not only rename fixture headers.
 
 ## 8. Windows- and SMB-aware persistence
 
@@ -491,8 +392,8 @@ PIEC guarantees that it never intentionally presents a partially written complet
 1. Generate a full UUID for the run and use it in staging/checkpoint ownership.
 2. Create staging files in the destination directory with `tempfile.mkstemp()`; do not hold an open `NamedTemporaryFile` across rename on Windows.
 3. Write metadata, the blank separator, and data through one UTF-8 text handle. Flush and `fsync` that handle, then close it before publication.
-4. Add a handle-based writer. Preserve the legacy path-based helper as a compatibility wrapper; do not compose an atomic write from the current helper's three independent opens.
-5. Preserve each measurement family's legacy final filename grammar. Claim a candidate with an exclusively created hidden marker at a deterministic path derived from the candidate basename; store the full owner UUID inside it. A UUID in the marker filename alone would let competing writers reserve the same candidate. On collision choose the next legacy index. Never reserve by creating an empty completed-looking CSV. A stale marker is not reusable until the explicit age/ownership recovery policy approves it.
+4. Add a handle-based writer. Update repository users of the path-based helper to the handle-based writer; do not compose an atomic write from the current helper's three independent opens.
+5. Use one documented filename grammar for all families: `{index}_{measurement_schema}.csv`, with one basename for plots; no old filename adapter is required. Claim a candidate with an exclusively created hidden marker at a deterministic path derived from the candidate basename; store the full owner UUID inside it. A UUID in the marker filename alone would let competing writers reserve the same candidate. On collision choose the next index. Never reserve by creating an empty completed-looking CSV. A stale marker is not reusable until the explicit age/ownership recovery policy approves it.
 6. Publish through one tested `atomic_publish_no_replace` abstraction. It must reject an existing target and never silently overwrite it. `Path.replace()` is not a no-replace operation.
 7. Where a filesystem cannot provide the required no-replace primitive, strict mode fails clearly and leaves data in memory/staging. Any opt-in weaker mode must be labeled collision-resistant, never collision-proof.
 8. Assign `self.filename` only after the completed CSV is published successfully.
@@ -502,7 +403,7 @@ PIEC guarantees that it never intentionally presents a partially written complet
 
 For measurements that create plots:
 
-- reserve one legacy-compatible basename for the artifact bundle;
+- reserve one shared basename for the artifact bundle;
 - stage every expected artifact with run-owned UUID names;
 - publish side artifacts first and the completed CSV last, using the CSV as the completion marker;
 - never overwrite an existing side artifact;
@@ -522,7 +423,7 @@ Cross-file publication is not claimed to be transactional. Publishing the CSV la
 
 Tests cover:
 
-- simultaneous writers selecting the same legacy candidate;
+- simultaneous writers selecting the same filename candidate;
 - pre-existing final and side-artifact targets;
 - failures during metadata, data, flush, sync, close, and publication;
 - non-ASCII metadata and JSON unit round trips;
@@ -558,7 +459,7 @@ Then audit concrete AWGs for real manual-trigger support. Manual triggering is r
 
 ### 9.4 Oscilloscope
 
-Existing `get_data()` signatures and returned column names differ. Measurements use a `WaveformReader` setup adapter that returns exactly `time (s)` and `voltage (V)` for a requested channel. The adapter maps driver-specific `Time`, `Voltage`, or `Voltage_CH{channel}` fields, validates finite numeric equal-length arrays, and records actual channel/sample information.
+Existing `get_data()` signatures and returned column names differ. Measurements use a `WaveformReader` setup adapter that returns exactly `time` and `voltage` for a requested channel. The adapter maps driver-specific `Time`, `Voltage`, or `Voltage_CH{channel}` fields, validates finite numeric equal-length arrays, and records actual channel/sample information.
 
 Do not add a fictitious `read_waveform()` requirement to every oscilloscope driver, and do not make scientific measurement code parse driver-specific tables.
 
@@ -590,29 +491,23 @@ In-plane and out-of-plane GUI choices select validated setup profiles before the
 
 ## 10. Measurement vertical slices
 
-### 10.1 DC I-V
+Every slice implements sections 3 and 7 and updates all of that family's repository consumers in its own reviewable commit(s). New-format assertions replace old-interface assertions; numerical/safety tests remain. No family-specific alternate lifecycle remains after its migration.
 
-Preserve the existing constructor, voltage/current columns, filename convention, `configure_sourcemeter()`, `sweep()`, `save_data()`, and no-argument `run_experiment()` call. Add the common optional run keywords.
+### 10.1 IV
 
-Configuration leaves the source at electrical zero with output disabled. Capture performs bounded, cancellable ramping and reading. Safing ramps to zero using shutdown pacing and disables output. Fault-injection tests cover every source and read call.
+Use `voltage`/`current`, V/A metadata, and the shared runner. Configure at electrical zero with output disabled; capture ramps and reads cancellably; safing ramps with independent pacing and attempts output disable even after a ramp failure. Test faults at every source/read step and numerical IV equivalence.
 
 ### 10.2 MOKE
 
-Preserve its constructor, calibration object behavior, dynamic columns, optional field readback, `shut_off()`, callback shape, and all existing snapshot properties. Internally rename the constructor callback so it cannot shadow the base lifecycle method.
+Implement the initial plain-column schema, calibration-dependent unit metadata, optional field reader, bounded raw/cycle/average snapshots, and setup shutdown handler. Update all field selection and display labels. The prototype has no legacy format obligation. Test both field modes, alternative units, callback faults, partial cycles, averaging, repeat runs and shutdown.
 
-Capture accumulates efficiently, publishes bounded raw/last-cycle/average snapshots, and distinguishes calibrated from measured field. The outer base lifecycle is the only cleanup owner.
+### 10.3 Discrete waveform, hysteresis and PUND
 
-### 10.3 Discrete waveform, hysteresis, and PUND
+Convert scientific processing to in-memory functions with explicit metadata; preserve numerical results and plotted quantities. Use WaveformReader with plain columns and explicit units. Migrate acquisition, analysis and consumers; safing attempts disable on every used AWG channel even if another action fails. Validate triggering, impedance, channel mapping, timing alignment and all polarization calculations.
 
-Preserve `DiscreteWaveform`, `HysteresisLoop`, and `ThreePulsePund`, their public configuration/save methods, exact raw/processed schemas, numerical results, and plot artifacts.
+### 10.4 AMR / magneto-transport
 
-First introduce in-memory hysteresis and PUND analysis with legacy file wrappers. Then migrate acquisition through the waveform adapter and shared lifecycle. Safing disables all used AWG channels even when one disable command fails.
-
-### 10.4 Magneto-transport and AMR
-
-Preserve public class/re-export names, constructor positional meaning, `arduino`, `voltage_callibration`, `run_experiment(configure_lockin=True)`, pause/abort behavior, and `angle`, `field`, `X`, `Y`.
-
-Move live plotting to the GUI without removing compatibility plotting helpers until their use is characterized. Remove instrument writes and identity queries from construction. Validate rotator, field-source, optional field-reader, and X/Y signal-reader roles separately before integration.
+Use setup roles for field source/reader, X/Y signals and rotation. Standardize constructor spellings and shared run options; plain `angle`, `field`, `x`, `y` with declared units. Remove constructor I/O, mutable abort/pause booleans, capture-owned persistence and plotting. Keep the pause capability through the standard control methods. Validate field/motion separately, Stop during dwell/motion, calibration applied once, and numerical signal/angle results.
 
 ## 11. Simulation modernization
 
@@ -654,179 +549,67 @@ Explicit per-instance injection takes precedence. Existing shared-sample behavio
 
 For MOKE simulation, the bench routes the sourcemeter's direct output through the injected field calibration to a hysteretic magnetic material, then exposes that material's optical response as a generic DMM voltage-reader hook; an optional second reader supplies simulated gaussmeter field. This wiring lives in the bench/setup fixture, never in `VirtualDMM`, `VirtualSourcemeter`, or the measurement class.
 
-## 12. Commit-by-commit implementation stages
+## 12. Commit checkpoints and acceptance gates
 
-Every commit is independently testable and revertible. Tests for a behavior land in the same commit as that behavior, except characterization tests, which deliberately precede production changes. Do not combine framework refactoring with new scientific algorithms.
+One checkpoint (or lettered subcheckpoint) per task/commit; stop after checks and review. Do not combine scientific algorithm changes with standardization. Commit tests with the behavior. Update the progress log with actual results, not anticipated passes. Stage explicit paths; preserve unrelated user work.
 
-Global code-commit gate:
+Run focused tests and `.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider -q` for code checkpoints. CI covers Python 3.9 and supported current Python; report unrun environments. An unavailable interpreter is a blocked gate, not a pass. Hardware checkpoints are independent manual release gates, not a reason to stop offline work on other families.
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider
-```
+### File boundaries
 
-CI also runs on Python 3.9 and the current supported Python. A commit is not called physically validated until the hardware record described below exists.
+Use `src/piec/measurement/base.py`, `contracts.py`, `runner.py`, `persistence.py`, and `adapters/` for shared components. Scientific code stays in each family's current measurement/analysis module unless a focused change is needed. Update package exports as consumers change. Focused tests belong under `tests/`; current `tests/fixtures/measurement_compatibility/` can hold reference/target fixtures while checkpoint 2R separates their meaning.
 
-Verify the CI matrix exists; if it does not, add it as a separate checkpoint before claiming supported-version validation. Do not repair or replace the user's Python environment as part of a measurement refactor. An unavailable test runner blocks the code-commit gate until a working approved environment is available.
+### Ordered checkpoints
 
-### File map and required splits
+| ID | Commit scope | Acceptance gate |
+|---|---|---|
+| 1 | Contract documentation (original checkpoint complete; this amendment needs its own documentation commit) | No conflicting old-API preservation requirements |
+| 2R | Revise manifest/harness into separate reference observations and target contracts for every family | All target column/unit maps recorded; old-interface checks explicitly transitional; numerical evidence retained; no production migration |
+| 2b | IV/MOKE deterministic scientific fixtures | Values, calibration and field-mode expectations from references; target-format requirements recorded without claiming old code implements them |
+| 2c | FE/PUND numerical fixtures | Polarization, alignment and plotted traces have deterministic reference values/tolerances |
+| 2d | AMR scientific fixtures and consumer inventory | Angle/field/X/Y units, calibration and consumer calls documented |
+| 3 | AWG output_trigger indentation repair | Focused base-driver contract test |
+| 4 | AWG trigger_source conditional repair | Focused tests and affected-driver audit |
+| 5 | VirtualSourcemeter channel contract alignment | Applicable methods including disable accept the channel keyword |
+| 6 | DMM voltage-read audit | Fake-transport tests for advertised MOKE DMMs and VirtualDMM; defects repaired in separate fix commits |
+| 7 | WaveformReader adapter | Plain time/voltage arrays with units; finite, equal-length validation and channel mapping |
+| 8 | States, reservation, records | Concurrent/duplicate execution and stale tokens rejected; repeat runs and legal transitions |
+| 9a | Full-run engine with fake hooks and in-memory persistence/event sinks | Canonical ordering, Stop-before-start, and one record/event per reservation |
+| 9b | Sessions and standalone scopes | One command owner; no nesting or competing idle-shutdown writer; same no-save semantics for all families |
+| 9c | Fault handling hardening | Configuration/acquisition/callback/safing faults plus KeyboardInterrupt/SystemExit; all shutdown actions attempted; error precedence |
+| 10a | Bounded snapshots and display/control paths | Mutation isolation, queue saturation, terminal ordering |
+| 10b | Runner | Synchronous reservation, non-daemon worker, thread-start failure and close coordination |
+| 11a | Handle writer and schema metadata | One-row CSV layout and exact JSON unit round trips |
+| 11b | Atomic no-replace publication | NTFS collisions/faults; explicit opt-in SMB tests; untested filesystems not claimed safe |
+| 11c | Bundles, partials and recovery | CSV published last, UUID ownership, no accidental overwrite, recoverable raw data |
+| 12 | Rewrite developer guide to the implemented engine | Examples compile and show the shared API, plain columns, metadata units, and one hardware writer |
+| 13 | IV vertical slice, including IV GUI/analysis/notebooks/tests | Target API/schema, numerical goldens, complete consumer audit and source/read fault injection |
+| 14 | MOKE vertical slice, including MOKE GUI/notebooks/tests | Initial target schema, calibrated/measured modes, unit-derived labels, averages, callback faults, repeat runs and safing |
+| 15 | IV GUI interaction/ownership hardening after slice 13 | Stop-before-start, active close, terminal errors and owned-instrument close; no old API dependency |
+| 16 | MOKE GUI interaction/ownership hardening after slice 14 | Geometry, bounded views, Stop/close, safety alerts and terminal delivery |
+| 17 | IV/MOKE physical record | Dated actual execution only; otherwise PENDING |
+| 18 | In-memory hysteresis processing | New plain schema and explicit metadata; numerical/trace equivalence; update affected callers in the same commit |
+| 19 | In-memory PUND processing | Same as 18 including each PUND polarization quantity |
+| 20a | DiscreteWaveform base acquisition and consumers | Plain waveform schema, trigger ordering, channels/impedance and all-output safing; dependent family paths still usable |
+| 20b | Hysteresis integration and consumers | Target runner/schema, plots, numerical and fault tests |
+| 20c | PUND integration and consumers | Target runner/schema, plots, numerical and fault tests |
+| 21 | FE GUI interaction/ownership hardening | Main-thread Tk/plots, virtual selection, settings, Stop/close and save policies |
+| 22 | FE physical record | Low-amplitude known-impedance AWG/scope result or PENDING |
+| 23 | AMR setup-role adapters | Units, limits, calibration direction, capabilities and isolated role tests |
+| 24a | MagnetoTransport lifecycle and consumers | Standard API/options/controls and owner-scoped helpers |
+| 24b | AMR acquisition/schema/persistence and consumers | Scientific goldens, Stop during dwell/motion, engine-owned partials and safe final outputs |
+| 24c | AMR notebook/GUI presentation integration | No acquisition-owned plotting; target metadata labels and offline examples |
+| 25 | AMR GUI interaction/ownership hardening | Pause/Stop/close/terminal behavior through common runner |
+| 26 | AMR physical record | Separate role tests then low-field integrated result or PENDING |
+| 27 | Role-specific simulation contracts | Units, reset, deterministic time/RNG and voltage/current-source electrical loads |
+| 28a onward | Generic per-instance virtual hooks, one driver family per commit | Explicit injection overrides global fallback; no sample-specific driver branches |
+| 29 | VirtualBench | Routing, reset isolation, deterministic noise/time and two-bench concurrency |
+| 30a–30d | Migrate IV/MOKE/FE/AMR simulation fixtures one family per commit | Physical/virtual schemas agree; preserve applicable generic-driver fallback tests |
+| 31 | Retire internal global-sample use after consumers migrate | Keep external generic-driver fallback unless separately authorized to remove it |
+| 32 | Optional scientific additions, only if separately requested | One algorithm/reference dataset/unit/tolerance/review per commit; outside this standardization |
+| 33 | Final documentation, workflows and release notes | Offline notebooks, docs build, full tests; list replaced APIs/formats without implementing converters |
 
-Use these module boundaries unless repository instructions require otherwise. Keep scientific code in its current module and preserve exports.
-
-| Area | Files |
-|---|---|
-| New lifecycle/value types | `src/piec/measurement/base.py`, `contracts.py` |
-| New worker/events | `src/piec/measurement/runner.py` |
-| New persistence | `src/piec/measurement/persistence.py`; legacy wrapper in `src/piec/analysis/utilities.py` |
-| New setup adapters | `src/piec/measurement/adapters/` |
-| IV / MOKE | `src/piec/measurement/iv_sweep.py`, `moke.py` |
-| FE / analysis | `src/piec/measurement/discrete_waveform.py`, `src/piec/analysis/hysteresis.py`, `pund.py` |
-| AMR | `src/piec/measurement/magneto_transport.py`, `amr.py` |
-| GUIs | `Measurements/DCIV/IV_sweep_GUI.py`, `Measurements/MOKE/MOKE_GUI.py`, `Measurements/Ferroelectric Testing/FE_testing_GUI.py`, `Measurements/AMR/amr_GUI.py` |
-| New tests / fixtures | Focused `tests/test_measurement_*.py`, `tests/fixtures/measurement_compatibility/` |
-
-Split these broad checkpoints into the following separately tested commits; keep the numbered subjects below as their overall scope:
-
-- **2a–2d:** manifest/test harness, IV+MOKE fixtures, FE/PUND fixtures, AMR fixtures. Capture baselines in isolated temporary checkouts or extracted trees; do not switch or reset this dirty working tree. Never connect real hardware. Mark demonstrated baseline defects with narrow expected-failure tests and a linked repair checkpoint; a broken legacy pipeline is not a requirement to fabricate passing goldens. Generate scientific reference outputs with deterministic fixtures and the pinned analysis functions.
-- **9a–9c:** full-run lifecycle with fake hooks and an injected persistence interface; notebook/standalone ownership; fault/error-precedence tests and hardening. A minimal in-memory record/event sink lands with 9a so finalization does not depend on checkpoint 10.
-- **10a–10b:** bounded snapshots and control/display events; runner and launch/close coordination tests.
-- **11a–11c:** handle writer/schema round trips; no-replace single-file publication and collisions; bundles/partials/recovery fault tests. Specify and test each supported filesystem primitive before connecting production measurements.
-- **20a–20c:** migrate `DiscreteWaveform` acquisition; integrate hysteresis analysis/plots; integrate PUND analysis/plots. Each remains usable through legacy calls.
-- **24a–24c:** transport ownership/roles and legacy controls; AMR capture/checkpoints; notebook presentation compatibility and integration. Do not leave a migrated public class with a broken full-run path between commits.
-- **28a onward / 30a–30d:** one virtual-driver hook family or one measurement fixture family per commit, respectively.
-
-At every split, the public measurement still runs through either its complete old path or its complete new path; never expose half a migration. If that requires an internal opt-in adapter until the final subcommit, keep it private and test both paths.
-
-Hardware checkpoints 17/22/26 are manual release gates. Software-only work on subsequent families may proceed while those records are `PENDING`; physical use and claims of physical validation may not. Scientific additions in checkpoint 32 are **out of scope for this standardization implementation** unless separately requested; skip them and proceed to documentation.
-
-### Stage 0 — Approve and freeze behavior
-
-1. `docs(measurement): finalize standardization contract`
-   - Commit this plan only.
-   - Gate: human review confirms no unresolved contradictory requirement.
-
-2. `test(measurement): characterize legacy public behavior`
-   - Add the compatibility manifest, golden CSVs, signature/call tests, and plot-artifact tests for both pinned baselines.
-   - Classify each difference as preserved behavior, additive API, or approved safety correction.
-   - Gate: preserved behavior passes before any production refactor; narrowly documented pre-existing defects are explicitly expected failures, with repair checkpoints. No broad `xfail`/skip may conceal a regression.
-
-### Stage 1 — Repair prerequisites and add the engine
-
-3. `fix(awg): expose output_trigger on the base class`
-   - Indentation fix plus focused contract test only.
-
-4. `fix(awg): honor configured trigger source`
-   - Conditional fix plus focused tests; audit affected concrete drivers.
-
-5. `fix(virtual-sourcemeter): align optional channel signatures`
-   - Cover every applicable method and output-disable path; add no sample-specific physics.
-
-6. `test(dmm): verify the standard voltage-read contract`
-   - Run one fake-transport contract suite against every DMM advertised for MOKE plus `VirtualDMM`; add production changes only in a separate fix commit if the audit finds a defect.
-
-7. `feat(measurement-adapter): normalize oscilloscope waveforms`
-   - Add the `WaveformReader` adapter and fake-driver contract tests without migrating a measurement.
-
-8. `feat(measurement): add state reservation and run records`
-   - Add states, safety status, full IDs/generations, locked reservation, cancellation rules, immutable run records, and state tests.
-   - Gate: simultaneous-run rejection, Stop-before-worker-start, stale-token rejection, repeated runs, and legal transition tests.
-
-9. `feat(measurement): add safe lifecycle and notebook sessions`
-   - Add base execution, protected hooks, standalone wrappers, single-owner sessions, shutdown reports, and Python 3.9 error precedence.
-   - Gate: inject faults in configuration, acquisition, callbacks, safing, `KeyboardInterrupt`, and `SystemExit`; verify all shutdown actions are attempted.
-
-10. `feat(measurement): add snapshots events and gui runner`
-   - Add bounded snapshots, separate display/control paths, synchronous reservation, and non-daemon runner tests.
-   - Gate: queue saturation, terminal ordering, thread-start failure, and snapshot mutation isolation.
-
-11. `feat(measurement): add atomic schema-aware persistence`
-    - Add handle-based CSV writing, schema metadata, run-owned staging/partial files, strict no-replace publication, and bundle support while retaining the legacy helper.
-    - Gate: NTFS concurrency/fault tests and opt-in SMB tests; never claim untested filesystem guarantees.
-
-12. `docs(measurement): align the developer guide with the engine`
-    - Replace the old boolean-abort and constructor-I/O template immediately after the base contract lands.
-    - Document hooks, legacy adapters, sessions, ownership, snapshots, units, persistence, GUI threading, and hardware gates.
-    - Gate: examples import/compile and do not show concurrent hardware writers.
-
-### Stage 2 — Pilot measurements and GUIs
-
-13. `refactor(iv): migrate IVSweep to the shared lifecycle`
-    - Preserve old calls/schema and add cancellation/safing/snapshots.
-    - Gate: compatibility goldens and fault injection at every source/read step.
-
-14. `refactor(moke): migrate MokeMeasurement to the shared lifecycle`
-    - Preserve calibration, optional gaussmeter, callbacks, columns, snapshots, and custom shutdown callback.
-    - Gate: calibrated/measured modes, partial cycles, averages, callback faults, repeated runs, and final safe state.
-
-15. `refactor(dciv-gui): use the shared measurement runner`
-    - Preserve `MeasurementApp` style and controls; remove worker-side Tk access.
-    - Gate: import without `mainloop`, Stop-before-start, close while active, terminal errors, and owned-instrument close.
-
-16. `refactor(moke-gui): use the shared measurement runner`
-    - Preserve geometry selection and raw/last-cycle/average views.
-    - Gate: virtual run, coalescing snapshots, Stop/close, safety alert, and terminal delivery.
-
-17. `test(hardware): record IV and MOKE pilot validation` — only after execution
-    - Commit a dated validation record; leave this commit absent/PENDING until tests occur.
-
-### Stage 3 — Ferroelectric vertical slice
-
-18. `refactor(analysis): add in-memory hysteresis processing`
-    - Keep the legacy file wrapper; prove numerical and column equivalence.
-
-19. `refactor(analysis): add in-memory PUND processing`
-    - Keep the legacy file wrapper; prove numerical and column equivalence.
-
-20. `refactor(fe): migrate the discrete-waveform family`
-    - Use the waveform adapter, preserve APIs/schemas/plots, and disable every used AWG channel on all exits.
-    - Gate: trigger ordering, impedance/channel mapping, golden numerical output, and injected failures.
-
-21. `refactor(fe-gui): use the shared measurement runner`
-    - Preserve layout, settings, and virtual selection; keep all Tk/plot work on the UI thread.
-
-22. `test(hardware): record FE validation` — only after execution
-    - Commit a dated low-amplitude AWG/scope validation record; otherwise remain PENDING.
-
-### Stage 4 — AMR vertical slice
-
-23. `feat(amr): add explicit setup-role adapters`
-    - Add field source/reader, X/Y signal reader, and rotator adapters with unit, limit, calibration-direction, and capability tests.
-
-24. `refactor(amr): migrate MagnetoTransport and AMR`
-    - Preserve legacy spellings, positional semantics, re-exports, schema, and pause behavior; remove constructor I/O and measurement-owned plotting.
-    - Gate: role isolation, exact goldens, Stop during dwell/motion, and field/motion safety on every injected fault.
-
-25. `refactor(amr-gui): use the shared measurement runner`
-    - Preserve layout/settings and move live plotting fully to the UI thread.
-
-26. `test(hardware): record AMR validation` — only after execution
-    - Commit separate role tests followed by a dated low-field integrated result; otherwise remain PENDING.
-
-### Stage 5 — Additive simulation modernization
-
-27. `feat(simulation): add role-specific physics contracts`
-    - Define units, reset, deterministic time/RNG ownership, and electrical-load behavior without moving old classes.
-
-28. `feat(virtual): add generic per-instance sensing and load hooks`
-    - Add backward-compatible hooks to the relevant virtual drivers; explicit injection wins over legacy global fallback.
-
-29. `feat(simulation): add composable VirtualBench`
-    - Add routing, ownership, reset isolation, deterministic time/noise, and two-bench concurrency tests.
-
-30. `test(simulation): migrate measurement fixtures to VirtualBench`
-    - Move MOKE, IV, FE/PUND, and AMR fixtures one family at a time while retaining legacy fallback tests.
-
-31. `refactor(simulation): retire internal global-sample use`
-    - Only after repository consumers have migrated. Keep the documented compatibility fallback until a separately approved major release.
-
-### Stage 6 — Scientific additions and final documentation
-
-32. Optional, separately requested: one commit per scientific algorithm
-    - Coercivity, remanence, leakage compensation, or fitting each receives its own reference dataset, documented units, tolerance, and review.
-    - These commits never alter raw acquisition.
-
-33. `docs(measurement): publish workflows and migration notes`
-    - Update measurement docs, examples/notebooks, package exports, Sphinx toctree, and changelog.
-    - Gate: notebooks parse and run offline with virtual instruments; docs build; full suite passes.
+If a family slice needs more commits, use lettered steps with an explicit file list and gate. Each intermediate commit must leave repository consumers operational: combine producer/consumer changes where necessary. An intermediate analysis commit may use a private, temporary bridge for an unmigrated internal caller; remove it when that caller migrates. Do not create a permanent public old/new compatibility layer. Do not defer essential GUI API/schema fixes to later GUI-hardening checkpoints.
 
 ## 13. Physical validation records
 
@@ -848,16 +631,11 @@ MOKE validation is staged: first source plus DMM into a benign electrical load a
 
 ## 14. Definition of done
 
-The standardization is complete only when:
-
-- the compatibility manifest passes for every family;
-- every migrated public runner delegates to one base lifecycle;
-- the Stop/start race, stale worker, callback failure, shutdown failure, and window-close cases are tested;
-- every reserved run has one terminal record/event and a separately reported safety result;
-- incomplete data cannot appear as a completed CSV and no publisher silently overwrites a target;
-- exact legacy schemas and numerical regression fixtures pass;
-- the developer guide matches the implemented contract;
-- two virtual benches run concurrently without cross-talk;
-- all automated tests pass on supported Python versions;
-- physical checkpoints are recorded as passed or explicitly remain `PENDING`;
-- no legacy API or global virtual fallback is removed without a separately approved deprecation cycle.
+- Every family passes the target manifest, shared runner/session/ownership contract, plain-column schema and unit metadata tests.
+- No migrated family overrides the base lifecycle or retains a parallel old runner/format solely for compatibility.
+- Numerical scientific regressions, calibrated/measured distinctions, raw recovery and plotted physical quantities pass.
+- Stop/start races, stale/duplicate workers, callback faults, shutdown faults and close behavior are tested; every reservation has one terminal record/event and a separate safety result.
+- Incomplete files cannot appear complete and publishers never silently overwrite targets.
+- All affected GUIs, analysis functions, notebooks, exports and docs use the new standard; no obsolete lookup/call remains in repository consumers.
+- Two virtual benches run without cross-talk; supported-Python checks pass. Physical checkpoints show actual results or explicitly remain PENDING.
+- User data is untouched; unrelated driver compatibility has not been removed as a side effect.

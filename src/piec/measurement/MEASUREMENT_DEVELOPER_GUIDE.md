@@ -1,5 +1,7 @@
 # Measurement Development Guide
 
+> Standardization amendment (2026-09-08): [MEASUREMENT_STANDARDIZATION_PLAN.md](../../../MEASUREMENT_STANDARDIZATION_PLAN.md) is the authoritative target for ALL measurement families. Adopt the shared base lifecycle/API, plain column names and per-column units in metadata. Old measurement APIs/formats need no compatibility adapters; update repository consumers with each family. Preserve numerical science, calibration and safe hardware behavior. The examples below describe the pre-standardization implementation until checkpoint 12 rewrites this guide; do not copy them as the new base contract.
+
 This guide defines the requirements and conventions for adding measurements to
 the `piec` library. Following these rules keeps experiment classes, GUIs, saved
 data, analysis, virtual operation, and instrument cleanup consistent across the
