@@ -332,6 +332,7 @@ class ExampleMeasurement:
         self.filename = None
         self.history = []
         self.abort_requested = False
+        self.processed = False
         self._update_metadata()
 
     def _update_metadata(self):
