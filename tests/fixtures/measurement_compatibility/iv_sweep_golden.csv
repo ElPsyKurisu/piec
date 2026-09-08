@@ -1,0 +1,9 @@
+v_start,v_stop,num_steps,current_compliance,dwell_time,sense_mode,save_dir,filename,sourcemeter,mtype,timestamp,processed
+0.0,1.0,5,0.1,0.0,2W,__NORMALIZED_PATH__,,KEITHLEY INSTRUMENTS INC.,iv_sweep,0.0,False
+
+voltage (V),current (A)
+0.0,0.0
+0.25,0.0025
+0.5,0.005
+0.75,0.0075
+1.0,0.01
