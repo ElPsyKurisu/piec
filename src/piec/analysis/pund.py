@@ -65,16 +65,16 @@ def process_raw_3pp(path:str, show_plots=False, save_plots=False, auto_timeshift
     psr = processed_df['polarization (uC/cm^2)'].values[n_psr:n_end]
 
     # homogenize lengths for array math
-    ph = ph[:min(len(ph), len(ps))]
-    ps = ps[:min(len(ph), len(ps))]
-    phr = phr[:min(len(phr), len(psr))]
-    psr = psr[:min(len(phr), len(psr))]
+    ph = ph[:min(len(ph), len(ps))].copy()
+    ps = ps[:min(len(ph), len(ps))].copy()
+    phr = phr[:min(len(phr), len(psr))].copy()
+    psr = psr[:min(len(phr), len(psr))].copy()
 
     dp = np.concatenate([ph, phr]) - np.concatenate([ps, psr]) # time dependent FE polarization is diff between p and u pulse polarizations
     array_dict = {'P^':ph, 'P*':ps, 'P^r':phr, 'P*r':psr, 'dP':dp} # this naming convention mimics the one set by Radiant
 
     for key in array_dict.keys():
-        array_dict[key] -= array_dict[key][0] # zero polarizations
+        array_dict[key] = array_dict[key] - array_dict[key][0] # zero polarizations
         repeat_values = np.zeros(len(processed_df)-len(array_dict[key]))+array_dict[key][-1]
         array_dict[key] = np.concatenate([array_dict[key], repeat_values]) # add repeat values to the end of arrays so they can be added to the dataframe
         processed_df[key+' (uC/cm^2)'] = array_dict[key] # add analysys arrays to dataframe

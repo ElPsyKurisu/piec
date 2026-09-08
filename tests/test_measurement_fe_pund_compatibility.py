@@ -1,0 +1,680 @@
+"""
+Characterization and regression tests for DiscreteWaveform, HysteresisLoop, and ThreePulsePund.
+
+Stage 0 Checkpoint 2c: FE and PUND characterization fixtures and golden comparison.
+"""
+
+from pathlib import Path
+import tempfile
+from unittest.mock import Mock
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from piec.analysis.utilities import standard_csv_to_metadata_and_data
+from piec.drivers.awg.virtual_awg import VirtualAwg
+from piec.drivers.oscilloscope.virtual_oscilloscope import VirtualScope
+from piec.measurement.discrete_waveform import (
+    DiscreteWaveform,
+    HysteresisLoop,
+    ThreePulsePund,
+)
+from tests.fixtures.measurement_compatibility import (
+    assert_data_columns_match,
+    assert_golden_csv_matches,
+    assert_numerical_data_matches_reference,
+    assert_piec_csv_layout,
+    load_manifest,
+)
+
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures" / "measurement_compatibility"
+DISCRETE_WAVEFORM_GOLDEN_PATH = FIXTURES_DIR / "discrete_waveform_golden.csv"
+HYSTERESIS_LOOP_GOLDEN_PATH = FIXTURES_DIR / "hysteresis_loop_golden.csv"
+THREE_PULSE_PUND_GOLDEN_PATH = FIXTURES_DIR / "three_pulse_pund_golden.csv"
+
+
+class TestDiscreteWaveformCompatibility:
+    """Characterize legacy DiscreteWaveform base behavior and verify regression goldens."""
+
+    def test_discrete_waveform_constructor_and_attributes(self, tmp_path):
+        awg = VirtualAwg()
+        osc = VirtualScope()
+        dw = DiscreteWaveform(
+            awg=awg,
+            osc=osc,
+            v_div=0.02,
+            voltage_channel="2",
+            save_dir=str(tmp_path),
+        )
+
+        assert dw.awg is awg
+        assert dw.osc is osc
+        assert dw.v_div == 0.02
+        assert dw.voltage_channel == "2"
+        assert dw.save_dir == str(tmp_path)
+        assert dw.data is None
+        assert dw.filename is None
+        assert dw.history == []
+        assert dw.mtype is None
+        assert dw.length is None
+
+        # Metadata DataFrame layout and fields
+        assert isinstance(dw.metadata, pd.DataFrame)
+        assert len(dw.metadata) == 1
+        assert dw.metadata.loc[0, "v_div"] == 0.02
+        assert dw.metadata.loc[0, "voltage_channel"] == "2"
+        assert dw.metadata.loc[0, "awg"] == "Virtual AWG"
+        assert dw.metadata.loc[0, "osc"] == "Virtual Oscilloscope"
+        assert bool(dw.metadata.loc[0, "processed"]) is False
+
+    def test_discrete_waveform_instrument_configuration(self, tmp_path):
+        awg = VirtualAwg()
+        osc = VirtualScope()
+        dw = DiscreteWaveform(
+            awg=awg,
+            osc=osc,
+            v_div=0.05,
+            voltage_channel="1",
+            save_dir=str(tmp_path),
+        )
+        dw.length = 0.001
+
+        dw.initialize_awg()
+        assert awg.state["load_impedance"][1] == 50.0
+        assert str(awg.state["trigger_source"][1]).upper() == "MAN"
+
+        dw.configure_oscilloscope(channel=1)
+        assert osc.state["armed"] is False
+        assert osc.state["tdiv"] == pytest.approx(dw.length / 8)
+        assert osc.state["vdiv"][1] == pytest.approx(0.05)
+        assert str(osc.state["trigger_source"]).upper() == "EXT"
+        assert str(osc.state["trigger_sweep"]).upper() == "NORM"
+
+    def test_discrete_waveform_raw_capture_and_save(self, tmp_path):
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        dw = DiscreteWaveform(
+            awg=awg,
+            osc=osc,
+            v_div=0.01,
+            voltage_channel="1",
+            save_dir=str(tmp_path),
+        )
+        dw.mtype = "discrete_waveform"
+        dw.length = 0.001
+        dw.notes = "raw_test"
+
+        dw.initialize_awg()
+        dw.configure_oscilloscope()
+        dw.apply_and_capture_waveform()
+
+        assert dw.data is not None
+        assert_data_columns_match(dw.data, ["time (s)", "voltage (V)"], exact_order=True)
+        assert len(dw.data) == 70  # 50 simulation points + 20 prep points
+
+        dw.save_waveform()
+        assert dw.filename is not None
+        assert Path(dw.filename).is_file()
+
+        meta, data = assert_piec_csv_layout(dw.filename)
+        assert len(meta) == 1
+        assert len(data) == 70
+        assert_data_columns_match(data, ["time (s)", "voltage (V)"], exact_order=True)
+
+    def test_discrete_waveform_golden_csv_regression(self, tmp_path):
+        """Verify that deterministic raw capture matches golden CSV."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        dw = DiscreteWaveform(
+            awg=awg,
+            osc=osc,
+            v_div=0.01,
+            voltage_channel="1",
+            save_dir=str(tmp_path),
+        )
+        dw.mtype = "discrete_waveform"
+        dw.length = 0.001
+        dw.notes = "raw"
+        dw.initialize_awg()
+        dw.configure_oscilloscope()
+        dw.apply_and_capture_waveform()
+        dw.save_waveform()
+
+        assert_golden_csv_matches(
+            actual_path=dw.filename,
+            golden_path=DISCRETE_WAVEFORM_GOLDEN_PATH,
+            volatile_metadata_keys=["timestamp", "save_dir", "filename"],
+        )
+
+    def test_discrete_waveform_numerical_equivalence_with_mapping(self, tmp_path):
+        """Verify numerical equivalence using the harness old_to_new_column_mapping with view='raw'."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        dw = DiscreteWaveform(
+            awg=awg,
+            osc=osc,
+            v_div=0.01,
+            voltage_channel="1",
+            save_dir=str(tmp_path),
+        )
+        dw.mtype = "discrete_waveform"
+        dw.length = 0.001
+        dw.notes = "raw"
+        dw.initialize_awg()
+        dw.configure_oscilloscope()
+        dw.apply_and_capture_waveform()
+        dw.save_waveform()
+
+        _, gold_data = standard_csv_to_metadata_and_data(str(DISCRETE_WAVEFORM_GOLDEN_PATH))
+        assert_numerical_data_matches_reference(dw.data, gold_data, "DiscreteWaveform", view="raw")
+
+
+class TestHysteresisLoopCompatibility:
+    """Characterize legacy HysteresisLoop behavior and verify regression goldens."""
+
+    def test_hysteresis_constructor_and_attributes(self, tmp_path):
+        awg = VirtualAwg()
+        osc = VirtualScope()
+        hl = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            v_div=0.1,
+            frequency=500.0,
+            amplitude=2.0,
+            offset=0.1,
+            n_cycles=3,
+            voltage_channel="1",
+            area=2e-5,
+            time_offset=2e-8,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=True,
+            save_dir=str(tmp_path),
+        )
+
+        assert hl.mtype == "hysteresis"
+        assert hl.frequency == 500.0
+        assert hl.amplitude == 2.0
+        assert hl.offset == 0.1
+        assert hl.n_cycles == 3
+        assert hl.area == 2e-5
+        assert hl.time_offset == 2e-8
+        assert hl.voltage_channel == "1"
+        assert hl.show_plots is False
+        assert hl.save_plots is False
+        assert hl.auto_timeshift is True
+        assert hl.length == pytest.approx(1 / 500.0)
+        assert hl.save_dir == str(tmp_path)
+        assert hl.data is None
+        assert hl.filename is None
+        assert hl.history == []
+
+        hl._update_notes()
+        assert hl.notes == "2p0V_500Hz"
+
+        assert isinstance(hl.metadata, pd.DataFrame)
+        assert len(hl.metadata) == 1
+        assert hl.metadata.loc[0, "mtype"] == "hysteresis"
+        assert bool(hl.metadata.loc[0, "processed"]) is False
+
+    def test_hysteresis_configure_awg(self):
+        awg = VirtualAwg()
+        osc = VirtualScope()
+        hl = HysteresisLoop(awg=awg, osc=osc, frequency=1000.0, amplitude=1.5, offset=0.0)
+        hl.configure_awg()
+
+        assert awg.state["waveform"][1] == "USER"
+        assert awg.state["amplitude"][1] == pytest.approx(3.0)  # abs(amplitude) * 2
+        assert awg.state["frequency"][1] == pytest.approx(1000.0)
+        assert str(awg.state["polarity"][1]).upper() == "NORM"
+
+    def test_hysteresis_run_experiment_lifecycle(self, tmp_path):
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        hl = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            frequency=1000.0,
+            amplitude=1.0,
+            offset=0.0,
+            n_cycles=2,
+            area=1e-5,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+
+        result = hl.run_experiment()
+        # Legacy contract: returns None
+        assert result is None
+        assert hl.filename is not None
+        assert Path(hl.filename).is_file()
+
+        # Metadata in CSV must be marked processed
+        meta, data = assert_piec_csv_layout(hl.filename)
+        assert bool(meta.loc[0, "processed"]) is True
+        assert len(hl.history) == 1
+
+        expected_columns = [
+            "time (s)",
+            "voltage (V)",
+            "current (A)",
+            "polarization (uC/cm^2)",
+            "applied voltage (V)",
+        ]
+        assert_data_columns_match(data, expected_columns, exact_order=True)
+
+    def test_hysteresis_golden_csv_regression(self, tmp_path):
+        """Verify deterministic hysteresis run matches golden CSV."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        hl = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            frequency=1000.0,
+            amplitude=1.0,
+            offset=0.0,
+            n_cycles=2,
+            area=1e-5,
+            time_offset=1e-8,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=False,
+            save_dir=str(tmp_path),
+        )
+        hl.run_experiment()
+
+        assert_golden_csv_matches(
+            actual_path=hl.filename,
+            golden_path=HYSTERESIS_LOOP_GOLDEN_PATH,
+            volatile_metadata_keys=["timestamp", "save_dir", "filename"],
+        )
+
+    def test_hysteresis_numerical_equivalence_with_mapping(self, tmp_path):
+        """Verify numerical equivalence using the harness old_to_new_column_mapping."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        hl = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            frequency=1000.0,
+            amplitude=1.0,
+            offset=0.0,
+            n_cycles=2,
+            area=1e-5,
+            time_offset=1e-8,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=False,
+            save_dir=str(tmp_path),
+        )
+        hl.run_experiment()
+
+        _, actual_data = standard_csv_to_metadata_and_data(hl.filename)
+        _, gold_data = standard_csv_to_metadata_and_data(str(HYSTERESIS_LOOP_GOLDEN_PATH))
+        assert_numerical_data_matches_reference(actual_data, gold_data, "HysteresisLoop")
+
+    def test_hysteresis_polarization_calculations(self, tmp_path):
+        """Verify physical polarization calculation from current and area."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        area = 1e-5
+        hl = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            frequency=1000.0,
+            amplitude=1.0,
+            offset=0.0,
+            n_cycles=2,
+            area=area,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=False,
+            save_dir=str(tmp_path),
+        )
+        hl.run_experiment()
+
+        _, df = standard_csv_to_metadata_and_data(hl.filename)
+        # Polarization starts at 0
+        assert df["polarization (uC/cm^2)"].iloc[0] == pytest.approx(0.0)
+        # Polarization has non-zero range
+        p_min = df["polarization (uC/cm^2)"].min()
+        p_max = df["polarization (uC/cm^2)"].max()
+        assert p_max > p_min
+        # Applied voltage spans the requested amplitude
+        assert df["applied voltage (V)"].max() == pytest.approx(1.0, rel=0.1)
+
+    def test_hysteresis_auto_timeshift(self, tmp_path):
+        """Verify auto_timeshift detects time alignment offset."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+
+        # auto_timeshift=False retains configured time_offset
+        hl_manual = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            time_offset=1e-8,
+            auto_timeshift=False,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+        hl_manual.run_experiment()
+        meta_man, _ = standard_csv_to_metadata_and_data(hl_manual.filename)
+        assert meta_man["time_offset"].values[0] == pytest.approx(1e-8)
+
+        # auto_timeshift=True automatically determines non-zero time offset
+        hl_auto = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            time_offset=1e-8,
+            auto_timeshift=True,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+        hl_auto.run_experiment()
+        meta_auto, _ = standard_csv_to_metadata_and_data(hl_auto.filename)
+        assert meta_auto["time_offset"].values[0] > 1e-8
+
+    def test_hysteresis_plot_artifacts(self, tmp_path):
+        """Verify that save_plots=True creates _PV.png, _IV.png, and _trace.png."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+
+        # Run with save_plots=True
+        hl_save = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            show_plots=False,
+            save_plots=True,
+            save_dir=str(tmp_path),
+        )
+        hl_save.run_experiment()
+
+        base_stem = Path(hl_save.filename).stem
+        pv_file = Path(tmp_path) / f"{base_stem}_PV.png"
+        iv_file = Path(tmp_path) / f"{base_stem}_IV.png"
+        trace_file = Path(tmp_path) / f"{base_stem}_trace.png"
+
+        assert pv_file.is_file(), f"Expected plot file {pv_file} not found"
+        assert iv_file.is_file(), f"Expected plot file {iv_file} not found"
+        assert trace_file.is_file(), f"Expected plot file {trace_file} not found"
+        assert pv_file.stat().st_size > 0
+        assert iv_file.stat().st_size > 0
+        assert trace_file.stat().st_size > 0
+
+        # Run with save_plots=False
+        tmp_no_plots = tmp_path / "no_plots"
+        tmp_no_plots.mkdir()
+        hl_nosave = HysteresisLoop(
+            awg=awg,
+            osc=osc,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_no_plots),
+        )
+        hl_nosave.run_experiment()
+
+        png_files = list(tmp_no_plots.glob("*.png"))
+        assert len(png_files) == 0, f"Expected no PNG plots, found {png_files}"
+
+
+class TestThreePulsePundCompatibility:
+    """Characterize legacy ThreePulsePund behavior and verify regression goldens."""
+
+    def test_pund_constructor_and_attributes(self, tmp_path):
+        awg = VirtualAwg()
+        osc = VirtualScope()
+        pund = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            v_div=0.1,
+            reset_amp=2.0,
+            reset_width=2e-3,
+            reset_delay=1e-3,
+            p_u_amp=1.5,
+            p_u_width=1e-3,
+            p_u_delay=2e-3,
+            offset=0.0,
+            voltage_channel="1",
+            area=1.5e-5,
+            time_offset=1e-8,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=True,
+            save_dir=str(tmp_path),
+        )
+
+        assert pund.mtype == "3pulsepund"
+        assert pund.reset_amp == 2.0
+        assert pund.reset_width == 2e-3
+        assert pund.reset_delay == 1e-3
+        assert pund.p_u_amp == 1.5
+        assert pund.p_u_width == 1e-3
+        assert pund.p_u_delay == 2e-3
+        assert pund.offset == 0.0
+        assert pund.voltage_channel == "1"
+        assert pund.area == 1.5e-5
+        assert pund.time_offset == 1e-8
+        assert pund.show_plots is False
+        assert pund.save_plots is False
+        assert pund.auto_timeshift is True
+        expected_length = 2e-3 + 1e-3 + 2 * 1e-3 + 2 * 2e-3
+        assert pund.length == pytest.approx(expected_length)
+        assert pund.save_dir == str(tmp_path)
+        assert pund.data is None
+        assert pund.filename is None
+        assert pund.history == []
+
+        pund._update_notes()
+        assert pund.notes == "2p0Vres_1p5Vpu"
+
+        assert isinstance(pund.metadata, pd.DataFrame)
+        assert len(pund.metadata) == 1
+        assert pund.metadata.loc[0, "mtype"] == "3pulsepund"
+        assert bool(pund.metadata.loc[0, "processed"]) is False
+
+    def test_pund_configure_awg(self):
+        awg = VirtualAwg()
+        osc = VirtualScope()
+        pund = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            reset_amp=1.0,
+            p_u_amp=1.0,
+            offset=0.0,
+        )
+        pund.configure_awg()
+
+        assert awg.state["waveform"][1] == "USER"
+        assert awg.state["amplitude"][1] == pytest.approx(2.0)  # abs(reset_amp) + abs(p_u_amp)
+        assert awg.state["frequency"][1] == pytest.approx(1 / pund.length)
+
+    def test_pund_run_experiment_lifecycle(self, tmp_path):
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        pund = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+
+        result = pund.run_experiment()
+        # Legacy contract: returns None
+        assert result is None
+        assert pund.filename is not None
+        assert Path(pund.filename).is_file()
+
+        # Metadata in CSV must be marked processed
+        meta, data = assert_piec_csv_layout(pund.filename)
+        assert bool(meta.loc[0, "processed"]) is True
+        assert len(pund.history) == 1
+
+        expected_columns = [
+            "time (s)",
+            "voltage (V)",
+            "current (A)",
+            "polarization (uC/cm^2)",
+            "P^ (uC/cm^2)",
+            "P* (uC/cm^2)",
+            "P^r (uC/cm^2)",
+            "P*r (uC/cm^2)",
+            "dP (uC/cm^2)",
+            "applied voltage (V)",
+        ]
+        assert_data_columns_match(data, expected_columns, exact_order=True)
+
+    def test_pund_golden_csv_regression(self, tmp_path):
+        """Verify deterministic PUND run matches golden CSV."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        pund = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            reset_amp=1.0,
+            reset_width=1e-3,
+            reset_delay=1e-3,
+            p_u_amp=1.0,
+            p_u_width=1e-3,
+            p_u_delay=1e-3,
+            offset=0.0,
+            area=1e-5,
+            time_offset=1e-8,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=True,
+            save_dir=str(tmp_path),
+        )
+        pund.run_experiment()
+
+        assert_golden_csv_matches(
+            actual_path=pund.filename,
+            golden_path=THREE_PULSE_PUND_GOLDEN_PATH,
+            volatile_metadata_keys=["timestamp", "save_dir", "filename"],
+        )
+
+    def test_pund_numerical_equivalence_with_mapping(self, tmp_path):
+        """Verify numerical equivalence using the harness old_to_new_column_mapping."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        pund = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            reset_amp=1.0,
+            reset_width=1e-3,
+            reset_delay=1e-3,
+            p_u_amp=1.0,
+            p_u_width=1e-3,
+            p_u_delay=1e-3,
+            offset=0.0,
+            area=1e-5,
+            time_offset=1e-8,
+            show_plots=False,
+            save_plots=False,
+            auto_timeshift=True,
+            save_dir=str(tmp_path),
+        )
+        pund.run_experiment()
+
+        _, actual_data = standard_csv_to_metadata_and_data(pund.filename)
+        _, gold_data = standard_csv_to_metadata_and_data(str(THREE_PULSE_PUND_GOLDEN_PATH))
+        assert_numerical_data_matches_reference(actual_data, gold_data, "ThreePulsePund")
+
+    def test_pund_polarization_calculations(self, tmp_path):
+        """Verify PUND polarization calculations and array zeroing."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+        pund = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+        pund.run_experiment()
+
+        _, df = standard_csv_to_metadata_and_data(pund.filename)
+        # P^ and P* initial values must be zeroed
+        assert df["P^ (uC/cm^2)"].iloc[0] == pytest.approx(0.0)
+        assert df["P* (uC/cm^2)"].iloc[0] == pytest.approx(0.0)
+        assert df["P^r (uC/cm^2)"].iloc[0] == pytest.approx(0.0)
+        assert df["P*r (uC/cm^2)"].iloc[0] == pytest.approx(0.0)
+        assert df["dP (uC/cm^2)"].iloc[0] == pytest.approx(0.0)
+
+        # dP must have a non-zero maximum representing switched polarization
+        dp_max = df["dP (uC/cm^2)"].max()
+        assert dp_max > 0.0
+
+    def test_pund_auto_timeshift(self, tmp_path):
+        """Verify auto_timeshift detects PUND pulse onset."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+
+        pund_auto = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            time_offset=1e-8,
+            auto_timeshift=True,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+        pund_auto.run_experiment()
+        meta_auto, _ = standard_csv_to_metadata_and_data(pund_auto.filename)
+        assert meta_auto["time_offset"].values[0] > 1e-8
+
+        pund_manual = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            time_offset=1e-8,
+            auto_timeshift=False,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_path),
+        )
+        pund_manual.run_experiment()
+        meta_man, _ = standard_csv_to_metadata_and_data(pund_manual.filename)
+        assert meta_man["time_offset"].values[0] == pytest.approx(1e-8)
+
+    def test_pund_plot_artifacts(self, tmp_path):
+        """Verify that save_plots=True creates _dPvst.png and _trace.png."""
+        awg = VirtualAwg(simulation_points=50)
+        osc = VirtualScope(simulation_points=50)
+
+        pund_save = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            show_plots=False,
+            save_plots=True,
+            save_dir=str(tmp_path),
+        )
+        pund_save.run_experiment()
+
+        base_stem = Path(pund_save.filename).stem
+        dp_file = Path(tmp_path) / f"{base_stem}_dPvst.png"
+        trace_file = Path(tmp_path) / f"{base_stem}_trace.png"
+
+        assert dp_file.is_file(), f"Expected plot file {dp_file} not found"
+        assert trace_file.is_file(), f"Expected plot file {trace_file} not found"
+        assert dp_file.stat().st_size > 0
+        assert trace_file.stat().st_size > 0
+
+        # Run with save_plots=False
+        tmp_no_plots = tmp_path / "no_plots"
+        tmp_no_plots.mkdir()
+        pund_nosave = ThreePulsePund(
+            awg=awg,
+            osc=osc,
+            show_plots=False,
+            save_plots=False,
+            save_dir=str(tmp_no_plots),
+        )
+        pund_nosave.run_experiment()
+
+        png_files = list(tmp_no_plots.glob("*.png"))
+        assert len(png_files) == 0, f"Expected no PNG plots, found {png_files}"
