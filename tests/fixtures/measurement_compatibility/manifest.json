@@ -1,5 +1,18 @@
 {
   "schema_version": "2.0.0",
+  "amr_setup_amendment": {
+    "status": "Planned for checkpoints 23-25; reference observations remain observations, and target contracts must be extended with the adapters/consumers when implemented.",
+    "authority": "MEASUREMENT_STANDARDIZATION_PLAN.md section 9.5",
+    "required_profile": "DC calibrator + DMM field readback + lock-in X/Y with internal excitation + stepper",
+    "readout_configuration_default": "preserve",
+    "preserve_rule": "Do not initialize/reset, autorange or overwrite operator-selected sensitivity/reference settings on Run. Explicit configure mode is available; output safing remains a separate setup policy.",
+    "excitation_modes": ["lockin_internal", "external_source"],
+    "field_command_modes": ["calibration_table", "bounded_linear_calibration", "native_field_controller"],
+    "field_readback_modes": ["none", "digital_gaussmeter", "dmm_with_sensor_calibration"],
+    "calibration_rule": "Source-command and sensor-readback calibrations are independent; measured field does not replace the source-control mapping.",
+    "rotation_scope": "Motorized controller required initially; manual confirmation workflow deferred.",
+    "signal_scope": "Keep truthful X/Y voltages for the current profile. Resistance and voltage/current modes require separate validated adapters; programmed lock-in excitation does not establish sample current."
+  },
   "amr_fixture_contract": {
     "scientific_golden": "tests/fixtures/measurement_compatibility/amr_golden.csv",
     "oracle": "X = (100 ohm + 2 ohm * cos(angle)^2) * 1e-6 A; Y = 0.1 * X. At 180 degrees X is 102 uV and Y is 10.2 uV.",

@@ -373,7 +373,9 @@ This defines each family's first standardized schema, version 1; set distinct na
 | Family/view | Ordered columns | Units |
 |---|---|---|
 | IV | `voltage`, `current` | V, A |
-| AMR | `angle`, `field`, `x`, `y` | deg; setup-declared field unit; signal-reader-declared X/Y units |
+| AMR default lockin_xy | `angle`, `field`, `x`, `y` | deg; setup-declared field unit; signal-reader-declared X/Y units |
+| AMR optional field-readback suffix | `field_measured`, `field_time` | setup-declared measured-field unit; s |
+| AMR additional transport modes | `angle`, `field`, then `resistance` or `voltage`, `current`; optional field-readback suffix | deg; field unit; ohm or V/A. See section 9.5 for separate implementation checkpoints. |
 | MOKE raw/final | `time`, `cycle`, `point`, `direction`, `source_output`, `field_calibrated`, `detector_voltage` | s; null; null; null; calibration output unit; calibration field unit; V |
 | MOKE optional suffix | `field_measured`, `field_time` | calibration field unit; s |
 | Discrete waveform / FE raw | `time`, `voltage` | s, V |
@@ -470,18 +472,50 @@ Existing `get_data()` signatures and returned column names differ. Measurements 
 
 Do not add a fictitious `read_waveform()` requirement to every oscilloscope driver, and do not make scientific measurement code parse driver-specific tables.
 
-### 9.5 AMR roles
+### 9.5 General AMR setups and the existing four-instrument profile
 
-AMR uses setup-local roles rather than pretending unrelated instruments are interchangeable:
+AMR studies electrical transport versus orientation under declared magnetic-field and excitation conditions. The angle recorded is the apparatus/sample-current geometry, not a claim to have independently measured the magnetization direction. Retain this geometry definition and the angle zero in metadata. A simple cos-squared response is a test model, not an assumption to impose on every sample.
 
-- `FieldSource`: set a requested calibrated field and apply the configured electrical safe-output policy;
-- optional `FieldReader`: read actual field with declared units;
-- `SignalReader`: return a real X/Y pair;
-- `Rotator`: move by requested angle with limits/residual-step handling and stop only if supported.
+The core measurement depends on roles, not a fixed count or brand of instruments:
 
-A DCCalibrator adapter maps to voltage output; a sourcemeter adapter maps to its source methods. Field calibration is applied exactly once. A scalar DMM reading cannot silently be labeled `X` and `Y`; supporting a DMM-only AMR signal is a future explicit schema/version decision.
+| Role | Responsibility | Current working lab setup |
+|---|---|---|
+| FieldSource | Command the chosen field through a bounded setup-specific mapping/controller; declare limits and safe policy | DC calibrator driving the magnet's control input |
+| FieldReader (optional) | Read actual field with units and calibration/provenance | DMM reading the field sensor/gaussmeter analog output |
+| TransportReadout | Configure declared excitation and acquire named electrical quantities with units | Lock-in reference/excitation and X/Y detector readout; external circuit described in the setup profile |
+| OrientationController | Move to the next requested angle, wait for completion/settling and declare angle basis/limits | Existing Arduino/stepper motor |
 
-The Stepper base guarantees only its existing step operation. Homing, position readback, and halt remain optional capabilities.
+**Required first profile:** support all four existing instruments together (calibrator + field-readback DMM + lock-in + stepper). Retain the working wiring, electrical settings, dwell/averaging and scientific procedure through adapters, while adopting the shared lifecycle and fixing tracked defects. Do not replace this setup with a sourcemeter-only design or repurpose its DMM as the sample-signal reader. Different roles may share an instrument or use separate instruments; connection ownership and safing cover each unique physical device once while attempting all required channel actions.
+
+#### Field command and field measurement are separate configuration choices
+
+- Command modes: a source-output-to-field calibration table loaded through FieldCalibration; an explicit bounded linear scale/offset profile (including the present 10000 Oe/V factor); or a controller that natively accepts field setpoints. A scalar factor must be supplied by the selected profile, not hard-coded into AMR. FieldCalibration mappings already include downstream gain: apply them once, without silently extrapolating or selecting a non-unique inverse.
+- Readback modes: none, a digital gaussmeter, or a DMM plus a declared analog-sensor-to-field calibration. Command calibration and sensor calibration are separate objects even if the old setup uses the same scale for both. Do not assume coil-command volts equal Hall-sensor volts.
+- A gaussmeter by itself does not tell a calibrator what output to command. Readback-only calibration is not an implicit feedback controller. The initial implementation commands through one of the modes above and optionally verifies field after settling and at each angular acquisition. Closed-loop field correction requires its own bounded control design and tests; do not invent it in the capture loop.
+- The `field` column remains the requested/calibrated command in the base schema. When a reader is configured append `field_measured` and `field_time` (seconds elapsed); include matching unit entries and `field_basis`, source calibration/controller identity, reader calibration, tolerance and timing metadata. Report predicted/calibrated field in metadata when distinct from the requested field. Never relabel inferred field as measured.
+- Verification uses explicit absolute plus relative tolerance (`abs(error) <= absolute_tolerance + relative_tolerance * abs(target)`), valid at zero and negative field. The setup declares warn/fail policy; the existing lab profile can retain warning behavior for finite mismatches. Reader errors/non-finite values are acquisition/configuration failures, not guessed field values. Readback must have compatible physical quantity and units; do not equate H and B by label-only conversion.
+
+#### Electrical excitation and signal modes
+
+The role returns named quantities plus units; no scalar instrument is forced to manufacture X/Y. `lockin_xy` remains the default supported mode with `x`, `y` in declared reader units. Add a separate `resistance` mode only through a reader/setup that actually measures resistance, with a `resistance` column in ohms. A sourcemeter or source-plus-voltmeter setup may expose `voltage_current` with `voltage` and `current`; only derive resistance when actual current, wiring/contact geometry, zero-current handling and excitation convention are known. One device may provide excitation and sensing.
+
+Record `signal_mode`, excitation source, amplitude/current, frequency, RMS/peak convention, sense/wiring geometry and reference phase as applicable. A lock-in voltage or its programmed oscillator amplitude is not automatically sample resistance or known sample current. The exact excitation wiring of the current four-instrument setup must be documented from the user before adding resistance conversion; until then save truthful X/Y voltages. Preserve X/Y numerical behavior without inventing that conversion.
+
+**Confirmed lab workflow:** the lock-in supplies excitation internally in the present setup, external excitation is also configurable, and the operator normally chooses lock-in settings/sensitivity manually. Therefore the default lab profile uses `readout_configuration="preserve"`: no initialize/reset, autorange, sensitivity/filter changes, or reference-source/amplitude/frequency writes at run start. Read existing settings where supported; otherwise retain user-declared settings with explicit provenance/unknown values. Never record requested defaults as verified actual settings. The profile's deliberate output-enable/safing actions remain required and separate from instrument setting preservation.
+
+Expose an explicit `readout_configuration="configure"` choice with validated settings for users who want automation; `options={"configure_lockin": False}` maps to preserve and True maps to configure during this migration. Snapshot the selected policy/settings in the immutable run request. GUI setup offers internal/external excitation, use-existing/configure settings, and idle-only settings readback; preserve manual sensitivity tuning before acquisition. Configuration defaults must never overwrite the front-panel choices merely because Run was clicked.
+
+An external excitation profile distinguishes the lock-in reference input from the physical device driving the sample. It names/binds the external source when software controls it and declares its limits, source configuration policy and shutdown actions. For a manually operated external source, the profile explicitly documents who controls and de-energizes it; do not claim software safing confirmed that external output. Do not send internal-oscillator configuration commands in external mode. Sample-current magnitude and external circuit remain unverified here, so retain X/Y voltage output unless a separately validated transport adapter supplies actual resistance/current.
+
+Acceptance tests must cover the existing four-instrument internal-excitation profile with preserve mode (no reset/sensitivity/reference writes), explicit configure mode, external excitation with the correct reference/source routing and shutdown owner, and metadata distinguishing queried/user-declared/unknown settings. Front-panel or GUI tuning belongs before a run; active GUI commands still may not compete with the worker.
+
+For schema version 1, mode-specific suffixes follow common `angle`, `field`: `x`,`y` for lockin_xy; `resistance` for resistance; `voltage`,`current` for voltage_current. The optional measured-field suffix follows those signal columns. Extend manifest target schemas and GUI selectors in the same adapter/slice commits; existing AMR fixtures refer specifically to lockin_xy. Each mode has exact ordered columns/unit mappings and separate numerical fixtures. Only advertise tested adapter/mode combinations; the first complete vertical slice must support the current four-instrument profile. Additional electrical modes land as separate commits after that slice.
+
+#### Rotation scope
+
+Require an automatic OrientationController in the first implementation, supplied by the existing stepper adapter or another tested motorized positioner. Define angle zero, rotation plane, sign convention, travel limits, degrees-per-step, residual-step accumulation and bounded settling. An open-loop stepper provides a commanded/step-count angle estimate, not independently measured encoder feedback. Optional readback must be labeled separately. Halt/homing/readback are capability-gated; the Stepper base guarantees only step(). Fix the extra endpoint movement in checkpoint 24b.
+
+A motor is not a fundamental requirement of AMR physics. Manual rotation and vector-field orientation are future adapters, not reasons to add optional motor=None branches now. A future ManualOrientationController would emit a move request with run generation and requested angle, then wait cancellably for explicit confirmation (and optionally entered actual angle). Stop cancels the wait; stale confirmations cannot resume a later run. It must declare whether field/excitation remain on during the wait, never infer movement from Pause/Resume alone, and never call a GUI from the worker. This manual UI/controller work is deferred until requested; keep the first automated release straightforward.
 
 ### 9.6 MOKE roles
 
@@ -604,11 +638,12 @@ Use `src/piec/measurement/base.py`, `contracts.py`, `runner.py`, `persistence.py
 | 20c | PUND integration and consumers | Target runner/schema, plots, numerical and fault tests |
 | 21 | FE GUI interaction/ownership hardening | Main-thread Tk/plots, virtual selection, settings, Stop/close and save policies |
 | 22 | FE physical record | Low-amplitude known-impedance AWG/scope result or PENDING |
-| 23 | AMR setup-role adapters | Units, limits, calibration direction, capabilities and isolated role tests |
+| 23 | AMR setup-role adapters | Working four-instrument profile, default preservation of manual lock-in settings, internal/external excitation; separate command/readback calibrations; linear/table/native-field command modes; optional digital-gaussmeter or analog-DMM readback; units, limits, zero/negative-field tolerance and isolated role tests |
 | 23a | Repair/retire placeholder field conversion (AMR-FIELD-001) | Default 10000 Oe/V gives 100 Oe -> 0.01 V; replace the strict expected failure with passing field-adapter tests |
 | 24a | MagnetoTransport lifecycle and consumers | Standard API/options/controls and owner-scoped helpers |
 | 24b | AMR acquisition/schema/persistence and consumers | Repair AMR-ANGLE-001 (extra endpoint motor step); physical positions and signals match every requested angle; replace the strict expected failure and faulty-observation regression with scientific goldens; Stop during dwell/motion, engine-owned partials and safe final outputs |
 | 24c | AMR notebook/GUI presentation integration | No acquisition-owned plotting; target metadata labels and offline examples |
+| 24d onward | Additional AMR electrical adapters, one signal mode per commit after the working four-instrument slice | Mode-specific data/units and truthful excitation; direct-resistance or voltage/current numerical fixtures, producer/GUI/consumer updates; no fabricated X/Y or assumed current |
 | 25 | AMR GUI interaction/ownership hardening | Pause/Stop/close/terminal behavior through common runner |
 | 26 | AMR physical record | Separate role tests then low-field integrated result or PENDING |
 | 27 | Role-specific simulation contracts | Units, reset, deterministic time/RNG and voltage/current-source electrical loads |
