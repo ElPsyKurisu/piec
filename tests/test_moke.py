@@ -122,10 +122,10 @@ def test_single_measurement_uses_voltage_source_and_dmm_with_raw_cycles():
     assert len(data) == 10
     assert len(snapshots) == 10
     assert run.completed_cycles == 2
-    assert data["source_output (V)"].tolist() == [-5, 0, 5, 0, -5] * 2
-    assert data["field_calibrated (Oe)"].tolist() == [-500, 0, 500, 0, -500] * 2
-    assert data["detector_voltage (V)"].tolist() == pytest.approx([0.48, 0.48, 0.52, 0.52, 0.48] * 2)
-    assert run.cycle_average["detector_voltage (V)"].tolist() == pytest.approx([0.48, 0.48, 0.52, 0.52, 0.48])
+    assert data["source_output"].tolist() == [-5, 0, 5, 0, -5] * 2
+    assert data["field_calibrated"].tolist() == [-500, 0, 500, 0, -500] * 2
+    assert data["detector_voltage"].tolist() == pytest.approx([0.48, 0.48, 0.52, 0.52, 0.48] * 2)
+    assert run.cycle_average["detector_voltage"].tolist() == pytest.approx([0.48, 0.48, 0.52, 0.52, 0.48])
     assert run.cycle_average["cycles_averaged"].tolist() == [2] * 5
     run.dmm.set_sense_function.assert_called_once_with(sense_func="VOLT")
     run.dmm.set_measurement_coupling.assert_called_once_with(coupling="DC")
@@ -144,7 +144,7 @@ def test_current_output_calibration_selects_current_source():
     run.run_experiment(save=False)
     assert run.sourcemeter.state["source_func"] == "CURR"
     assert run.sourcemeter.state["voltage_compliance"] == 10
-    assert run.data["field_calibrated (Oe)"].tolist() == [-500, 500, -500] * 2
+    assert run.data["field_calibrated"].tolist() == [-500, 500, -500] * 2
     assert run.sourcemeter.state["source_current"] == 0
 
 
@@ -193,6 +193,9 @@ def test_saved_data_includes_original_calibration_and_units(tmp_path):
     assert json.loads(metadata.loc[0, "calibration"]) == calibration().to_dict()
     assert metadata.loc[0, "output_unit"] == "V"
     assert metadata.loc[0, "field_unit"] == "Oe"
+    assert metadata.loc[0, "measurement_schema"] == "moke"
+    assert int(metadata.loc[0, "measurement_schema_version"]) == 1
+    assert json.loads(metadata.loc[0, "column_units_json"]) == run.column_units
     assert bool(metadata.loc[0, "processed"])
     pd.testing.assert_frame_equal(data, run.data, check_dtype=False)
 
@@ -286,14 +289,14 @@ def test_snapshot_mutation_does_not_change_saved_measurement():
     run.run_experiment(save=False)
     snapshot = run.snapshot()
     assert len(snapshot.raw) == 2
-    snapshot.last_cycle.loc[:, "detector_voltage (V)"] = 999
-    assert run.last_cycle["detector_voltage (V)"].max() < 1
+    snapshot.last_cycle.loc[:, "detector_voltage"] = 999
+    assert run.last_cycle["detector_voltage"].max() < 1
 
 
 def test_without_gaussmeter_plot_axis_remains_calibrated_field():
     run = measurement()
     run.run_experiment(save=False)
-    assert run.field_column == "field_calibrated (Oe)"
+    assert run.field_column == "field_calibrated"
     assert run.snapshot().field_column == run.field_column
     assert run.measured_field_column not in run.data
     assert run.metadata.loc[0, "plot_field_column"] == run.field_column
@@ -310,13 +313,13 @@ def test_gaussmeter_selects_measured_axis_and_preserves_calibration(tmp_path):
     snapshots = []
     run.run_experiment(on_update=snapshots.append)
     assert reader.call_count == 10
-    assert run.field_column == "field_measured (Oe)"
+    assert run.field_column == "field_measured"
     assert run.data[run.field_column].tolist() == fields
     assert run.data[run.calibrated_field_column].tolist() == [-500, 0, 500, 0, -500] * 2
     assert run.data[run.output_column].tolist() == [-5, 0, 5, 0, -5] * 2
     assert run.last_cycle[run.field_column].tolist() == fields[-5:]
     assert run.cycle_average[run.field_column].tolist() == [-489, 13, 513, 8, -500]
-    assert (run.data["field_time (s)"] >= run.data["time (s)"]).all()
+    assert (run.data["field_time"] >= run.data["time"]).all()
     for snapshot in snapshots:
         assert snapshot.field_column == run.field_column
         for frame in (snapshot.raw, snapshot.last_cycle, snapshot.cycle_average):
@@ -387,5 +390,7 @@ def test_field_reader_can_use_other_explicit_matching_units():
     curve = FieldCalibration([(-5, -0.05), (5, 0.05)], field_unit="T")
     run = measurement(calibration=curve, field_reader=lambda: 0.012, field_reader_unit="T")
     run.run_experiment(save=False)
-    assert run.field_column == "field_measured (T)"
+    assert run.field_column == "field_measured"
     assert run.data[run.field_column].tolist() == [0.012] * 10
+    assert run.column_units["field_measured"] == "T"
+    assert run.column_units["field_calibrated"] == "T"

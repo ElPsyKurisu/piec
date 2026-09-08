@@ -164,8 +164,8 @@ Use the readout conversion appropriate to your configured instrument; the
 measurement does not guess scales, equate units, or perform unit conversions.
 `field_reader_unit` declares the callable's final field units, not volts.
 
-With this option enabled, both `field_calibrated (Oe)` and
-`field_measured (Oe)` are retained in raw data, the last cycle, and the cycle
+With this option enabled, both `field_calibrated` and
+`field_measured` are retained in raw data, the last cycle, and the cycle
 average. `experiment.field_column` and `snapshot.field_column` select the
 measured column. With no field reader they select the calibrated column, and
 there is no measured-field column. Plotting code can use the same expression:
@@ -174,15 +174,16 @@ there is no measured-field column. Plotting code can use the same expression:
 snapshot = experiment.snapshot()
 ax.plot(
     snapshot.last_cycle[snapshot.field_column],
-    snapshot.last_cycle["detector_voltage (V)"],
+    snapshot.last_cycle["detector_voltage"],
 )
-ax.set_xlabel(snapshot.field_column)
+ax.set_xlabel(f"{snapshot.field_column} ({experiment.calibration.field_unit})")
+ax.set_ylabel("detector_voltage (V)")
 ```
 
 This is field readout for plotting, **not closed-loop field control**. Source
 commands and the supplied calibration are unchanged. Each setpoint settles,
-then the detector and field reader are read sequentially. `time (s)` and
-`field_time (s)` record their respective read-completion times; they are not
+then the detector and field reader are read sequentially. `time` and
+`field_time` record their respective read-completion times; they are not
 simultaneous hardware-triggered samples. Sweep direction follows the calibrated
 command sequence, not noisy measured-field differences.
 

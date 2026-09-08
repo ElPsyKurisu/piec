@@ -480,8 +480,16 @@ class MokeMeasurementApp(MeasurementApp):
     def _plot_snapshot(self, snapshot):
         self._last_snapshot = snapshot
         self.ax.clear()
-        x_column = snapshot.field_column
-        y_column = "detector_voltage (V)"
+        x_column = snapshot.field_column or "field_calibrated"
+        y_column = "detector_voltage"
+
+        units = getattr(self.experiment, "column_units", {}) if self.experiment is not None else {}
+        x_unit = units.get(x_column)
+        y_unit = units.get(y_column, "V")
+
+        x_label = f"{x_column} ({x_unit})" if x_unit else (x_column or "field")
+        y_label = f"{y_column} ({y_unit})" if y_unit else y_column
+
         if self.show_raw.get() and not snapshot.raw.empty:
             self.ax.plot(
                 snapshot.raw[x_column], snapshot.raw[y_column],
@@ -498,8 +506,8 @@ class MokeMeasurementApp(MeasurementApp):
                 snapshot.cycle_average[y_column],
                 color="#FFB020", linewidth=3, label="cycle average",
             )
-        self.ax.set_xlabel(x_column or "field")
-        self.ax.set_ylabel(y_column)
+        self.ax.set_xlabel(x_label)
+        self.ax.set_ylabel(y_label)
         self.ax.set_title(f"MOKE loop: {self.geometry_entry.get()}")
         if self.ax.lines:
             self.ax.legend()

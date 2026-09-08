@@ -123,7 +123,7 @@ class MokeMeasurement:
 
     @property
     def output_column(self):
-        return f"source_output ({self.calibration.output_unit})"
+        return "source_output"
 
     @property
     def field_column(self):
@@ -132,11 +132,31 @@ class MokeMeasurement:
 
     @property
     def calibrated_field_column(self):
-        return f"field_calibrated ({self.calibration.field_unit})"
+        return "field_calibrated"
 
     @property
     def measured_field_column(self):
-        return f"field_measured ({self.calibration.field_unit})"
+        return "field_measured"
+
+    @property
+    def column_units(self):
+        units = {
+            "time": "s",
+            "cycle": None,
+            "point": None,
+            "direction": None,
+            "source_output": self.calibration.output_unit,
+            "field_calibrated": self.calibration.field_unit,
+            "detector_voltage": "V",
+        }
+        if self.field_reader is not None:
+            units["field_measured"] = self.calibration.field_unit
+            units["field_time"] = "s"
+        return units
+
+    @property
+    def column_units_json(self):
+        return json.dumps(self.column_units, sort_keys=True, separators=(",", ":"))
 
     def _reset_data(self):
         self.data = pd.DataFrame()
@@ -151,6 +171,9 @@ class MokeMeasurement:
 
     def _update_metadata(self):
         self.metadata = pd.DataFrame([{
+            "measurement_schema": "moke",
+            "measurement_schema_version": 1,
+            "column_units_json": self.column_units_json,
             "mtype": self.mtype, "geometry": self.geometry,
             "sourcemeter": self.sourcemeter.idn(), "dmm": self.dmm.idn(),
             "source_channel": self.source_channel,
@@ -296,14 +319,14 @@ class MokeMeasurement:
                     if not np.isfinite(voltage):
                         raise ValueError("DMM returned a non-finite detector voltage")
                     row = {
-                        "time (s)": time.monotonic() - started,
+                        "time": time.monotonic() - started,
                         "cycle": cycle, "point": point, "direction": directions[point],
                         self.output_column: output, self.calibrated_field_column: fields[point],
-                        "detector_voltage (V)": voltage,
+                        "detector_voltage": voltage,
                     }
                     if self.field_reader is not None:
                         row[self.measured_field_column] = self._read_measured_field()
-                        row["field_time (s)"] = time.monotonic() - started
+                        row["field_time"] = time.monotonic() - started
                     rows.append(row)
                     self.data = pd.DataFrame(rows)
                     self.raw_data = self.data.tail(self.raw_window_points).copy()
@@ -315,7 +338,7 @@ class MokeMeasurement:
                         self.cycle_average = self.last_cycle[
                             ["point", "direction", self.output_column, self.calibrated_field_column]
                         ].reset_index(drop=True)
-                        average_columns = ["detector_voltage (V)"]
+                        average_columns = ["detector_voltage"]
                         if self.field_reader is not None:
                             average_columns.append(self.measured_field_column)
                         for column in average_columns:
