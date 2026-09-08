@@ -14,12 +14,19 @@ import pandas as pd
 import pytest
 
 from tests.fixtures.measurement_compatibility import (
+    assert_family_interface,
     assert_constructor_signature_matches,
     assert_data_columns_match,
+    assert_numerical_data_matches_reference,
     assert_piec_csv_layout,
     assert_public_methods_match,
     assert_public_properties_match,
+    get_family_reference_observations,
+    get_family_target_contract,
     get_manifest_family,
+    get_migrated_families,
+    get_old_to_new_column_mapping,
+    is_family_migrated,
     load_manifest,
     normalize_metadata_for_comparison,
 )
@@ -31,7 +38,7 @@ class TestManifestIntegrity:
     def test_manifest_loads_and_has_version(self):
         manifest = load_manifest()
         assert "schema_version" in manifest
-        assert manifest["schema_version"] == "1.0.0"
+        assert manifest["schema_version"] == "2.0.0"
 
     def test_manifest_records_pinned_baseline_commits(self):
         manifest = load_manifest()
@@ -75,108 +82,94 @@ class TestManifestIntegrity:
             assert key in classifications, f"Missing classification {key!r}"
             assert len(classifications[key]) > 0, f"Classification {key!r} must not be empty"
 
+    def test_manifest_has_migrated_families_list(self):
+        manifest = load_manifest()
+        assert "migrated_families" in manifest
+        assert isinstance(manifest["migrated_families"], list)
+        names = manifest["migrated_families"]
+        assert len(names) == len(set(names))
+        assert set(names) <= set(manifest["families"])
+
+    def test_manifest_has_standardization_principles(self):
+        manifest = load_manifest()
+        assert "standardization_principles" in manifest
+        assert len(manifest["standardization_principles"]) >= 5
+        assert "transitional_policy" in manifest
+
+    def test_all_families_have_separated_reference_and_target_contracts(self):
+        manifest = load_manifest()
+        families = manifest.get("families", {})
+        for name, spec in families.items():
+            assert "reference_observations" in spec, f"Family {name!r} missing reference_observations"
+            assert "target_contract" in spec, f"Family {name!r} missing target_contract"
+            assert "old_to_new_column_mapping" in spec, f"Family {name!r} missing old_to_new_column_mapping"
+
+
+class TestTargetContractSpecifications:
+    """Verify that every family's target_contract satisfies the standardization rules in Section 3 and 7."""
+
+    MEASUREMENT_FAMILIES = [
+        "IVSweep",
+        "DiscreteWaveform",
+        "HysteresisLoop",
+        "ThreePulsePund",
+        "MagnetoTransport",
+        "AMR",
+        "MokeMeasurement",
+    ]
+
+    @pytest.mark.parametrize("family_name", MEASUREMENT_FAMILIES)
+    def test_target_schema_canonical_names_and_version(self, family_name):
+        target = get_family_target_contract(family_name)
+        assert "measurement_schema" in target
+        assert target["measurement_schema"] in {
+            "iv_sweep",
+            "discrete_waveform",
+            "hysteresis",
+            "three_pulse_pund",
+            "amr",
+            "moke",
+        }
+        assert target["measurement_schema_version"] == 1
+
+    @pytest.mark.parametrize("family_name", MEASUREMENT_FAMILIES)
+    def test_target_columns_are_plain_identifiers(self, family_name):
+        target = get_family_target_contract(family_name)
+        assert "ordered_columns" in target
+        for col in target["ordered_columns"]:
+            assert "(" not in col and ")" not in col, f"Column {col!r} contains units"
+            assert "^" not in col and "*" not in col, f"Column {col!r} contains special punctuation"
+            assert " " not in col, f"Column {col!r} contains spaces"
+
+    @pytest.mark.parametrize("family_name", MEASUREMENT_FAMILIES)
+    def test_target_column_units_map_all_ordered_columns(self, family_name):
+        target = get_family_target_contract(family_name)
+        assert "column_units" in target
+        units = target["column_units"]
+        for col in target["ordered_columns"]:
+            assert col in units, f"Column {col!r} missing from column_units in {family_name}"
+            assert units[col] is None or isinstance(units[col], str), (
+                f"Unit for {col!r} in {family_name} must be a string or None"
+            )
+
+    @pytest.mark.parametrize("family_name", MEASUREMENT_FAMILIES)
+    def test_old_to_new_column_mappings_are_valid(self, family_name):
+        mapping = get_old_to_new_column_mapping(family_name)
+        target = get_family_target_contract(family_name)
+        all_target_cols = set(target["ordered_columns"]) | set(target.get("optional_columns", []))
+        for old_col, new_col in mapping.items():
+            assert new_col in all_target_cols, (
+                f"Mapped target column {new_col!r} in {family_name} is not in target columns {all_target_cols}"
+            )
+
 
 class TestLiveCodeMatchesManifest:
-    """Characterize and assert that the current production code exactly matches the manifest."""
-
-    @pytest.mark.parametrize(
-        "family_name",
-        [
-            "IVSweep",
-            "DiscreteWaveform",
-            "HysteresisLoop",
-            "ThreePulsePund",
-            "MagnetoTransport",
-            "AMR",
-            "MokeMeasurement",
-            "MokeSnapshot",
-        ],
-    )
-    def test_family_can_be_imported(self, family_name):
-        spec = get_manifest_family(family_name)
-        module = importlib.import_module(spec["module"])
-        assert hasattr(module, spec["class_name"]), (
-            f"Module {spec['module']} has no attribute {spec['class_name']}"
-        )
-
-    @pytest.mark.parametrize(
-        "family_name",
-        [
-            "IVSweep",
-            "DiscreteWaveform",
-            "HysteresisLoop",
-            "ThreePulsePund",
-            "MagnetoTransport",
-            "AMR",
-            "MokeMeasurement",
-            "MokeSnapshot",
-        ],
-    )
-    def test_constructor_signature_matches_manifest(self, family_name):
+    @pytest.mark.parametrize("family_name", list(load_manifest()["families"]))
+    def test_live_interface_uses_migration_status(self, family_name):
         spec = get_manifest_family(family_name)
         module = importlib.import_module(spec["module"])
         cls = getattr(module, spec["class_name"])
-        assert_constructor_signature_matches(cls, spec["constructor"]["parameters"])
-
-    @pytest.mark.parametrize(
-        "family_name",
-        [
-            "IVSweep",
-            "DiscreteWaveform",
-            "HysteresisLoop",
-            "ThreePulsePund",
-            "MagnetoTransport",
-            "AMR",
-            "MokeMeasurement",
-        ],
-    )
-    def test_public_methods_match_manifest(self, family_name):
-        spec = get_manifest_family(family_name)
-        module = importlib.import_module(spec["module"])
-        cls = getattr(module, spec["class_name"])
-        assert_public_methods_match(
-            cls, spec["public_methods"],
-            allowed_keyword_only={
-                "run_experiment": {"on_update": None, "save": True, "save_partial": None},
-            },
-        )
-
-    @pytest.mark.parametrize(
-        "family_name",
-        [
-            "IVSweep",
-            "DiscreteWaveform",
-            "HysteresisLoop",
-            "ThreePulsePund",
-            "MagnetoTransport",
-            "AMR",
-            "MokeMeasurement",
-        ],
-    )
-    def test_public_properties_match_manifest(self, family_name):
-        spec = get_manifest_family(family_name)
-        module = importlib.import_module(spec["module"])
-        cls = getattr(module, spec["class_name"])
-        assert_public_properties_match(cls, spec.get("properties", []))
-
-    def test_amr_module_reexports(self):
-        manifest = load_manifest()
-        reexports = manifest["module_reexports"]["piec.measurement.amr"]
-        mod = importlib.import_module("piec.measurement.amr")
-
-        assert hasattr(mod, "__all__"), "piec.measurement.amr must define __all__"
-        assert set(mod.__all__) == set(reexports["exported_names"]), (
-            f"Exported names mismatch in piec.measurement.amr: {mod.__all__} != {reexports['exported_names']}"
-        )
-        for name in reexports["exported_names"]:
-            assert hasattr(mod, name), f"piec.measurement.amr is missing re-export: {name!r}"
-
-    def test_moke_snapshot_dataclass(self):
-        spec = get_manifest_family("MokeSnapshot")
-        from piec.measurement.moke import MokeSnapshot
-
-        fields = [f.name for f in inspect.signature(MokeSnapshot).parameters.values()]
-        assert fields == spec["fields"]
+        assert_family_interface(cls, family_name)
 
 
 class TestHarnessUtilities:
@@ -224,7 +217,7 @@ class TestHarnessUtilities:
     def test_moke_filename_grammar_matches_legacy_helper(self, tmp_path):
         from piec.analysis.utilities import create_measurement_filename
 
-        spec = get_manifest_family("MokeMeasurement")
+        spec = get_family_reference_observations("MokeMeasurement")
         actual = Path(create_measurement_filename(str(tmp_path), spec["mtype"]))
         assert actual.name == spec["filename_grammar"].format(index=0, mtype=spec["mtype"])
         assert actual.name == "0_moke_.csv"
@@ -278,3 +271,40 @@ class TestHarnessUtilities:
         assert "timestamp" not in norm
         assert "filename" not in norm
         assert "sourcemeter" not in norm
+
+    def test_harness_query_helpers(self):
+        contract = get_family_target_contract("IVSweep")
+        assert contract["measurement_schema"] == "iv_sweep"
+
+        obs = get_family_reference_observations("IVSweep")
+        assert "constructor" in obs
+
+        mapping = get_old_to_new_column_mapping("IVSweep")
+        assert mapping == {"voltage (V)": "voltage", "current (A)": "current"}
+
+        assert get_migrated_families() == load_manifest()["migrated_families"]
+        assert is_family_migrated("IVSweep") == ("IVSweep" in get_migrated_families())
+
+    def test_assert_numerical_data_matches_reference_success(self):
+        ref_df = pd.DataFrame({"voltage (V)": [0.0, 0.5, 1.0], "current (A)": [0.0, 0.01, 0.02]})
+        act_df = pd.DataFrame({"voltage": [0.0, 0.5, 1.0], "current": [0.0, 0.01, 0.02]})
+        # Cross-schema comparison using old_to_new_column_mapping
+        assert_numerical_data_matches_reference(act_df, ref_df, "IVSweep")
+
+    def test_assert_numerical_data_matches_reference_detects_mismatch(self):
+        ref_df = pd.DataFrame({"voltage (V)": [0.0, 0.5, 1.0], "current (A)": [0.0, 0.01, 0.02]})
+        act_df = pd.DataFrame({"voltage": [0.0, 0.5, 1.0], "current": [0.0, 0.01, 0.99]})
+        with pytest.raises(AssertionError, match="Numerical mismatch"):
+            assert_numerical_data_matches_reference(act_df, ref_df, "IVSweep")
+
+    def test_assert_numerical_data_matches_reference_detects_row_count_mismatch(self):
+        ref_df = pd.DataFrame({"voltage (V)": [0.0, 0.5], "current (A)": [0.0, 0.01]})
+        act_df = pd.DataFrame({"voltage": [0.0, 0.5, 1.0], "current": [0.0, 0.01, 0.02]})
+        with pytest.raises(AssertionError, match="Row count mismatch"):
+            assert_numerical_data_matches_reference(act_df, ref_df, "IVSweep")
+
+    def test_assert_numerical_data_matches_reference_detects_missing_columns(self):
+        ref_df = pd.DataFrame({"other_col": [1, 2]})
+        act_df = pd.DataFrame({"another_col": [1, 2]})
+        with pytest.raises(AssertionError, match="Missing actual column"):
+            assert_numerical_data_matches_reference(act_df, ref_df, "IVSweep")

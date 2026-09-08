@@ -34,11 +34,13 @@ Suggested implementation prompt:
 | Plan review | Approved | Source review confirmed baseline commits `9d9760242f44a79401626964f0122cc91b149c18` and `d1bac1ccf37e6578586336278c1ea36cf39b4722` exist. Human review confirmed no unresolved contradictory requirements. Baseline test suite verified: 276 passed in 30.21s (`.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider` on Python 3.13.2). |
 | 1 | Completed | Contract finalized and approved. Commit `1e49f43`. |
 | 2a | Completed | Added compatibility manifest and harness. Commit `69548ab`. |
-| 2R | Reviewed implementation awaiting its separate test commit | Reference/target separation, migration-aware interface checks and strict scientific comparison are implemented. Isolated staged tree: 375 passed in 27.12s; full working tree including pending MOKE/2b work: 390 passed in 26.82s on Python 3.13.2. No production measurement changes belong in the 2R commit; CI Python 3.9/3.11 remains unverified locally. |
+| 2R | Complete | Reference/target separation, migration-aware interface checks and strict scientific comparison are implemented. Isolated staged tree: 375 passed in 27.12s; full working tree including pending MOKE/2b work: 390 passed in 26.82s on Python 3.13.2. No production measurement changes belong in the 2R commit; CI Python 3.9/3.11 remains unverified locally. |
 | 2b | Next; uncommitted | Reconcile IV/MOKE deterministic scientific fixtures against the revised manifest and numerical matching helpers. |
 
 | M1 | Cancelled by all-family standardization | Schema, API and consumer changes now belong in each family slice (13, 14, 20, 24), not a separate MOKE exception. |
 | 2c onward | Not started | After 2R and reconciled 2b, continue FE/PUND and AMR reference fixtures, then engine and family slices. |
+
+2R handoff: `assert_family_interface` selects reference or target structural checks using `migrated_families`; mark a family migrated only with its own execution/schema/safety tests. `assert_numerical_data_matches_reference` requires all expected columns (use `view="raw"` for raw FE), accepts reference or target names, and compares waveform time including negative pre-trigger values. Only MOKE's manifest-declared elapsed clocks may vary. `assert_golden_csv_matches` compares time by default; MOKE callers explicitly pass `time_columns=("time", "field_time")` for elapsed clocks. Keep waveform timing numerical. The uncommitted 2b MOKE golden calls have been adjusted to this explicit policy.
 
 This document is the implementation contract for standardizing PIEC measurements. If a later implementation choice conflicts with this plan, the implementation must stop and the plan must be amended in a separate documentation commit before code continues.
 

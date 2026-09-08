@@ -29,6 +29,37 @@ def get_manifest_family(family_name: str) -> dict[str, Any]:
     return families[family_name]
 
 
+def get_family_reference_observations(family_name: str) -> dict[str, Any]:
+    """Retrieve reference observations for a family from the manifest."""
+    spec = get_manifest_family(family_name)
+    return spec.get("reference_observations", spec)
+
+
+def get_family_target_contract(family_name: str) -> dict[str, Any]:
+    """Retrieve target contract specifications for a family from the manifest."""
+    spec = get_manifest_family(family_name)
+    if "target_contract" not in spec:
+        raise KeyError(f"Family {family_name!r} does not have a target_contract in manifest")
+    return spec["target_contract"]
+
+
+def get_old_to_new_column_mapping(family_name: str) -> dict[str, str]:
+    """Retrieve the explicit old-to-new column mapping for a family."""
+    spec = get_manifest_family(family_name)
+    return spec.get("old_to_new_column_mapping", {})
+
+
+def get_migrated_families() -> list[str]:
+    """Retrieve the list of families that have completed their vertical slice migration."""
+    manifest = load_manifest()
+    return manifest.get("migrated_families", [])
+
+
+def is_family_migrated(family_name: str) -> bool:
+    """Return True if the specified family has completed vertical slice migration."""
+    return family_name in get_migrated_families()
+
+
 def _assert_parameters_match(
     target: str,
     actual_params: Sequence[inspect.Parameter],
@@ -172,3 +203,192 @@ def normalize_metadata_for_comparison(
 
     row = metadata_df.iloc[0].to_dict()
     return {k: v for k, v in row.items() if k not in exclude}
+
+
+def assert_golden_csv_matches(
+    actual_path: str | Path,
+    golden_path: str | Path,
+    *,
+    volatile_metadata_keys: Sequence[str] | None = None,
+    time_columns: Sequence[str] = (),
+    float_tolerance: float = 1e-5,
+    time_tolerance: float = 1e-12,
+) -> None:
+    """
+    Assert that an actual measurement CSV file matches a reference golden CSV.
+
+    Verifies:
+    1. Both files strictly follow PIEC 1-row metadata, blank separator, data table format.
+    2. Non-volatile metadata parameters match exactly (or parse equivalent JSON where applicable).
+    3. Data columns and ordering match exactly.
+    4. Data values, including waveform time, match within numerical tolerance.
+    5. Explicitly opted-in elapsed-clock columns are finite, non-negative and monotonic.
+    """
+    import numpy as np
+
+    act_meta, act_data = assert_piec_csv_layout(actual_path)
+    gold_meta, gold_data = assert_piec_csv_layout(golden_path)
+
+    # 1. Compare normalized metadata
+    default_volatile = {
+        "timestamp", "run_id", "filename", "save_dir", "sourcemeter", "dmm",
+        "lockin", "arduino", "calibrator", "osc", "awg",
+    }
+    volatile = default_volatile | set(volatile_metadata_keys or [])
+
+    act_norm = {k: v for k, v in act_meta.iloc[0].to_dict().items() if k not in volatile}
+    gold_norm = {k: v for k, v in gold_meta.iloc[0].to_dict().items() if k not in volatile}
+
+    assert set(act_norm.keys()) == set(gold_norm.keys()), (
+        f"Metadata keys mismatch:\n"
+        f"  Actual:   {sorted(act_norm.keys())}\n"
+        f"  Golden:   {sorted(gold_norm.keys())}"
+    )
+
+    for k in gold_norm:
+        act_v = act_norm[k]
+        gold_v = gold_norm[k]
+        if pd.isna(act_v) and pd.isna(gold_v):
+            continue
+        # Check if string is JSON
+        if isinstance(gold_v, str) and (gold_v.startswith("{") or gold_v.startswith("[")):
+            try:
+                assert json.loads(act_v) == json.loads(gold_v), f"Metadata JSON mismatch on {k}: {act_v} != {gold_v}"
+                continue
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if isinstance(gold_v, float):
+            assert abs(float(act_v) - float(gold_v)) <= float_tolerance, (
+                f"Metadata float mismatch on {k}: {act_v} != {gold_v}"
+            )
+        else:
+            assert str(act_v) == str(gold_v), f"Metadata value mismatch on {k}: {act_v!r} != {gold_v!r}"
+
+    # 2. Compare data columns and ordering
+    assert_data_columns_match(act_data, list(gold_data.columns), exact_order=True)
+    assert len(act_data) == len(gold_data), f"Data row count mismatch: {len(act_data)} != {len(gold_data)}"
+
+    # 3. Compare data values
+    for col in gold_data.columns:
+        if col in time_columns:
+            times = act_data[col].to_numpy(dtype=float)
+            assert np.all(np.isfinite(times)), f"Non-finite values found in {col}"
+            assert np.all(times >= 0.0), f"Negative values found in {col}"
+            if len(times) > 1:
+                assert np.all(np.diff(times) >= -1e-9), f"Time values in {col} must be monotonically non-decreasing"
+        else:
+            act_vals = act_data[col].to_numpy()
+            gold_vals = gold_data[col].to_numpy()
+            if np.issubdtype(gold_vals.dtype, np.number):
+                atol = time_tolerance if col in ("time", "time (s)", "field_time", "field_time (s)") else float_tolerance
+                assert np.allclose(act_vals.astype(float), gold_vals.astype(float), atol=atol, rtol=1e-7), (
+                    f"Data mismatch in column {col!r}:\n"
+                    f"  Actual: {act_vals}\n"
+                    f"  Golden: {gold_vals}"
+                )
+            else:
+                assert (act_vals == gold_vals).all(), f"Data mismatch in column {col!r}: {act_vals} != {gold_vals}"
+
+
+def assert_numerical_data_matches_reference(
+    actual_data: pd.DataFrame,
+    reference_data: pd.DataFrame,
+    family_name: str,
+    *,
+    float_tolerance: float = 1e-5,
+    relative_tolerance: float = 1e-7,
+    view: str = "processed",
+    time_tolerance: float = 1e-12,
+) -> None:
+    """Compare every required column, resolving reference/target names explicitly.
+
+    Raw FE views must select view='raw'. Optional columns must appear on both
+    sides or neither. Only manifest-declared elapsed clocks may vary; waveform
+    times are compared numerically, including valid negative pre-trigger times.
+    """
+    import re
+    import numpy as np
+
+    assert actual_data.columns.is_unique and reference_data.columns.is_unique, "Duplicate columns"
+    assert len(actual_data) == len(reference_data), "Row count mismatch"
+    assert view in ("raw", "processed"), "Unknown comparison view"
+    spec = get_manifest_family(family_name)
+    target = spec["target_contract"]
+    required = target.get("raw_columns", target["ordered_columns"]) if view == "raw" else target["ordered_columns"]
+    optional = target.get("optional_columns", [])
+    mapping = spec["old_to_new_column_mapping"]
+    elapsed = set(spec.get("reference_time_policy", {}).get("elapsed_columns", []))
+
+    def resolve(frame, column):
+        patterns = [column] + [old for old, new in mapping.items() if new == column]
+        matches = set()
+        for pattern in patterns:
+            # Unit placeholders match a single explicit header, never silently
+            # choose between two differently-unit-labelled columns.
+            regex = re.escape(pattern)
+            regex = re.sub(r"\\\{[a-z_]+\\\}", r"[^()]+", regex)
+            matches.update(c for c in frame.columns if re.fullmatch(regex, c))
+        assert len(matches) <= 1, f"Ambiguous columns for {column}: {matches}"
+        return next(iter(matches), None)
+
+    for column in list(required) + list(optional):
+        act_col = resolve(actual_data, column)
+        ref_col = resolve(reference_data, column)
+        if column in optional and act_col is None and ref_col is None:
+            continue
+        assert act_col is not None, f"Missing actual column: {column}"
+        assert ref_col is not None, f"Missing reference column: {column}"
+        actual = actual_data[act_col].to_numpy()
+        reference = reference_data[ref_col].to_numpy()
+        if column in elapsed:
+            for values in (actual, reference):
+                clock = values.astype(float)
+                assert np.isfinite(clock).all(), f"Non-finite elapsed time: {column}"
+                assert (clock >= 0).all(), f"Negative elapsed time: {column}"
+                assert (np.diff(clock) >= 0).all(), f"Non-monotonic elapsed time: {column}"
+        elif pd.api.types.is_numeric_dtype(actual.dtype) or pd.api.types.is_numeric_dtype(reference.dtype):
+            atol = time_tolerance if column in ("time", "field_time") else float_tolerance
+            assert np.allclose(actual.astype(float), reference.astype(float),
+                               atol=atol, rtol=relative_tolerance), (
+                f"Numerical mismatch in {family_name}: {ref_col} -> {act_col}"
+            )
+        else:
+            assert (actual == reference).all(), f"Value mismatch in {column}"
+
+
+def assert_family_interface(cls: type, family_name: str) -> None:
+    """Select baseline observations or the new interface using migration status.
+
+    This checks structural API obligations only. A migrated family's own tests
+    must also execute fake-instrument runs to check DataFrame returns, schemas,
+    constructor I/O and lifecycle safety.
+    """
+    if not is_family_migrated(family_name):
+        ref = get_family_reference_observations(family_name)
+        assert_constructor_signature_matches(cls, ref["constructor"]["parameters"])
+        assert_public_methods_match(cls, ref["public_methods"], allowed_keyword_only={
+            "run_experiment": {"on_update": None, "save": True, "save_partial": None},
+        })
+        assert_public_properties_match(cls, ref.get("properties", []))
+        return
+
+    target = get_family_target_contract(family_name)
+    if target.get("contract_name") == "snapshot":
+        fields = set(getattr(cls, "__dataclass_fields__", {}))
+        fields.update(getattr(cls, "__annotations__", {}))
+        for name in target["common_fields"]:
+            assert name in fields or hasattr(cls, name), f"Missing snapshot field: {name}"
+        return
+
+    assert_public_methods_match(cls, target["method_signatures"])
+    dependencies = set(target["positional_dependencies"])
+    for param in inspect.signature(cls.__init__).parameters.values():
+        if param.name == "self":
+            continue
+        assert param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD), (
+            "Target constructors must expose explicit parameters"
+        )
+        assert param.name not in ("arduino", "voltage_callibration"), "Obsolete constructor spelling"
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY or param.name in dependencies, (
+            f"Measurement setting must be keyword-only: {param.name}"
+        )
