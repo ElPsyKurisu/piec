@@ -41,8 +41,9 @@ Suggested implementation prompt:
 
 | M1 | Cancelled by all-family standardization | Schema, API and consumer changes now belong in each family slice (13, 14, 20, 24), not a separate MOKE exception. |
 | 3 | Completed | Repaired Awg.output_trigger indentation in piec.drivers.awg.awg so it is a class method rather than an inner function of configure_trigger. Added focused contract tests in tests/test_awg_contract.py verifying class method status, signature, absence of inner function in configure_trigger, and implementation across all concrete AWG drivers (VirtualAwg, Keysight81150a, SDG2000X). All 446 tests pass, 2 xfailed in 24.34s on Python 3.13.2. |
-| 4 | Next; not started | AWG trigger_source conditional repair. |
-| 5 onward | Not started | Continue driver prerequisites, engine, and family slices. |
+| 4 | Completed | Repaired inverted trigger_source condition (changed from if trigger_source is None: to if trigger_source is not None:) in Awg.configure_trigger and Keysight81150a.configure_trigger; normalized case handling in SDG2000X trigger methods. Added 11 focused contract tests in tests/test_awg_contract.py verifying configure_trigger conditional behavior across base and concrete drivers, manual-trigger support audit, and all-channel output safing. All 457 tests pass, 2 xfailed in 33.57s on Python 3.13.2. |
+| 5 | Next; not started | VirtualSourcemeter channel contract alignment. |
+| 6 onward | Not started | Continue driver prerequisites, engine, and family slices. |
 
 
 2R handoff: `assert_family_interface` selects reference or target structural checks using `migrated_families`; mark a family migrated only with its own execution/schema/safety tests. `assert_numerical_data_matches_reference` requires all expected columns (use `view="raw"` for raw FE), accepts reference or target names, and compares waveform time including negative pre-trigger values. Only MOKE's manifest-declared elapsed clocks may vary. `assert_golden_csv_matches` compares time by default; MOKE callers explicitly pass `time_columns=("time", "field_time")` for elapsed clocks. Keep waveform timing numerical. The uncommitted 2b MOKE golden calls have been adjusted to this explicit policy.
