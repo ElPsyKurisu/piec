@@ -44,6 +44,7 @@ Suggested implementation prompt:
 | 4 | Completed | Repaired inverted trigger_source condition in Awg.configure_trigger and Keysight81150a.configure_trigger; normalized case handling in SDG2000X trigger methods. Added focused contract tests in tests/test_awg_contract.py. Commit `48414d0`. |
 | 4 follow-up | Completed | Comprehensive inventory and audit of all concrete AWG drivers and adapters (VirtualAwg, Keysight81150a, SDG2000X, Agilent33220A, Agilent33500, RigolDG1000, RigolDG4000, DaqAsAwg). Distinguished implemented trigger behavior from inherited empty stubs; explicitly documented unsupported capabilities in driver docstrings and Section 9.3 audit table; verified supported drivers via command/effect assertions and empty stubs via no-op assertions (32 tests in tests/test_awg_contract.py). |
 | 5 | Next; not started | VirtualSourcemeter channel contract alignment. |
+| 4 audit correction | Completed | Distinguished Python implementation gaps from manufacturer-documented hardware trigger support; removed unverified trigger-count and protocol-limit claims; inventory test discovers AWG/emulator classes instead of checking a fixed count. No driver operating code changed. Focused: 32 passed; full suite: 468 passed, 2 xfailed in 25.13s. Checkpoint 5 remains next. |
 | 6 onward | Not started | Continue driver prerequisites, engine, and family slices. |
 
 
@@ -470,16 +471,35 @@ Then audit concrete AWGs for real manual-trigger support. Manual triggering is r
 
 #### 9.3.1 Concrete AWG and Adapter Trigger Audit Inventory
 
+This inventory describes current Python implementations, not the absence of features
+in hardware. Empty setters are current observations, not a desired permanent contract;
+update their characterization tests when implementing a driver. Mock command assertions
+verify emitted commands, not physical operation or every synchronization mode.
+Manual/software initiation of a waveform and a physical trigger-output connector are
+distinct capabilities and require separate verification.
+
+Manufacturer evidence: the [33220A User's Guide](https://www.keysight.com/no/en/assets/9018-04437/user-manuals/9018-04437.pdf)
+describes internal, external, front-panel and software/bus triggers for sweep/burst;
+the [33500 Series User's Guide](https://www.keysight.com/us/en/assets/9018-03290/user-manuals/9018-03290.pdf)
+describes external and manual sweep/burst triggering;
+the [DG1000 User's Guide](https://eu.rigol.com/eu/Images/DG1000_UserGuide_EN_tcm30-2774.pdf)
+and [DG4000 User's Guide](https://www.rigol.com/dam/global/downloads/brochures/en/user-manual/waveform-generators/DG4000_UserGuide_EN.pdf)
+describe external/manual triggering. These establish hardware capabilities, not mappings
+for every generic setter. Implement any missing driver support in a separate reviewed
+checkpoint using the exact model's programming documentation and command tests.
+For SDG2000X adjustable external trigger threshold support, this audit makes no hardware
+claim. For DaqAsAwg, capabilities depend on the underlying DAQ and remain unexposed here.
+
 | Class | Type | Module | Trigger Support Status | `output_trigger` Behavior | Trigger Configuration (`set_trigger_*`) | Documented Unsupported Capabilities |
 |---|---|---|---|---|---|---|
-| `VirtualAwg` | Concrete Driver | `piec.drivers.awg.virtual_awg` | Fully Supported | Executes SCPI `:TRIG`, updates sample simulation state (`prep_points=20`, `output_voltage`, `t`), tracks trigger count | Implements source, level, slope, mode tracking in internal state dictionary | None; fully supported virtual device |
-| `Keysight81150a` | Concrete Driver | `piec.drivers.awg.k_81150a` | Fully Supported | Writes SCPI `:TRIG` command to instrument | Implements `:ARM:SOUR{ch} {source}`, `:ARM:LEV {level}`, `:ARM:SLOP {slope}`, `:ARM:SENS{ch} {mode}` | None; standard SCPI ARM subsystem fully implemented |
-| `SDG2000X` | Concrete Driver | `piec.drivers.awg.sdg2000` | Partially Supported | Writes `C1:BTWV MTRIG` command to instrument | Implements `C{ch}:BTWV TRSR,{source}`, `EDGE,{slope}`, `GATE_NCYC,{mode}` | `set_trigger_level`: unsupported by SDG2000X SCPI BTWV subsystem (inherited empty stub from `Awg`) |
-| `Agilent33220A` | Concrete Driver | `piec.drivers.awg.agilent_33220a` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
-| `Agilent33500` | Concrete Driver | `piec.drivers.awg.agilent_33500` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
-| `RigolDG1000` | Concrete Driver | `piec.drivers.awg.rigol_dg1000` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
-| `RigolDG4000` | Concrete Driver | `piec.drivers.awg.rigol_dg4000` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
-| `DaqAsAwg` | Adapter | `piec.drivers.emulators.daq_to_awg` | Unsupported | Inherited empty stub from `Awg` (no action sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | DAQ-based AWG emulation currently lacks digital trigger output / hardware trigger synchronization |
+| `VirtualAwg` | Concrete Driver | `piec.drivers.awg.virtual_awg` | Implemented in software | Executes SCPI `:TRIG`, updates sample simulation state (`prep_points=20`, `output_voltage`, `t`) | Implements source, level, slope, mode tracking in internal state dictionary | Simulation tested; does not establish physical trigger behavior |
+| `Keysight81150a` | Concrete Driver | `piec.drivers.awg.k_81150a` | Implemented in software | Writes SCPI `:TRIG` command to instrument | Implements `:ARM:SOUR{ch} {source}`, `:ARM:LEV {level}`, `:ARM:SLOP {slope}`, `:ARM:SENS{ch} {mode}` | Listed command emissions tested; physical operation remains unverified |
+| `SDG2000X` | Concrete Driver | `piec.drivers.awg.sdg2000` | Partially implemented in software | Writes `C1:BTWV MTRIG` command to instrument | Implements `C{ch}:BTWV TRSR,{source}`, `EDGE,{slope}`, `GATE_NCYC,{mode}` | `set_trigger_level`: unimplemented in this driver; hardware/protocol threshold support remains unverified |
+| `Agilent33220A` | Concrete Driver | `piec.drivers.awg.agilent_33220a` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
+| `Agilent33500` | Concrete Driver | `piec.drivers.awg.agilent_33500` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
+| `RigolDG1000` | Concrete Driver | `piec.drivers.awg.rigol_dg1000` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
+| `RigolDG4000` | Concrete Driver | `piec.drivers.awg.rigol_dg4000` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
+| `DaqAsAwg` | Adapter | `piec.drivers.emulators.daq_to_awg` | Unimplemented in software | Inherited empty stub from `Awg` (no action sent) | Inherited empty setters; `configure_trigger` delegates to them | Adapter implementation gap; underlying hardware capabilities depend on the DAQ model |
 
 
 ### 9.4 Oscilloscope
