@@ -66,7 +66,7 @@ class IVSweep:
             voltage=self.v_start,
             current_compliance=self.current_compliance
         )
-        self.sourcemeter.set_sense_mode(self.sense_mode)
+        self.sourcemeter.set_sense_mode(sense_mode=self.sense_mode)
 
     def sweep(self):
         """
@@ -82,7 +82,7 @@ class IVSweep:
         self.sourcemeter.output(on=True)
 
         for i, v in enumerate(voltages):
-            self.sourcemeter.set_source_voltage(v)
+            self.sourcemeter.set_source_voltage(voltage=v)
             time.sleep(self.dwell_time)
             measured_v = self.sourcemeter.get_voltage()
             measured_i = self.sourcemeter.get_current()

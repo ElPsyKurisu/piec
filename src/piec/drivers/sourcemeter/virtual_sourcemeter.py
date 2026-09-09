@@ -2,14 +2,13 @@
 
 from ..virtual_instrument import VirtualInstrument
 from .sourcemeter import Sourcemeter
-from ..scpi import Scpi
 
 
-class VirtualSourcemeter(VirtualInstrument, Scpi, Sourcemeter):
+class VirtualSourcemeter(VirtualInstrument, Sourcemeter):
     """
     Virtual source-and-measure instrument for testing without hardware.
 
-    Measurements simply return whatever values were configured.
+    Measurements are produced by the shared external virtual sample.
     """
 
     channel = [1]
@@ -91,8 +90,7 @@ class VirtualSourcemeter(VirtualInstrument, Scpi, Sourcemeter):
         elif cmd == '*OPC?':
             return '1'
         elif ':READ?' in cmd:
-            v = self.state['source_voltage']
-            i = self.state['source_current']
+            v, i = self._measured_voltage_current()
             r = v / i if i != 0 else float('inf')
             return f"{v:.6E},{i:.6E},{r:.6E},0.000000E+00,0"
         elif ':SOUR:VOLT:LEV?' in cmd:
@@ -119,68 +117,124 @@ class VirtualSourcemeter(VirtualInstrument, Scpi, Sourcemeter):
 
     # Core Instrument State Control
 
-    def output(self, on=True):
+    def output(self, channel=1, on=True):
         self.state['output_on'] = on
 
-    def set_source_function(self, source_func):
+    def set_source_function(self, channel=1, source_func=None):
+        if source_func is None:
+            raise ValueError("source_func must be provided")
         self.state['source_func'] = source_func.upper()
 
-    def set_sense_function(self, sense_func):
+    def set_sense_function(self, channel=1, sense_func=None):
+        if sense_func is None:
+            raise ValueError("sense_func must be provided")
         self.state['sense_func'] = sense_func.upper()
 
-    def set_sense_mode(self, sense_mode):
+    def set_sense_mode(self, channel=1, sense_mode=None):
+        if sense_mode is None:
+            raise ValueError("sense_mode must be provided")
         self.state['sense_mode'] = sense_mode.upper()
 
     # Source Configuration
 
-    def set_source_voltage(self, voltage):
+    def set_source_voltage(self, channel=1, voltage=None):
+        if voltage is None:
+            raise ValueError("voltage must be provided")
         self.state['source_voltage'] = self._clamp(voltage, *self.voltage)
 
-    def set_source_current(self, current):
+    def set_source_current(self, channel=1, current=None):
+        if current is None:
+            raise ValueError("current must be provided")
         self.state['source_current'] = self._clamp(current, *self.current)
 
-    def set_voltage_compliance(self, voltage_compliance):
+    def set_voltage_compliance(self, channel=1, voltage_compliance=None):
+        if voltage_compliance is None:
+            raise ValueError("voltage_compliance must be provided")
         self.state['voltage_compliance'] = voltage_compliance
 
-    def set_current_compliance(self, current_compliance):
+    def set_current_compliance(self, channel=1, current_compliance=None):
+        if current_compliance is None:
+            raise ValueError("current_compliance must be provided")
         self.state['current_compliance'] = current_compliance
 
     # Convenience Configuration
 
-    def configure_voltage_source(self, voltage, current_compliance):
-        self.set_source_function('VOLT')
-        self.set_source_voltage(voltage)
-        self.set_current_compliance(current_compliance)
+    def configure_voltage_source(self, channel=1, voltage=0.0, current_compliance=1.05):
+        self.set_source_function(channel=channel, source_func='VOLT')
+        self.set_source_voltage(channel=channel, voltage=voltage)
+        self.set_current_compliance(
+            channel=channel,
+            current_compliance=current_compliance,
+        )
 
-    def configure_current_source(self, current, voltage_compliance):
-        self.set_source_function('CURR')
-        self.set_source_current(current)
-        self.set_voltage_compliance(voltage_compliance)
+    def configure_current_source(self, channel=1, current=0.0, voltage_compliance=210):
+        self.set_source_function(channel=channel, source_func='CURR')
+        self.set_source_current(channel=channel, current=current)
+        self.set_voltage_compliance(
+            channel=channel,
+            voltage_compliance=voltage_compliance,
+        )
 
-    # Measurement Methods (just return set values)
+    # Generic instrument status methods
 
-    def quick_read(self):
+    def error(self):
+        return '0'
+
+    def wait(self):
+        return None
+
+    def self_test(self):
+        return '0'
+
+    def operation_complete(self):
+        return '1'
+
+    # Measurement Methods
+
+    def _measured_voltage_current(self):
+        """Return the response of the shared external virtual sample."""
+        if self.state['source_func'] == 'CURR':
+            current = self.state['source_current']
+            voltage, _ = self.sample.current_response(current, 0.0)
+            voltage = self._clamp(
+                float(voltage),
+                -self.state['voltage_compliance'],
+                self.state['voltage_compliance'],
+            )
+        else:
+            voltage = self.state['source_voltage']
+            current, _ = self.sample.voltage_response(voltage, 0.0)
+            current = self._clamp(
+                float(current),
+                -self.state['current_compliance'],
+                self.state['current_compliance'],
+            )
+        return voltage, current
+
+    def quick_read(self, channel=1):
         sense = self.state['sense_func']
+        voltage, current = self._measured_voltage_current()
         if sense == 'VOLT':
-            return self.state['source_voltage']
+            return voltage
         elif sense == 'CURR':
-            return self.state['source_current']
+            return current
         elif sense == 'RES':
-            v, i = self.state['source_voltage'], self.state['source_current']
-            return v / i if i != 0 else float('inf')
-        return self.state['source_voltage']
+            return voltage / current if current != 0 else float('inf')
+        return voltage
 
-    def get_voltage(self):
+    def get_voltage(self, channel=1):
         self.state['sense_func'] = 'VOLT'
-        return self.state['source_voltage']
+        voltage, _ = self._measured_voltage_current()
+        return voltage
 
-    def get_current(self):
+    def get_current(self, channel=1):
         self.state['sense_func'] = 'CURR'
-        return self.state['source_current']
+        _, current = self._measured_voltage_current()
+        return current
 
-    def get_resistance(self):
+    def get_resistance(self, channel=1):
         self.state['sense_func'] = 'RES'
-        v, i = self.state['source_voltage'], self.state['source_current']
+        v, i = self._measured_voltage_current()
         return v / i if i != 0 else float('inf')
 
     def reset(self):

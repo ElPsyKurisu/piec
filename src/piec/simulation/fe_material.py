@@ -19,7 +19,12 @@ class Material:
         self.name = "pass_through"
 
     def voltage_response(self, v, t):
+        """Return the response to an applied voltage and its time coordinate."""
         return v, t
+
+    def current_response(self, i, t):
+        """Return the response to an applied current and its time coordinate."""
+        return i, t
 
 
 class Resistor(Material):
@@ -28,7 +33,12 @@ class Resistor(Material):
         self.name = "resistor"
 
     def voltage_response(self, v, t):
+        """Return current produced by an applied voltage."""
         return v / self.resistance, t
+
+    def current_response(self, i, t):
+        """Return voltage produced by an applied current."""
+        return i * self.resistance, t
 
 
 class Dielectric(Material):

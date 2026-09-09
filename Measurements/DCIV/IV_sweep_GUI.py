@@ -4,11 +4,79 @@ ctypes.windll.shcore.SetProcessDpiAwareness(2)
 import tkinter as tk
 from tkinter import ttk
 import numpy as np
+import threading
+import time
+import pandas as pd
 from piec.drivers.sourcemeter.keithley2400 import Keithley2400
 from piec.drivers.sourcemeter.virtual_sourcemeter import VirtualSourcemeter
 from piec.measurement.iv_sweep import IVSweep
-from piec.analysis.utilities import standard_csv_to_metadata_and_data
 from piec.measurement.gui_utils import MeasurementApp
+from piec.simulation.fe_material import Resistor
+
+
+class _LiveIVSweep(IVSweep):
+    """IVSweep subclass that tracks data live for GUI updates.
+
+    Uses underscore-prefixed attributes so _update_metadata() ignores them.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._live_voltages = []
+        self._live_currents = []
+        self.pause_requested = False
+        self.abort_requested = False
+
+    def _wait_for_dwell(self):
+        """Wait for the configured dwell time while honoring GUI controls."""
+        remaining = self.dwell_time
+        while remaining > 0 and not self.abort_requested:
+            while self.pause_requested and not self.abort_requested:
+                time.sleep(0.1)
+
+            wait_time = min(0.1, remaining)
+            time.sleep(wait_time)
+            remaining -= wait_time
+
+    def sweep(self):
+        voltages = np.linspace(self.v_start, self.v_stop, self.num_steps)
+        measured_voltages = []
+        measured_currents = []
+        self._live_voltages = []
+        self._live_currents = []
+
+        print(f"Starting IV sweep: {self.v_start}V to {self.v_stop}V in {self.num_steps} steps...")
+        self.sourcemeter.output(on=True)
+
+        for i, v in enumerate(voltages):
+            while self.pause_requested and not self.abort_requested:
+                time.sleep(0.1)
+
+            if self.abort_requested:
+                print("Measurement aborted by user.")
+                break
+
+            self.sourcemeter.set_source_voltage(voltage=v)
+            self._wait_for_dwell()
+            if self.abort_requested:
+                print("Measurement aborted by user.")
+                break
+
+            measured_v = self.sourcemeter.get_voltage()
+            measured_i = self.sourcemeter.get_current()
+            measured_voltages.append(measured_v)
+            measured_currents.append(measured_i)
+            self._live_voltages.append(measured_v)
+            self._live_currents.append(measured_i)
+
+            if (i + 1) % max(1, self.num_steps // 10) == 0:
+                print(f"  Step {i + 1}/{self.num_steps}: V={measured_v:.4f} V, I={measured_i:.6e} A")
+
+        self.data = pd.DataFrame({
+            "voltage (V)": measured_voltages,
+            "current (A)": measured_currents,
+        })
+        print("Sweep complete.")
 
 DEFAULTS = {
     "sm_address": "VIRTUAL",
@@ -27,6 +95,9 @@ class IVSweepApp(MeasurementApp):
         super().__init__(root, title="IV Sweep Measurement GUI", geometry="1600x900")
         print("Welcome to the IV Sweep GUI!")
         print("Ctrl+Enter: Run Measurement")
+
+        self.measurement_thread = None
+        self.is_measuring = False
 
         visa_resources = self.get_visa_resources()
 
@@ -109,6 +180,10 @@ class IVSweepApp(MeasurementApp):
         self.sm_address_entry.set("VIRTUAL")
 
     def run_measurement(self):
+        if self.is_measuring:
+            print("Measurement already in progress...")
+            return
+
         print("Running IV Sweep measurement...")
 
         sm_address = self.sm_address_entry.get()
@@ -131,10 +206,11 @@ class IVSweepApp(MeasurementApp):
 
         if sm_address == "VIRTUAL":
             sourcemeter = VirtualSourcemeter()
+            sourcemeter.virtual_sample = Resistor(resistance=1000.0)
         else:
             sourcemeter = Keithley2400(sm_address)
 
-        self.experiment = IVSweep(
+        self.experiment = _LiveIVSweep(
             sourcemeter=sourcemeter,
             v_start=v_start,
             v_stop=v_stop,
@@ -144,18 +220,104 @@ class IVSweepApp(MeasurementApp):
             sense_mode=sense_mode,
             save_dir=save_dir,
         )
-        self.experiment.run_experiment()
+
+        self.is_measuring = True
+        self.paused = False
+        self.add_control_buttons()
+
+        self.measurement_thread = threading.Thread(
+            target=self.experiment.run_experiment,
+            daemon=True,
+        )
+        self.measurement_thread.start()
+        self.update_plot_loop()
+
+    def add_control_buttons(self):
+        """Show pause and stop controls while a sweep is running."""
+        self.control_frame = ttk.Frame(self.right_panel, style="TFrame")
+        self.control_frame.grid(row=1, column=0, pady=10)
+
+        self.pause_button = ttk.Button(
+            self.control_frame,
+            text="PAUSE",
+            command=self.toggle_pause,
+            style="TButton",
+        )
+        self.pause_button.pack(side="left", padx=5)
+
+        self.stop_button = ttk.Button(
+            self.control_frame,
+            text="STOP",
+            command=self.stop_measurement,
+            style="TButton",
+        )
+        self.stop_button.pack(side="left", padx=5)
+        self.run_button.grid_remove()
+
+    def toggle_pause(self):
+        if not self.is_measuring or not hasattr(self, "experiment"):
+            return
+
+        self.paused = not self.paused
+        self.experiment.pause_requested = self.paused
+        self.pause_button.config(text="RESUME" if self.paused else "PAUSE")
+        print("Measurement paused." if self.paused else "Measurement resumed.")
+
+    def stop_measurement(self):
+        if not self.is_measuring or not hasattr(self, "experiment"):
+            return
+
+        print("Stopping measurement...")
+        self.experiment.abort_requested = True
+        self.stop_button.config(state="disabled")
+
+    def cleanup_controls(self):
+        """Remove sweep controls and restore the run button."""
+        if hasattr(self, "control_frame"):
+            self.control_frame.destroy()
+        self.run_button.grid()
+        self.run_button.config(state="normal")
+
+    def update_plot_loop(self):
+        if not self.is_measuring:
+            return
+
         self.plot_data()
 
-    def plot_data(self, event=None):
-        self.ax.clear()
-        metadata, data = standard_csv_to_metadata_and_data(self.experiment.filename)
-        x_data = data[self.x_axis.get()]
-        y_data = data[self.y_axis.get()]
+        if self.measurement_thread and self.measurement_thread.is_alive():
+            self.root.after(500, self.update_plot_loop)
+        else:
+            self.is_measuring = False
+            self.cleanup_controls()
+            print("Measurement complete.")
+            self.plot_data()
 
-        self.ax.plot(x_data, y_data, marker=".", color="k", label=f"{self.y_axis.get()} vs {self.x_axis.get()}")
-        self.ax.set_xlabel(self.x_axis.get())
-        self.ax.set_ylabel(self.y_axis.get())
+    def plot_data(self, event=None):
+        if not hasattr(self, 'experiment'):
+            return
+
+        live_v = self.experiment._live_voltages
+        live_i = self.experiment._live_currents
+
+        if not live_v:
+            return
+
+        live_data = {
+            "voltage (V)": live_v,
+            "current (A)": live_i,
+        }
+
+        x_col = self.x_axis.get()
+        y_col = self.y_axis.get()
+
+        if x_col not in live_data or y_col not in live_data:
+            return
+
+        self.ax.clear()
+        self.ax.plot(live_data[x_col], live_data[y_col], marker=".", color="k",
+                     label=f"{y_col} vs {x_col}")
+        self.ax.set_xlabel(x_col)
+        self.ax.set_ylabel(y_col)
         self.canvas.draw()
 
 
