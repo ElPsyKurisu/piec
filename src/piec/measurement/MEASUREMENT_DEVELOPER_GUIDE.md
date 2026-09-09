@@ -369,7 +369,7 @@ class ExampleMeasurement:
         try:
             self.capture_data()
         finally:
-            self.instrument.output(on=False)
+            self.instrument.output(channel=1, on=False)
         self.analyze()
         self.save_data()
         self.history.append(self.metadata.copy())

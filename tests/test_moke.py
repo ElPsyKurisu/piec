@@ -180,7 +180,7 @@ def test_configuration_failure_does_not_leave_output_enabled():
 
 
 def test_setup_can_supply_its_own_shutdown_procedure():
-    shutdown = Mock(side_effect=lambda source: source.output(on=False))
+    shutdown = Mock(side_effect=lambda source: source.output(channel=1, on=False))
     run = measurement(safe_shutdown=shutdown)
     run.run_experiment(save=False)
     shutdown.assert_called_once_with(run.sourcemeter)
@@ -265,18 +265,9 @@ def test_source_ramp_increments_and_shutdown_are_bounded():
     original = run.sourcemeter.set_source_voltage
     programmed = [0.0]
 
-    def record(*args, **kwargs):
-        if "voltage" in kwargs and kwargs["voltage"] is not None:
-            v = float(kwargs["voltage"])
-        elif len(args) == 2:
-            v = float(args[1])
-        elif len(args) == 1 and not isinstance(args[0], (bool, str)):
-            v = float(args[0])
-        else:
-            raise ValueError("voltage must be provided")
-
-        result = original(*args, **kwargs)
-        programmed.append(v)
+    def record(channel=1, voltage=None):
+        result = original(channel=channel, voltage=voltage)
+        programmed.append(float(voltage))
         return result
 
     run.sourcemeter.set_source_voltage = record
@@ -288,7 +279,7 @@ def test_source_ramp_increments_and_shutdown_are_bounded():
 def test_shutdown_still_disables_output_if_zero_ramp_fails():
     run = measurement()
     run.configure_instruments()
-    run.sourcemeter.output(on=True)
+    run.sourcemeter.output(channel=1, on=True)
     run.set_output(-5)
     run.sourcemeter.set_source_voltage = Mock(side_effect=RuntimeError("ramp failed"))
     with pytest.raises(RuntimeError, match="ramp failed"):

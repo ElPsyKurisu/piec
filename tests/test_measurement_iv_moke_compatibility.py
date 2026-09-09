@@ -39,12 +39,20 @@ class TestIVSweepCompatibility:
         sm.idn.return_value = "KEITHLEY INSTRUMENTS INC.,MODEL 2400,1234567,1.0"
         current_v = [0.0]
 
-        def set_v(voltage):
-            current_v[0] = float(voltage)
+        def set_v(*args, **kwargs):
+            if "voltage" in kwargs:
+                v = kwargs["voltage"]
+            elif len(args) == 2:
+                v = args[1]
+            elif len(args) == 1:
+                v = args[0]
+            else:
+                v = 0.0
+            current_v[0] = float(v)
 
         sm.set_source_voltage.side_effect = set_v
-        sm.get_voltage.side_effect = lambda: current_v[0]
-        sm.get_current.side_effect = lambda: current_v[0] / resistance
+        sm.get_voltage.side_effect = lambda *args, **kwargs: current_v[0]
+        sm.get_current.side_effect = lambda *args, **kwargs: current_v[0] / resistance
         return sm
 
     def test_iv_sweep_constructor_and_attributes(self, tmp_path):
@@ -85,15 +93,15 @@ class TestIVSweepCompatibility:
         iv = IVSweep(sm, v_start=0.5, current_compliance=0.02, sense_mode="4W")
         iv.configure_sourcemeter()
 
-        sm.configure_voltage_source.assert_called_once_with(voltage=0.5, current_compliance=0.02)
-        sm.set_sense_mode.assert_called_once_with("4W")
+        sm.configure_voltage_source.assert_called_once_with(channel=1, voltage=0.5, current_compliance=0.02)
+        sm.set_sense_mode.assert_called_once_with(channel=1, sense_mode="4W")
 
     def test_iv_sweep_sweep_execution(self):
         sm = self._create_mock_sourcemeter(resistance=50.0)
         iv = IVSweep(sm, v_start=0.0, v_stop=2.0, num_steps=5, dwell_time=0.0)
         iv.sweep()
 
-        sm.output.assert_called_with(on=True)
+        sm.output.assert_called_with(channel=1, on=True)
         assert iv.data is not None
         assert_data_columns_match(iv.data, ["voltage (V)", "current (A)"], exact_order=True)
         assert len(iv.data) == 5
@@ -128,7 +136,7 @@ class TestIVSweepCompatibility:
         assert iv.filename is not None
         assert Path(iv.filename).is_file()
         # Output must be turned off at completion
-        sm.output.assert_called_with(on=False)
+        sm.output.assert_called_with(channel=1, on=False)
 
     def test_iv_sweep_golden_csv_regression(self, tmp_path):
         """Verify that deterministic execution produces exact match against golden CSV."""

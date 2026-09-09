@@ -63,10 +63,11 @@ class IVSweep:
         and configures the sensing mode.
         """
         self.sourcemeter.configure_voltage_source(
+            channel=1,
             voltage=self.v_start,
             current_compliance=self.current_compliance
         )
-        self.sourcemeter.set_sense_mode(self.sense_mode)
+        self.sourcemeter.set_sense_mode(channel=1, sense_mode=self.sense_mode)
 
     def sweep(self):
         """
@@ -79,13 +80,13 @@ class IVSweep:
         measured_currents = []
 
         print(f"Starting IV sweep: {self.v_start}V to {self.v_stop}V in {self.num_steps} steps...")
-        self.sourcemeter.output(on=True)
+        self.sourcemeter.output(channel=1, on=True)
 
         for i, v in enumerate(voltages):
-            self.sourcemeter.set_source_voltage(v)
+            self.sourcemeter.set_source_voltage(channel=1, voltage=v)
             time.sleep(self.dwell_time)
-            measured_v = self.sourcemeter.get_voltage()
-            measured_i = self.sourcemeter.get_current()
+            measured_v = self.sourcemeter.get_voltage(channel=1)
+            measured_i = self.sourcemeter.get_current(channel=1)
             measured_voltages.append(measured_v)
             measured_currents.append(measured_i)
 
@@ -120,7 +121,7 @@ class IVSweep:
         self.configure_sourcemeter()
         print("Sourcemeter configured.")
         self.sweep()
-        self.sourcemeter.output(on=False)
+        self.sourcemeter.output(channel=1, on=False)
         print("Output off.")
         self.save_data()
         print("Experiment complete.")
