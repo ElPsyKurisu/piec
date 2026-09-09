@@ -264,9 +264,21 @@ def test_source_ramp_increments_and_shutdown_are_bounded():
     run = measurement(max_output_step=0.25)
     original = run.sourcemeter.set_source_voltage
     programmed = [0.0]
-    def record(voltage):
-        programmed.append(voltage)
-        original(voltage=voltage)
+
+    def record(*args, **kwargs):
+        if "voltage" in kwargs and kwargs["voltage"] is not None:
+            v = float(kwargs["voltage"])
+        elif len(args) == 2:
+            v = float(args[1])
+        elif len(args) == 1 and not isinstance(args[0], (bool, str)):
+            v = float(args[0])
+        else:
+            raise ValueError("voltage must be provided")
+
+        result = original(*args, **kwargs)
+        programmed.append(v)
+        return result
+
     run.sourcemeter.set_source_voltage = record
     run.run_experiment(save=False)
     assert np.max(np.abs(np.diff(programmed))) <= 0.25
