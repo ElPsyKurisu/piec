@@ -44,6 +44,7 @@ Suggested implementation prompt:
 | 4 | Completed | Repaired inverted trigger_source condition in Awg.configure_trigger and Keysight81150a.configure_trigger; normalized case handling in SDG2000X trigger methods. Added focused contract tests in tests/test_awg_contract.py. Commit `48414d0`. |
 | 4 follow-up | Completed | Comprehensive inventory and audit of all concrete AWG drivers and adapters (VirtualAwg, Keysight81150a, SDG2000X, Agilent33220A, Agilent33500, RigolDG1000, RigolDG4000, DaqAsAwg). Distinguished implemented trigger behavior from inherited empty stubs; explicitly documented unsupported capabilities in driver docstrings and Section 9.3 audit table; verified supported drivers via command/effect assertions and empty stubs via no-op assertions (32 tests in tests/test_awg_contract.py). |
 | 5 | Next; not started | VirtualSourcemeter channel contract alignment. |
+| 4 DAQ pulse addition (user-authorized) | Completed | Added general DAQ pulse capability/validation API and documented software fallback override requirements. USB231 inherits DIO software pulses; USB1208HS adds finite TMR pulses. DaqAsAwg delegates through the general API with explicit terminal selection; analog playback synchronization remains unsupported. VirtualDaq records simulated pulses. See docs/daq_trigger_output.md. Focused: 49 passed; full: 579 passed, 2 xfailed in 24.05s. Physical verification remains pending. Checkpoint 5 remains next. |
 | 4 capability addition (user-authorized) | Completed | Added documented Agilent33220A/33500 and Rigol DG1000(Z)/DG4000 trigger configuration, software firing where verified, validation and command tests. Fixed related DG1000 legacy/Z channel routing and 33500 waveform/pulse-edge mappings. See docs/awg_trigger_support.md for exact scope and references. Legacy DG1000 remote launch remains unverified; DAQ trigger backend unchanged. Focused: 118 passed; full: 554 passed, 2 xfailed in 28.57s. Physical and Python 3.9 CI verification remain pending. Checkpoint 5 remains next. |
 | 4 audit correction | Completed | Distinguished Python implementation gaps from manufacturer-documented hardware trigger support; removed unverified trigger-count and protocol-limit claims; inventory test discovers AWG/emulator classes instead of checking a fixed count. No driver operating code changed. Focused: 32 passed; full suite: 468 passed, 2 xfailed in 25.13s. Checkpoint 5 remains next. |
 | 6 onward | Not started | Continue driver prerequisites, engine, and family slices. |
@@ -489,7 +490,8 @@ describe external/manual triggering. These establish hardware capabilities, not 
 for every generic setter. Implement any missing driver support in a separate reviewed
 checkpoint using the exact model's programming documentation and command tests.
 For SDG2000X adjustable external trigger threshold support, this audit makes no hardware
-claim. For DaqAsAwg, capabilities depend on the underlying DAQ and remain unexposed here.
+claim. DaqAsAwg exposes external pulse output through the general DAQ API;
+this does not implement triggered analog playback.
 
 The user subsequently authorized implementing the missing hardware-driver capabilities
 as a separate commit before checkpoint 5. The current command table, manufacturer
@@ -504,7 +506,7 @@ references, prerequisites and remaining limits are in [AWG trigger support](docs
 | Agilent33500 | Source/slope/triggered-or-gated burst, programmed trigger level, bus trigger |
 | RigolDG1000 | Identified legacy/Z dialect; source/slope/burst mode; Z bus trigger; legacy software launch unverified and channel-1-only burst/sweep |
 | RigolDG4000 | Separate burst/sweep source and slope, burst mode, bus trigger |
-| DaqAsAwg | Trigger interface remains unimplemented; backend-specific timing work is required |
+| DaqAsAwg | Explicit external pulse configuration through general DAQ API: USB1208HS TMR hardware width or software DIO (including USB231); triggered analog playback remains unsupported. See docs/daq_trigger_output.md. |
 
 No new physical verification is claimed. Missing hardware support must not be inferred
 from a missing Python method. The original no-op characterization assertions were
