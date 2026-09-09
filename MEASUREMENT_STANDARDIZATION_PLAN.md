@@ -44,6 +44,7 @@ Suggested implementation prompt:
 | 4 | Completed | Repaired inverted trigger_source condition in Awg.configure_trigger and Keysight81150a.configure_trigger; normalized case handling in SDG2000X trigger methods. Added focused contract tests in tests/test_awg_contract.py. Commit `48414d0`. |
 | 4 follow-up | Completed | Comprehensive inventory and audit of all concrete AWG drivers and adapters (VirtualAwg, Keysight81150a, SDG2000X, Agilent33220A, Agilent33500, RigolDG1000, RigolDG4000, DaqAsAwg). Distinguished implemented trigger behavior from inherited empty stubs; explicitly documented unsupported capabilities in driver docstrings and Section 9.3 audit table; verified supported drivers via command/effect assertions and empty stubs via no-op assertions (32 tests in tests/test_awg_contract.py). |
 | 5 | Next; not started | VirtualSourcemeter channel contract alignment. |
+| 4 capability addition (user-authorized) | Completed | Added documented Agilent33220A/33500 and Rigol DG1000(Z)/DG4000 trigger configuration, software firing where verified, validation and command tests. Fixed related DG1000 legacy/Z channel routing and 33500 waveform/pulse-edge mappings. See docs/awg_trigger_support.md for exact scope and references. Legacy DG1000 remote launch remains unverified; DAQ trigger backend unchanged. Focused: 118 passed; full: 554 passed, 2 xfailed in 28.57s. Physical and Python 3.9 CI verification remain pending. Checkpoint 5 remains next. |
 | 4 audit correction | Completed | Distinguished Python implementation gaps from manufacturer-documented hardware trigger support; removed unverified trigger-count and protocol-limit claims; inventory test discovers AWG/emulator classes instead of checking a fixed count. No driver operating code changed. Focused: 32 passed; full suite: 468 passed, 2 xfailed in 25.13s. Checkpoint 5 remains next. |
 | 6 onward | Not started | Continue driver prerequisites, engine, and family slices. |
 
@@ -490,16 +491,24 @@ checkpoint using the exact model's programming documentation and command tests.
 For SDG2000X adjustable external trigger threshold support, this audit makes no hardware
 claim. For DaqAsAwg, capabilities depend on the underlying DAQ and remain unexposed here.
 
-| Class | Type | Module | Trigger Support Status | `output_trigger` Behavior | Trigger Configuration (`set_trigger_*`) | Documented Unsupported Capabilities |
-|---|---|---|---|---|---|---|
-| `VirtualAwg` | Concrete Driver | `piec.drivers.awg.virtual_awg` | Implemented in software | Executes SCPI `:TRIG`, updates sample simulation state (`prep_points=20`, `output_voltage`, `t`) | Implements source, level, slope, mode tracking in internal state dictionary | Simulation tested; does not establish physical trigger behavior |
-| `Keysight81150a` | Concrete Driver | `piec.drivers.awg.k_81150a` | Implemented in software | Writes SCPI `:TRIG` command to instrument | Implements `:ARM:SOUR{ch} {source}`, `:ARM:LEV {level}`, `:ARM:SLOP {slope}`, `:ARM:SENS{ch} {mode}` | Listed command emissions tested; physical operation remains unverified |
-| `SDG2000X` | Concrete Driver | `piec.drivers.awg.sdg2000` | Partially implemented in software | Writes `C1:BTWV MTRIG` command to instrument | Implements `C{ch}:BTWV TRSR,{source}`, `EDGE,{slope}`, `GATE_NCYC,{mode}` | `set_trigger_level`: unimplemented in this driver; hardware/protocol threshold support remains unverified |
-| `Agilent33220A` | Concrete Driver | `piec.drivers.awg.agilent_33220a` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
-| `Agilent33500` | Concrete Driver | `piec.drivers.awg.agilent_33500` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
-| `RigolDG1000` | Concrete Driver | `piec.drivers.awg.rigol_dg1000` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
-| `RigolDG4000` | Concrete Driver | `piec.drivers.awg.rigol_dg4000` | Unimplemented in software | Inherited empty stub from `Awg` (no command sent) | Inherited empty setters; `configure_trigger` delegates to them | Driver implementation gap; the hardware supports triggering (see sources below) |
-| `DaqAsAwg` | Adapter | `piec.drivers.emulators.daq_to_awg` | Unimplemented in software | Inherited empty stub from `Awg` (no action sent) | Inherited empty setters; `configure_trigger` delegates to them | Adapter implementation gap; underlying hardware capabilities depend on the DAQ model |
+The user subsequently authorized implementing the missing hardware-driver capabilities
+as a separate commit before checkpoint 5. The current command table, manufacturer
+references, prerequisites and remaining limits are in [AWG trigger support](docs/awg_trigger_support.md).
+
+| Driver | Current implementation |
+|---|---|
+| VirtualAwg | Simulated trigger and source/level/slope/mode state; no trigger-count claim |
+| Keysight81150a | Existing ARM configuration and `:TRIG`; retained command tests |
+| SDG2000X | Existing burst source/slope/mode and channel-1 manual trigger; adjustable level remains unimplemented |
+| Agilent33220A | Source/slope/triggered-or-gated burst plus bus trigger; level requests raise explicitly |
+| Agilent33500 | Source/slope/triggered-or-gated burst, programmed trigger level, bus trigger |
+| RigolDG1000 | Identified legacy/Z dialect; source/slope/burst mode; Z bus trigger; legacy software launch unverified and channel-1-only burst/sweep |
+| RigolDG4000 | Separate burst/sweep source and slope, burst mode, bus trigger |
+| DaqAsAwg | Trigger interface remains unimplemented; backend-specific timing work is required |
+
+No new physical verification is claimed. Missing hardware support must not be inferred
+from a missing Python method. The original no-op characterization assertions were
+replaced for the implemented drivers; they are not permanent compatibility requirements.
 
 
 ### 9.4 Oscilloscope
