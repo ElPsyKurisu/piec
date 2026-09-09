@@ -41,7 +41,8 @@ Suggested implementation prompt:
 
 | M1 | Cancelled by all-family standardization | Schema, API and consumer changes now belong in each family slice (13, 14, 20, 24), not a separate MOKE exception. |
 | 3 | Completed | Repaired Awg.output_trigger indentation in piec.drivers.awg.awg so it is a class method rather than an inner function of configure_trigger. Added focused contract tests in tests/test_awg_contract.py verifying class method status, signature, absence of inner function in configure_trigger, and implementation across all concrete AWG drivers (VirtualAwg, Keysight81150a, SDG2000X). All 446 tests pass, 2 xfailed in 24.34s on Python 3.13.2. |
-| 4 | Completed | Repaired inverted trigger_source condition (changed from if trigger_source is None: to if trigger_source is not None:) in Awg.configure_trigger and Keysight81150a.configure_trigger; normalized case handling in SDG2000X trigger methods. Added 11 focused contract tests in tests/test_awg_contract.py verifying configure_trigger conditional behavior across base and concrete drivers, manual-trigger support audit, and all-channel output safing. All 457 tests pass, 2 xfailed in 33.57s on Python 3.13.2. |
+| 4 | Completed | Repaired inverted trigger_source condition in Awg.configure_trigger and Keysight81150a.configure_trigger; normalized case handling in SDG2000X trigger methods. Added focused contract tests in tests/test_awg_contract.py. Commit `48414d0`. |
+| 4 follow-up | Completed | Comprehensive inventory and audit of all concrete AWG drivers and adapters (VirtualAwg, Keysight81150a, SDG2000X, Agilent33220A, Agilent33500, RigolDG1000, RigolDG4000, DaqAsAwg). Distinguished implemented trigger behavior from inherited empty stubs; explicitly documented unsupported capabilities in driver docstrings and Section 9.3 audit table; verified supported drivers via command/effect assertions and empty stubs via no-op assertions (32 tests in tests/test_awg_contract.py). |
 | 5 | Next; not started | VirtualSourcemeter channel contract alignment. |
 | 6 onward | Not started | Continue driver prerequisites, engine, and family slices. |
 
@@ -466,6 +467,20 @@ Two independent base-driver defects require separate fixes and tests:
 - apply `trigger_source` when it is not `None` in `configure_trigger()`.
 
 Then audit concrete AWGs for real manual-trigger support. Manual triggering is required only for measurements whose chosen synchronization mode needs it; otherwise it is capability-gated. Contract tests also verify waveform selection, amplitude, offset, frequency, trigger ordering, and disabling every used channel on every exit.
+
+#### 9.3.1 Concrete AWG and Adapter Trigger Audit Inventory
+
+| Class | Type | Module | Trigger Support Status | `output_trigger` Behavior | Trigger Configuration (`set_trigger_*`) | Documented Unsupported Capabilities |
+|---|---|---|---|---|---|---|
+| `VirtualAwg` | Concrete Driver | `piec.drivers.awg.virtual_awg` | Fully Supported | Executes SCPI `:TRIG`, updates sample simulation state (`prep_points=20`, `output_voltage`, `t`), tracks trigger count | Implements source, level, slope, mode tracking in internal state dictionary | None; fully supported virtual device |
+| `Keysight81150a` | Concrete Driver | `piec.drivers.awg.k_81150a` | Fully Supported | Writes SCPI `:TRIG` command to instrument | Implements `:ARM:SOUR{ch} {source}`, `:ARM:LEV {level}`, `:ARM:SLOP {slope}`, `:ARM:SENS{ch} {mode}` | None; standard SCPI ARM subsystem fully implemented |
+| `SDG2000X` | Concrete Driver | `piec.drivers.awg.sdg2000` | Partially Supported | Writes `C1:BTWV MTRIG` command to instrument | Implements `C{ch}:BTWV TRSR,{source}`, `EDGE,{slope}`, `GATE_NCYC,{mode}` | `set_trigger_level`: unsupported by SDG2000X SCPI BTWV subsystem (inherited empty stub from `Awg`) |
+| `Agilent33220A` | Concrete Driver | `piec.drivers.awg.agilent_33220a` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
+| `Agilent33500` | Concrete Driver | `piec.drivers.awg.agilent_33500` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
+| `RigolDG1000` | Concrete Driver | `piec.drivers.awg.rigol_dg1000` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
+| `RigolDG4000` | Concrete Driver | `piec.drivers.awg.rigol_dg4000` | Unsupported | Inherited empty stub from `Awg` (no command sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | Hardware trigger configuration and manual trigger output are currently unsupported (unimplemented stubs) |
+| `DaqAsAwg` | Adapter | `piec.drivers.emulators.daq_to_awg` | Unsupported | Inherited empty stub from `Awg` (no action sent) | Inherited empty stubs (`set_trigger_*`, `configure_trigger`) | DAQ-based AWG emulation currently lacks digital trigger output / hardware trigger synchronization |
+
 
 ### 9.4 Oscilloscope
 
